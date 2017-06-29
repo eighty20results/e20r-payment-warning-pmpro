@@ -1,0 +1,1 @@
+ENHANCEMENT/FIX: PHP Warning during license check
