@@ -20,8 +20,9 @@
 namespace E20R\Payment_Warning\Addon;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Utilities\Cache;
-use E20R\Utilities\Utilities;
+use E20R\Payment_Warning\Utilities\Cache;
+use E20R\Payment_Warning\User_Data;
+use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Licensing\Licensing;
 
 if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
@@ -134,13 +135,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		}
   
 		
-		public function get_gateway_subscriptions() {
-			// TODO: Implement get_gateway_subscriptions() method.
+		public function get_gateway_subscriptions( User_Data $user_data ) {
+			// TODO: Implement get_gateway_subscriptions() filter method.
+            
+            return $user_data;
 		}
 		
-		public function get_gateway_charges() {
-		    
+		public function get_gateway_payments( User_Data $user_data ) {
+		    // TODO: Implement gateway specific get_gateway_payments filter method
+            
+            return $user_data;
         }
+        
 		/**
 		 * Action handler: Core E20R Roles for PMPro plugin's deactivation hook
 		 *
@@ -188,7 +194,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		/**
 		 * Load the saved options, or generate the default settings
 		 */
-		private function define_settings() {
+		protected function define_settings() {
 			
 			$this->settings = get_option( $this->option_name, $this->load_defaults() );
 			$defaults       = $this->load_defaults();
@@ -205,6 +211,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		 *
 		 * @param string $addon
 		 * @param bool   $is_active
+         *
+         * @return boolean
 		 */
 		public function toggle_addon( $addon, $is_active = false ) {
 			
@@ -272,6 +280,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		 * Load add-on actions/filters when the add-on is active & enabled
 		 *
 		 * @param string $stub Lowercase Add-on class name
+         *
+         * @return boolean
 		 */
 		final public static function is_enabled( $stub ) {
 			
@@ -309,19 +319,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
 				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
 				
-				add_action( 'e20r_pw_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
-				add_action( 'e20r_pw_get_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
+				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
+				add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
+				add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
+				add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 0 );
 				add_action( 'e20r_pw_process_warnings', array( self::get_instance(), 'send_warnings' ), 10, 0 );
+				
+				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );
+				add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info' ), 10, 3 );
 			}
 		}
 		
 		
-		
-		public function send_warnings() {
-      
-		    parent::send_emails();
-        }
-        
+  
 		/**
 		 * Append this add-on to the list of configured & enabled add-ons
 		 */
