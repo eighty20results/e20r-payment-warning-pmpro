@@ -75,6 +75,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			return $name;
 		}
 		
+		public function save_email_error( $customer_id, $gateway_email_addr, $local_email_addr ) {
+		    
+        }
+        
 		public function get_class_name() {
 			
 			if ( empty( $this->class_name ) ) {
