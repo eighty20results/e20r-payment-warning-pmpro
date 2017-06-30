@@ -402,6 +402,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				// Add-on specific filters and actions
 				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 0 );
+				add_action( 'e20r_pw_addon_save_email_error_data', array( self::get_instance(), 'save_email_error' ), 10, 3 );
 				add_filter( 'e20r_pw_addon_get_user_subscriptions', array(
 					self::get_instance(),
 					'get_gateway_subscriptions',
@@ -435,6 +436,28 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					) );
 				}
 			}
+		}
+		
+		/**
+		 * Save error info about mismatched gateway customer ID and email record(s).
+		 *
+         * @action e20r_pw_addon_save_email_error_data - Action hook to save data mis-match between payment gateway & local email address on file
+         *
+		 * @param string $gateway_cust_id
+		 * @param string $gateway_email_addr
+		 * @param string $local_email_addr
+		 */
+		
+		public function save_email_error( $gateway_cust_id, $gateway_email_addr, $local_email_addr ) {
+			
+			$metadata  = array(
+				'local_email_addr'    => $local_email_addr,
+				'gateway_email_addr'  => $gateway_email_addr,
+				'gateway_customer_id' => $gateway_cust_id,
+			);
+			$user_data = get_user_by( 'email', $local_email_addr );
+			
+			update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
 		}
 		
 		/**
@@ -494,9 +517,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		
 		/**
 		 * Load the payment gateway specific class/code/settings from PMPro
-         */
+		 */
 		public function load_gateway() {
-   
+			
 			$util = Utilities::get_instance();
 			
 			// This will load the Stripe/PMPro Gateway class _and_ its library(ies)
@@ -510,6 +533,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 			} else {
 				$util->log( "Egad! Stripe library is missing/not loaded!!!" );
+				$this->load_stripe_libs();
 			}
 			
 			try {
@@ -547,7 +571,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				return false;
 			}
 		}
-		
+  
 		/**
 		 * Configure the subscription information for the user data for the current Payment Gateway
 		 *
@@ -556,15 +580,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * @return bool|User_Data
 		 */
 		public function get_gateway_subscriptions( User_Data $user_data ) {
-   
+			
 			$utils = Utilities::get_instance();
 			$stub  = strtolower( $this->get_class_name() );
 			$data  = null;
-   
+			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
-			    $utils->log("Failed check of gateway for this plugin");
-			    return false;
-            }
+				$utils->log( "Failed check of gateway for this plugin" );
+				
+				return false;
+			}
 			
 			if ( false === $this->gateway_loaded ) {
 				$utils->log( "Loading the PMPro Stripe Gateway instance" );
@@ -575,7 +600,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			if ( empty( $cust_id ) ) {
 				
-				$utils->log( "No Gateway specific customer ID found for specified user." );
+				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 				
 				return false;
 			}
@@ -586,16 +611,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$data = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
 				
 			} catch ( \Exception $exeption ) {
+				
 				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
 				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
+				
+				$user_data->set_active_subscription( false );
 				
 				return false;
 			}
 			
-			
+			// Make sure the user email on record locally matches that of the upstream email record for the specified Stripe gateway ID
 			if ( isset( $data->email ) && ( $user_email = $user_data->get_user_email() ) !== $data->email ) {
 				
-				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$data->email} doesn't match!" );
+				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$data->email} doesn't match! Saving to metadata!" );
+				
+				do_action( 'e20r_pw_addon_save_email_error_data', $cust_id, $data->email, $user_email );
 				
 				return false;
 			}
@@ -604,16 +634,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$local_order     = $user_data->get_last_pmpro_order();
 			$stripe_statuses = apply_filters( 'e20r_pw_addon_gateway_subscr_statuses', array(), $this->gateway_name );
-			
-			$utils->log( "Attempting to load credit card (payment method) info from gateway" );
-			
-			// Trigger handler for credit card data
-			$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
+   
+			$user_data->add_subscription_list( $data->subscriptions->data );
 			
 			// Iterate through subscription plans on Stripe.com & fetch required date info
 			foreach ( $data->subscriptions->data as $subscription ) {
 				
+				$user_data->set_active_subscription( true );
+				
 				if ( $subscription->id == $local_order->subscription_transaction_id && in_array( $subscription->status, $stripe_statuses ) ) {
+					
 					
 					$utils->log( "Processing {$subscription->id} for customer ID {$cust_id}" );
 					
@@ -649,7 +679,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$utils->log( "Next payment on: {$payment_next}" );
 						
 						global $pmpro_currencies;
-						$plan_currency = strtoupper( $subscription->plan->currency );
+						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
 						$user_data->set_payment_currency( $plan_currency );
 						
 						$utils->log( "Payments are made in: {$plan_currency}" );
@@ -675,15 +705,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$utils->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
 						$user_data->set_subscription_end();
 					}
+					
+					$utils->log( "Attempting to load credit card (payment method) info from gateway" );
+					// Trigger handler for credit card data
+					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
+     
+				} else {
+				
 				}
 			}
-			
+   
 			return $user_data;
 		}
 		
 		/**
-         * Configure Charges (one-time charges) for the user data from the specified payment gateway
-         *
+		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
+		 *
 		 * @param User_Data $user_data User data to update/process
 		 *
 		 * @return bool|User_Data
@@ -695,7 +732,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
-				$utils->log("Failed check of gateway for this plugin");
+				$utils->log( "Failed check of gateway for this plugin" );
+				
 				return false;
 			}
 			
@@ -703,7 +741,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Loading the PMPro Stripe Gateway instance" );
 				$this->load_stripe_libs();
 			}
-   
+			
 			// $user_data->set_reminder_type( 'expiration' );
 			
 			return $user_data;
