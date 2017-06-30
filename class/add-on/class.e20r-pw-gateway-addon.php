@@ -93,6 +93,15 @@ abstract class E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * Save info about mismatched gateway customer ID and email record(s).
+	 *
+	 * @param string $gateway_cust_id
+	 * @param string $gateway_email_addr
+	 * @param string $local_email_addr
+	 */
+	abstract public function save_email_error( $gateway_cust_id, $gateway_email_addr, $local_email_addr );
+	
+	/**
 	 * Core function: Verify that the user data has valid/expected gateway settings
 	 *
 	 * @param User_Data $user_data
