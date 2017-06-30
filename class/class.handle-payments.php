@@ -70,8 +70,9 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		if ( false !== $user_data ) {
 			
-			$util->log("Fethced payments for " . $user_data->get_user_email() );
-			$user_data->save_to_db();
+			$util->log("Fetched payments for " . $user_data->get_user_email() );
+			// TODO: Only do this once the user payments settings have been saved
+			// $user_data->save_to_db();
 		}
 		
 		return false;
