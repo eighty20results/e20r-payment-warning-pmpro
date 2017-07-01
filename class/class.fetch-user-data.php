@@ -67,14 +67,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$utils->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
 				$this->process_subscriptions->push_to_queue( $user_data );
 				
-				$utils->log("Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
+				$utils->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
 				$this->process_payments->push_to_queue( $user_data );
 			}
 			
 			$utils->log( "Dispatch the background job for the subscription data" );
 			$this->process_subscriptions->save()->dispatch();
 			
-			$utils->log("Dispatch the background job for the payment data" );
+			$utils->log( "Dispatch the background job for the payment data" );
 			$this->process_payments->save()->dispatch();
 			
 		}
@@ -204,16 +204,26 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					foreach ( $active as $key => $user_data ) {
 						
 						$user_data->set_reminder_type( $type );
-						$user_data->maybe_load_from_db( $user_data->get_user_ID(), $user_data->get_last_pmpro_order()->id, $user_data->get_membership_level_ID() );
+						$order = $user_data->get_last_pmpro_order();
 						
-						$next_payment = $user_data->get_next_payment();
-						
-						// Only include this user record if the user/member has a pre-existing payment date in the
-						if ( ! empty( $next_payment ) || false !== $user_data->get_end_of_subscr_status() ) {
+						if ( ! empty( $order ) && ! empty( $order->id ) ) {
 							
-							$util->log( "Including record for " . $user_data->get_user_ID() );
-							$records[] = $user_data;
+							$util->log( "Found order ID: {$order->id} for " . $user_data->get_user_ID() );
+							$order_id = $order->id;
+							
+							$user_data->maybe_load_from_db( $user_data->get_user_ID(), $order_id, $user_data->get_membership_level_ID() );
+							
+							$next_payment = $user_data->get_next_payment();
+							
+							// Only include this user record if the user/member has a pre-existing payment date in the
+							if ( ! empty( $next_payment ) || false !== $user_data->get_end_of_subscr_status() ) {
+								
+								$util->log( "Including record for " . $user_data->get_user_ID() );
+								$records[] = $user_data;
+							}
+							
 						}
+						
 					}
 				}
 				
