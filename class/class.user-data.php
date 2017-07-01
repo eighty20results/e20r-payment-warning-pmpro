@@ -58,6 +58,8 @@ class User_Data {
 	
 	private $has_active_membership = false;
 	
+	private $has_active_subscription = false;
+	
 	private $is_delinquent = false;
 	
 	private $user_gateway = null;
@@ -95,6 +97,18 @@ class User_Data {
 				$this->user = get_user_by( 'email', $user );
 			} else if ( is_numeric( $user ) && is_int( (int) $user ) ) {
 				$this->user = get_user_by( 'ID', $user );
+			}
+			
+			if ( ! is_null( $user ) ) {
+				
+				$util->log( "Loading membership level info for {$user->ID}" );
+				$user->current_membership_level = pmpro_getMembershipLevelForUser( $user->ID );
+				
+				if ( ! empty( $user->current_membership_level->id ) ) {
+					$user->current_membership_level->categories = pmpro_getMembershipCategories( $user->current_membership_level->ID );
+				}
+				
+				$user->membership_levels = pmpro_getMembershipLevelsForUser( $user->ID );
 			}
 		}
 		
@@ -139,8 +153,13 @@ class User_Data {
 			$order_id = isset( $this->last_order->id ) ? $this->last_order->id : null;
 		}
 		
-		if ( is_null( $level_id ) ) {
-			$level_id = isset( $this->last_order->membership_id ) ? $this->last_order->membership_id : null;
+		if ( is_null( $level_id ) || ( isset( $this->user->current_membership_level->id ) && ! empty( $level_id ) && $level_id !== $this->user->current_membership_level->id ) ) {
+			
+			if ( is_null( $level_id ) ) {
+				$level_id = isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null;
+			} else {
+				$this->user->current_membership_level = pmpro_getLevel( $level_id );
+			}
 		}
 		
 		if ( empty( $user_id ) || empty( $order_id ) || empty( $level_id ) ) {
@@ -165,7 +184,7 @@ class User_Data {
 				foreach ( $data as $field => $value ) {
 					
 					$util->log( "Loading {$field} = {$value}" );
-					$this->{$field} = $value;
+					$this->{$field} = $this->maybe_bool( $field, $value );
 				}
 			}
 		} else {
@@ -180,6 +199,42 @@ class User_Data {
 		
 		$this->credit_card = $wpdb->get_results( $cc_sql );
 		$util->log( "Loaded " . count( $this->credit_card ) . " credit card(s) for {$user_id}" );
+	}
+	
+	/**
+	 * Convert to valid Boolean value if applicable for variable
+	 *
+	 * @param string $variable
+	 * @param mixed  $value
+	 *
+	 * @return bool|mixed
+	 */
+	private function maybe_bool( $variable, $value ) {
+		
+		$boolean_vars = apply_filters( 'e20r_payment_warning_boolean_db_fields', array(
+			'has_active_subscription',
+			'is_delinquent',
+		) );
+		
+		if ( in_array( $variable, $boolean_vars ) ) {
+			
+			if ( ! is_string( $value ) ) {
+				return (bool) $value;
+			}
+			
+			switch ( strtolower( $value ) ) {
+				case '1':
+				case 'true':
+				case 'on':
+				case 'yes':
+				case 'y':
+					return true;
+				default:
+					return false;
+			}
+		} else {
+			return $value;
+		}
 	}
 	
 	/**
@@ -231,73 +286,79 @@ class User_Data {
 	public function save_to_db() {
 		
 		global $wpdb;
-		$util = Utilities::get_instance();
+		$util   = Utilities::get_instance();
+		$result = false;
 		
-		$util->log( "Saving user subscription/payment data for {$this->user->ID}" );
+		$util->log( "Saving user subscription data for {$this->user->ID}" );
 		
-		$user_data = array(
-			'user_id'                 => $this->user->ID,
-			'level_id'                => $this->last_order->membership_id,
-			'last_order_id'           => $this->last_order->id,
-			'is_delinquent'           => $this->is_delinquent,
-			'has_active_subscription' => ( ! empty( $this->user_subscriptions ) ? true : false ),
-			'payment_currency'        => $this->payment_currency,
-			'next_payment_amount'     => $this->next_payment_amount,
-			'tax_amount'              => $this->tax_amount,
-			'user_payment_status'     => $this->user_payment_status,
-			'next_payment_date'       => $this->next_payment_date,
-			'end_of_payment_period'   => $this->end_of_payment_period,
-			'end_of_membership_date'  => $this->end_of_membership_date,
-			'reminder_type'           => $this->reminder_type,
-			'user_subscriptions'      => $this->user_subscriptions,
-			'user_charges'            => $this->user_charges,
-		);
-		
-		$data_format = array(
-			'%d', // user_id
-			'%d', // level_id
-			'%d', // last_order_id
-			'%d', // is_delinquent
-			'%d', // has_active_subscription
-			'%s', // payment_currency
-			'%s', // next_payment_amount (should be float, but doesn't format well)
-			'%s', // user_payment_status
-			'%s', // next_payment_date
-			'%s', // end_of_payment_period
-			'%s', // end_of_membership_date
-			'%s', // reminder_type
-			'%s', // user_subscriptions
-			'%s', // user_charges
-		);
-		
-		$where = array(
-			'user_id'       => $this->user->ID,
-			'level_id'      => $this->last_order->membership_id,
-			'last_order_id' => $this->last_order->id,
-		);
-		
-		$where_format = array( '%d', '%d', '%d' );
-		
-		$check_sql = $wpdb->prepare(
-			"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d",
-			$this->user->ID,
-			$this->last_order->membership_id,
-			$this->last_order->id
-		);
-		
-		$exists = $wpdb->get_var( $check_sql );
-		
-		if ( empty( $exists ) ) {
-			$util->log( "No previous record exists for this combination of user information" );
-			$result = $wpdb->insert( $this->user_info_table_name, $user_data, $data_format );
-		} else {
-			$util->log( "Need to update as a previous record exists for this combination of user information" );
-			$result = $wpdb->update( $this->user_info_table_name, $user_data, $where, $data_format, $where_format );
+		if ( ! empty( $this->payment_currency ) && null !== $this->last_order ) {
+			
+			$util->log( "Have a valid subscription record for {$this->user->ID}" );
+			
+			$user_data = array(
+				'user_id'                 => $this->user->ID,
+				'level_id'                => $this->user->current_membership_level->id,
+				'last_order_id'           => $this->last_order->id,
+				'is_delinquent'           => $this->is_delinquent,
+				'has_active_subscription' => ( ! empty( $this->user_subscriptions ) ? true : false ),
+				'payment_currency'        => $this->payment_currency,
+				'next_payment_amount'     => $this->next_payment_amount,
+				'tax_amount'              => $this->tax_amount,
+				'user_payment_status'     => $this->user_payment_status,
+				'next_payment_date'       => $this->next_payment_date,
+				'end_of_payment_period'   => $this->end_of_payment_period,
+				'end_of_membership_date'  => $this->end_of_membership_date,
+				'reminder_type'           => $this->reminder_type,
+				'user_subscriptions'      => $this->user_subscriptions,
+				'user_charges'            => $this->user_charges,
+			);
+			
+			$data_format = array(
+				'%d', // user_id
+				'%d', // level_id
+				'%d', // last_order_id
+				'%d', // is_delinquent
+				'%d', // has_active_subscription
+				'%s', // payment_currency
+				'%s', // next_payment_amount (should be float, but doesn't format well)
+				'%s', // user_payment_status
+				'%s', // next_payment_date
+				'%s', // end_of_payment_period
+				'%s', // end_of_membership_date
+				'%s', // reminder_type
+				'%s', // user_subscriptions
+				'%s', // user_charges
+			);
+			
+			$where = array(
+				'user_id'       => $this->user->ID,
+				'level_id'      => $this->last_order->membership_id,
+				'last_order_id' => $this->last_order->id,
+			);
+			
+			$where_format = array( '%d', '%d', '%d' );
+			
+			$check_sql = $wpdb->prepare(
+				"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d",
+				$this->user->ID,
+				$this->last_order->membership_id,
+				$this->last_order->id
+			);
+			
+			$exists = $wpdb->get_var( $check_sql );
+			
+			if ( empty( $exists ) ) {
+				$util->log( "No previous record exists for this combination of user information" );
+				$result = $wpdb->insert( $this->user_info_table_name, $user_data, $data_format );
+			} else {
+				$util->log( "Need to update as a previous record exists for this combination of user information" );
+				$result = $wpdb->update( $this->user_info_table_name, $user_data, $where, $data_format, $where_format );
+			}
 		}
 		
 		if ( false === $result ) {
 			
-			$util->log( "Error updating/inserting record for {$this->user->ID} to {$this->user_info_table_name}" );
+			$util->log( "No record added/updated for {$this->user->ID} to {$this->user_info_table_name}. Maybe missing subscription record? or active order?" );
 			
 			// $util->add_message( sprintf( __( "Error inserting/updating data for %s", Payment_Warning::plugin_slug ), $this->user->user_email ), 'error', 'backend' );
 			
@@ -309,11 +370,11 @@ class User_Data {
 		// Save credit card info for user
 		foreach ( $this->credit_card as $card_id => $card_data ) {
 			
-			$util->log( "Processing card with ID {$card_id} for {$this->user->ID}" );
+			$util->log( "Processing card with ID {$card_data['last4']} for {$this->user->ID}: " .print_r( $card_data, true ) );
 			
 			$cc_info = array(
 				'user_id'   => $this->user->ID,
-				'card_id'   => $card_id,
+				'last4'   =>   $card_data['last4'],
 				'exp_month' => $card_data['exp_month'],
 				'exp_year'  => $card_data['exp_year'],
 				'brand'     => $card_data['brand'],
@@ -323,15 +384,15 @@ class User_Data {
 			
 			$where = array(
 				'user_id' => $this->user->ID,
-				'card_id' => $card_id,
+				'last4' => $card_data['last4'],
 			);
 			
 			$where_format = array( '%d', '%s' );
 			
 			$cc_sql = $wpdb->prepare(
-				"SELECT ID FROM {$this->cc_info_table_name} WHERE user_id = %d AND card_id = %s",
+				"SELECT ID FROM {$this->cc_info_table_name} WHERE user_id = %d AND last4 = %s",
 				$this->user->ID,
-				$card_id
+				$card_data['last4']
 			);
 			
 			$exists = $wpdb->get_var( $cc_sql );
@@ -340,7 +401,7 @@ class User_Data {
 			
 			if ( ! empty( $exists ) ) {
 				
-				$util->log( "Previous CC record exists for {$card_id}/{$this->user->ID}. Updating" );
+				$util->log( "Previous CC record exists for {$card_data['last4']}/{$this->user->ID}. Updating" );
 				$result = $wpdb->update(
 					$this->cc_info_table_name,
 					$cc_info,
@@ -349,7 +410,7 @@ class User_Data {
 					$where_format
 				);
 			} else {
-				$util->log( "No previous CC record exists for {$card_id}/{$this->user->ID}. Inserting" );
+				$util->log( "No previous CC record exists for {$card_data['last4']}/{$this->user->ID}. Inserting" );
 				
 				$result = $wpdb->insert(
 					$this->cc_info_table_name,
@@ -359,7 +420,7 @@ class User_Data {
 			}
 			
 			if ( false === $result ) {
-				$util->log( "Error: Failed to update Credit Card info for {$this->user->ID}/{$card_id}" );
+				$util->log( "Error: Failed to update Credit Card info for {$this->user->ID}/{$card_data['last4']}: {$wpdb->last_error}" );
 				
 				return false;
 			}
@@ -384,6 +445,15 @@ class User_Data {
 		} else {
 			$util->log( "Unable to save {$date} as the 'end of membership date' value" );
 		}
+	}
+	
+	/**
+	 * Whether the user has an active subscription plan on the payment gateway
+	 *
+	 * @return bool
+	 */
+	public function has_active_subscription() {
+		return $this->has_active_subscription;
 	}
 	
 	/**
@@ -492,6 +562,11 @@ class User_Data {
 		$this->next_payment_amount = $amount;
 	}
 	
+	/**
+	 * Next payment's amount (charge)
+	 *
+	 * @return float
+	 */
 	public function get_next_payment_amount() {
 		return $this->next_payment_amount;
 	}
@@ -515,6 +590,11 @@ class User_Data {
 		$this->next_payment_date = $date_time;
 	}
 	
+	/**
+	 * Next payment date (for subscriptions)
+	 *
+	 * @return null|string Date/Time: YYYY-MM-DD HH:MM:SS)
+	 */
 	public function get_next_payment() {
 		
 		return $this->next_payment_date;
@@ -524,16 +604,19 @@ class User_Data {
 	 * Set the card specific expiration date
 	 *
 	 * @param string $brand
-	 * @param string $card
+	 * @param string $last4
 	 * @param string $month
 	 * @param int    $year
 	 */
-	public function add_card_expiry( $brand, $card, $month, $year ) {
+	public function add_card( $brand, $last4, $month, $year ) {
 		
+		$util = Utilities::get_instance();
+		$key = preg_replace( '/\s/', '', $brand );
+		$util->log("Saving {$key}_{$last4} info");
 		
-		$this->credit_card[ $card ] = array(
+		$this->credit_card[ "{$key}_{$last4}" ] = array(
 			'brand'     => $brand,
-			'last4'     => $card,
+			'last4'     => $last4,
 			'exp_month' => $month,
 			'exp_year'  => $year,
 		);
@@ -605,6 +688,11 @@ class User_Data {
 		$this->user_subscriptions = maybe_serialize( $data );
 	}
 	
+	/**
+	 * Load Charge/Payment object list if saved
+	 *
+	 * @return null|array
+	 */
 	public function get_serialized_charges() {
 		
 		if ( ! empty( $this->user_charges ) ) {
@@ -615,6 +703,11 @@ class User_Data {
 		
 	}
 	
+	/**
+	 * Load Subscription list if saved
+	 *
+	 * @return null|array
+	 */
 	public function get_serialized_subscriptions() {
 		
 		if ( ! empty( $this->user_subscriptions ) ) {
@@ -628,7 +721,7 @@ class User_Data {
 	/**
 	 * Serialize and save a list of charges for the user
 	 *
-	 * @param array $data Unserialized list of charge objects
+	 * @param array $data Unserialized list of charge/payment objects
 	 */
 	public function add_charge_list( $data ) {
 		
@@ -636,9 +729,9 @@ class User_Data {
 	}
 	
 	/**
-	 * Return an unserialized list of charge object(s)
+	 * Return an unserialized list of charge/payment object(s)
 	 *
-	 * @return array|null
+	 * @return array|array
 	 */
 	public function get_charge_list() {
 		
@@ -652,7 +745,7 @@ class User_Data {
 	/**
 	 * Return an unserialized list of subscription object(s)
 	 *
-	 * @return array|null
+	 * @return array|array
 	 */
 	public function get_subscription_list() {
 		
@@ -711,8 +804,28 @@ class User_Data {
 	 */
 	public function get_membership_level_ID() {
 		
-		if ( isset( $this->user->membership_level->id ) ) {
-			return $this->user->membership_level->id;
+		$util = Utilities::get_instance();
+		
+		if ( isset( $this->user->current_membership_level->id ) ) {
+		
+			return $this->user->current_membership_level->id;
+		
+		} else {
+			
+			$util->log( "Loading membership level info for {$this->user->ID}" );
+			$this->user->current_membership_level = pmpro_getMembershipLevelForUser( $this->user->ID );
+			
+			if ( ! empty( $this->user->current_membership_level->id ) ) {
+				$this->user->current_membership_level->categories = pmpro_getMembershipCategories( $this->user->current_membership_level->ID );
+			}
+			
+			$this->user->membership_levels = pmpro_getMembershipLevelsForUser( $this->user->ID );
+			
+			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level ({$this->user->current_membership_level->id})" );
+			
+			if ( isset( $this->user->current_membership_level->id ) ) {
+				return $this->user->current_membership_level->id;
+			}
 		}
 		
 		return null;
@@ -744,6 +857,16 @@ class User_Data {
 		}
 		
 		return null;
+	}
+	
+	/**
+	 * Configure whether user has an active Gateway Subscription plan
+	 *
+	 * @param bool $status
+	 */
+	public function set_active_subscription( $status ) {
+		
+		$this->has_active_subscription = $status;
 	}
 	
 	/**
@@ -797,19 +920,31 @@ class User_Data {
 	 */
 	public function get_last_pmpro_order() {
 		
-		$util = Utilities::get_instance();
+		$util     = Utilities::get_instance();
+		$user_id  = $this->get_user_ID();
+		$level_id = $this->get_membership_level_ID();
 		
-		if ( empty( $this->last_order->id ) ) {
+		if ( empty( $this->last_order ) || empty( $this->last_order->id ) ) {
 			
 			$order = new \MemberOrder();
-			$order->getLastMemberOrder( $this->get_user_ID(), 'success', $this->get_membership_level_ID() );
+			$order->getLastMemberOrder( $user_id, 'success', $level_id );
 			
 			$util->log( "Attempted to load the most recent successful Order record" );
 			
 			if ( isset( $order->code ) && ! empty( $order->code ) ) {
-				$util->log( "Found order {$order->code} for " . $this->get_user_ID() );
+				$util->log( "Found order {$order->code} for {$user_id}/{$level_id}" );
 				$this->last_order = $order;
+			} else {
+				$util->log( "After lookup, no active order object found for {$user_id}/{$level_id}!" );
+				$this->last_order = null;
 			}
+		} else if ( ! empty( $this->last_order->code ) ) {
+			
+			$util->log( "Order found for {$user_id}: {$this->last_order->code} ");
+			
+		} else {
+			$util->log("No order found for {$user_id}, but user has upstream subscription? " . ( $this->has_active_subscription() ? 'Yes' : 'No') );
+			$this->last_order = null;
 		}
 		
 		return $this->last_order;
@@ -937,6 +1072,7 @@ class User_Data {
 					reminder_type enum('recurring', 'expiration') NOT NULL DEFAULT 'recurring',
 					user_subscriptions mediumtext NULL,
 					user_charges mediumtext NULL,
+					modified timestamp NOT NULL ON UPDATE now(),
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
 					INDEX end_of_period USING BTREE (end_of_payment_period),
@@ -951,14 +1087,15 @@ class User_Data {
 				CREATE TABLE IF NOT EXISTS {$cc_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
-					card_id varchar(4) NOT NULL,
+					last4 varchar(4) NOT NULL,
 					exp_month int(2) NOT NULL,
 					exp_year int(4) NOT NULL,
-					brand varchar(15) NOT NULL,
+					brand varchar(18) NOT NULL,
 					PRIMARY KEY (ID),
+					INDEX last4 ( last4 ),
 					INDEX month_year USING BTREE ( exp_month, exp_year ),
-					INDEX user_month ( user_id, card_id, exp_month ),
-					INDEX user_year ( user_id, card_id, exp_year ),
+					INDEX user_month ( user_id, last4, exp_month ),
+					INDEX user_year ( user_id, last4, exp_year ),
 					INDEX cc_brands ( brand )
 				) {$charset_collate};";
 		
