@@ -372,69 +372,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			/**
 			 * Configuration actions & filters
 			 */
-			add_filter( 'e20r-license-add-new-licenses', array(
-				self::get_instance(),
-				'add_new_license_info',
-			), 10, 1 );
-			add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array(
-				self::get_instance(),
-				'register_settings',
-			), 10, 1 );
+			add_filter( 'e20r-license-add-new-licenses', array( self::get_instance(), 'add_new_license_info', ), 10, 1 );
+			add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array( self::get_instance(), 'register_settings', ), 10, 1 );
 			
 			if ( true === parent::is_enabled( $stub ) ) {
 				
 				$utils->log( "{$e20r_pw_addons[$stub]['label']} active: Loading add-on specific actions/filters" );
 				
-				/**
-				 * Membership related settings for role(s) add-on
-				 */
-				/*
-				add_action( 'e20r_pw_level_settings', array( self::get_instance(), 'load_level_settings' ), 10, 2 );
-				add_action( 'e20r_pw_level_settings_save', array(
-					self::get_instance(),
-					'save_level_settings',
-				), 10, 2 );
-				add_action( 'e20r_pw_level_settings_delete', array(
-					self::get_instance(),
-					'delete_level_settings',
-				), 10, 2 );
-				*/
-				
 				// Add-on specific filters and actions
 				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 0 );
-				add_action( 'e20r_pw_addon_save_email_error_data', array(
-					self::get_instance(),
-					'save_email_error',
-				), 10, 4 );
-				add_action( 'e20r_pw_addon_save_subscription_mismatch', array(
-					self::get_instance(),
-					'save_subscription_mismatch',
-				), 10, 4 );
-				add_filter( 'e20r_pw_addon_get_user_subscriptions', array(
-					self::get_instance(),
-					'get_gateway_subscriptions',
-				), 10, 1 );
+				add_action( 'e20r_pw_addon_save_email_error_data', array( self::get_instance(), 'save_email_error', ), 10, 4 );
+				add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch', ), 10, 4 );
+				add_filter( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions', ), 10, 1 );
 				
-				add_filter( 'e20r_pw_addon_get_user_payments', array(
-					self::get_instance(),
-					'get_gateway_payments',
-				), 10, 1 );
-				
-				
-				add_filter( 'e20r_pw_addon_get_user_customer_id', array(
-					self::get_instance(),
-					'get_local_user_customer_id',
-				), 10, 3 );
-				
-				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array(
-					self::get_instance(),
-					'valid_stripe_subscription_statuses',
-				), 10, 2 );
-				
-				add_filter( 'e20r_pw_addon_process_cc_info', array(
-					self::get_instance(),
-					'update_credit_card_info',
-				), 10, 3 );
+				add_filter( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 1 );
+				add_filter( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id', ), 10, 3 );
+				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_stripe_subscription_statuses', ), 10, 2 );
+				add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info', ), 10, 3 );
 				
 				if ( WP_DEBUG ) {
 					add_action( 'wp_ajax_test_get_gateway_subscriptions', array(
@@ -472,9 +426,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			} else {
 				foreach ( $email_error_data as $current ) {
 					
-					if ( false !== $current && ! empty( $current['gateway_name'] ) && $gateway_name === $current['gateway_name'] ) {
+					if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
 						update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
-					} else if ( $gateway_name === $current['gateway_name'] ) {
+					} else if ( ! isset($current['gateway_name']) || $this->gateway_name === $current['gateway_name'] ) {
 						add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
 					}
 				}
@@ -1043,12 +997,10 @@ $stub = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'E20R_Stripe_Gateway_Addon',
-	'is_active'             => true,
-	//( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
-	'active_license'        => true,
-	// ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
+	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == true ? true : false ),
+	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
 	'status'                => 'active',
-	'label'                 => 'Payment Warnings: Stripe',
+	'label'                 => 'Stripe Gateway',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
 		'paid-memberships-pro/paid-memberships-pro.php' => array(
