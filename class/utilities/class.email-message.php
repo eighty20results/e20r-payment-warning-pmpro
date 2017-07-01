@@ -183,7 +183,7 @@ class Email_Message {
 			
 			foreach ( $payment_info as $key => $card_data ) {
 				
-				$card_description = sprintf( __( 'Your %s card ending in %s ( Expires: %s/%s )', Payment_Warning::plugin_slug ), $card_data->brand, $card_data->card_id, sprintf( '%02d', $card_data->exp_month ), $card_data->exp_year ) . '<br />';
+				$card_description = sprintf( __( 'Your %s card ending in %s ( Expires: %s/%s )', Payment_Warning::plugin_slug ), $card_data->brand, $card_data->last4, sprintf( '%02d', $card_data->exp_month ), $card_data->exp_year ) . '<br />';
 				
 				$cc_data .= '<p class="e20r-payment-warning-cc-entry">';
 				$cc_data .= apply_filters( 'e20r-payment-warning-credit-card-text', $card_description, $card_data );
