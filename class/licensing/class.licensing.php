@@ -22,9 +22,8 @@
 
 namespace E20R\Licensing;
 
-use Braintree\Util;
-use E20R\Utilities\Utilities;
-use E20R\Utilities\Cache;
+use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Utilities\Cache;
 
 if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 	
