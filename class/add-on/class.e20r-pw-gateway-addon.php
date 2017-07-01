@@ -95,11 +95,24 @@ abstract class E20R_PW_Gateway_Addon {
 	/**
 	 * Save info about mismatched gateway customer ID and email record(s).
 	 *
+	 * @param string $gateway_name
 	 * @param string $gateway_cust_id
 	 * @param string $gateway_email_addr
 	 * @param string $local_email_addr
 	 */
-	abstract public function save_email_error( $gateway_cust_id, $gateway_email_addr, $local_email_addr );
+	abstract public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr );
+	
+	/**
+	 * Save info about extra/mismatched payment gateway and email record data
+	 *
+	 * @param string       $gateway_name              The Payment Gateway name
+	 * @param User_Data    $user_data                 The local user data object
+	 * @param \MemberOrder $member_order              The local MemberOrder object
+	 * @param mixed        $gateway_subscription_data The Subscription object / data at the payment gateway
+	 *
+	 * @return mixed
+	 */
+	abstract public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_data );
 	
 	/**
 	 * Core function: Verify that the user data has valid/expected gateway settings
@@ -228,7 +241,6 @@ abstract class E20R_PW_Gateway_Addon {
 		global $e20r_pw_addons;
 		
 		$utils    = Utilities::get_instance();
-		$licensed = true;
 		
 		$utils->log( "In toggle_addon action handler for the {$e20r_pw_addons[$addon]['label']} add-on" );
 		
