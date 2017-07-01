@@ -93,16 +93,18 @@ class Cron_Handler {
 		
 		$util->log( "Determine shortest recurring payment period on system" );
 		
-		$shortest              = $this->find_shortest_recurring_period();
-		$delay_config          = array_shift( $shortest );
-		$default_delay_divisor = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
-		$default_start_time    = apply_filters( 'e20r_payment_warning_cron_time', '02:00:00' );
-		$todays_date           = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
-		$timezone              = get_option( 'timezone_string' );
+		$shortest                        = $this->find_shortest_recurring_period();
+		$delay_config                    = ! empty( $shortest ) ? array_shift( $shortest ) : 9999;
+		$default_delay_divisor           = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
+		$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
+		$default_send_message_start_time = apply_filters( 'e20r_payment_warning_send_message_time', '05:30:00' );
+		$todays_date                     = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+		$timezone                        = get_option( 'timezone_string' );
 		
-		$now = current_time( 'timestamp' );
-		$scheduled = strtotime( date( $default_start_time, current_time('timestamp' ) ) );
-		$next_scheduled_run = ( $now >= $scheduled ) ? "{$default_start_time} {$timezone} today" : "{$default_start_time} {$timezone} tomorrow";
+		$now                = current_time( 'timestamp' );
+		$scheduled          = strtotime( date( $default_data_collect_start_time, current_time( 'timestamp' ) ) );
+		$next_scheduled_collect_run = ( $now >= $scheduled ) ? "{$default_data_collect_start_time} {$timezone} today" : "{$default_data_collect_start_time} {$timezone} tomorrow";
+		$next_scheduled_message_run = ( $now >= $scheduled ) ? "{$default_send_message_start_time} {$timezone} today" : "{$default_send_message_start_time} {$timezone} tomorrow";
 		
 		$util->log( "Delay config: {$delay_config}" );
 		
@@ -126,29 +128,29 @@ class Cron_Handler {
 			
 			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
 			
-			$util->log( "Using day value of {$days} after a start of {$todays_date} {$default_start_time}" );
-			$next_run = strtotime( "{$todays_date} {$default_start_time} {$timezone} +{$days} days", $now );
-			wp_schedule_event( $next_run, 'daily', 'e20r_run_remote_data_update' );
+			$util->log( "Using day value of {$days} after a start of {$todays_date} {$default_data_collect_start_time}" );
+			$next_run = strtotime( "{$todays_date} {$default_data_collect_start_time} {$timezone} +{$days} days", $now );
+			wp_schedule_event( $next_scheduled_collect_run, 'daily', 'e20r_run_remote_data_update' );
 			
 			$util->log( "Configure next (allowed) run time for the cron job to be at {$next_run}" );
 			add_option( 'e20r_pw_next_gateway_check', $next_run );
 			
-		} else  {
+		} else {
 			$next_run = $is_scheduled;
 			$util->log( "The cron job exists and is scheduled to run at: {$next_run}" );
 		}
 		
 		if ( false === $cc_scheduled ) {
 			$util->log( "Cron job for Credit Card Warning isn't scheduled yet" );
-			wp_schedule_event( strtotime( $next_scheduled_run, current_time('timestamp' ) ), 'daily', 'e20r_send_creditcard_warning_emails' );
+			wp_schedule_event( strtotime( $next_scheduled_message_run, current_time( 'timestamp' ) ), 'daily', 'e20r_send_creditcard_warning_emails' );
 		}
 		
 		if ( false === $payment_scheduled ) {
-			wp_schedule_event( strtotime( $next_scheduled_run, current_time('timestamp' ) ), 'daily', 'e20r_send_payment_warning_emails' );
+			wp_schedule_event( strtotime( $next_scheduled_message_run, current_time( 'timestamp' ) ), 'daily', 'e20r_send_payment_warning_emails' );
 		}
 		
 		if ( false === $exp_scheduled ) {
-			wp_schedule_event( strtotime( $next_scheduled_run, current_time('timestamp' ) ), 'daily', 'e20r_send_expiration_warning_emails' );
+			wp_schedule_event( strtotime( $next_scheduled_message_run, current_time( 'timestamp' ) ), 'daily', 'e20r_send_expiration_warning_emails' );
 		}
 		
 		return $next_run;
@@ -162,6 +164,13 @@ class Cron_Handler {
 		$util = Utilities::get_instance();
 		
 		$util->log( "Attempting to remove the remote data update cron job" );
+		
+		// Clear all running background jobs
+		wp_clear_scheduled_hook( 'e20r_ar_hs_fetch_user_data_cron' );
+		wp_clear_scheduled_hook( 'e20r_ar_hp_fetch_user_data_cron' );
+		wp_clear_scheduled_hook( 'e20r_ar_hm_payment_reminder_cron' );
+		
+		// Clear scheduled (regular) work that triggers background jobs
 		wp_clear_scheduled_hook( 'e20r_run_remote_data_update' );
 		wp_clear_scheduled_hook( 'e20r_send_payment_warning_emails' );
 		wp_clear_scheduled_hook( 'e20r_send_expiration_warning_emails' );
