@@ -63,10 +63,12 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		$util->log("Trigger per-addon subscription fetch for " . $user_data->get_user_ID() );
 		$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
 		
-		if ( false !== $user_data ) {
+		if ( false !== $user_data && $user_data->has_active_subscription() && null !== $user_data->get_last_pmpro_order() ) {
 			
 			$util->log("Fetched subscription data from payment gateway for " . $user_data->get_user_email() );
-			$user_data->save_to_db();
+			if ( false === $user_data->save_to_db() ) {
+				$util->log("User record not saved. May be a-ok...");
+			}
 		}
 		
 		// Remove the current entry/task from the task list
