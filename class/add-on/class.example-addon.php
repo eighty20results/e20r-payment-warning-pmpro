@@ -79,6 +79,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		    
         }
         
+        public function save_subscription_mismatch( $user_data, $local_order, $gateway_subscription_data ) {
+		    
+        }
+        
 		public function get_class_name() {
 			
 			if ( empty( $this->class_name ) ) {
@@ -315,6 +319,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			if ( true === parent::is_enabled( $stub ) ) {
 				
 				$utils->log( "Loading other actions/filters for {$e20r_pw_addons[$stub]['label']}" );
+				
+				add_action( 'e20r_pw_addon_save_email_error_data', array(
+					self::get_instance(),
+					'save_email_error',
+				), 10, 3 );
+				add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch' ), 10, 3 );
 				
 				/**
 				 * Membership related settings for role(s) add-on
