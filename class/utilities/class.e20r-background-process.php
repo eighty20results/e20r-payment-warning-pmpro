@@ -371,11 +371,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 * @return mixed
 		 */
 		public function schedule_cron_healthcheck( $schedules ) {
-			$interval = apply_filters( $this->identifier . '_cron_interval', 5 );
+			$interval = apply_filters( $this->identifier . '_cron_interval', 2 );
 			if ( property_exists( $this, 'cron_interval' ) ) {
 				$interval = apply_filters( $this->identifier . '_cron_interval', $this->cron_interval_identifier );
 			}
-			// Adds every 5 minutes to the existing schedules.
+			// Adds every 2 minutes to the existing schedules.
 			$schedules[ $this->identifier . '_cron_interval' ] = array(
 				'interval' => MINUTE_IN_SECONDS * $interval,
 				'display'  => sprintf( __( 'Every %d Minutes' ), $interval ),
