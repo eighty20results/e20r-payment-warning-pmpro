@@ -375,13 +375,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 * @return bool
 		 */
 		protected function time_exceeded() {
-			$current_timeout = ini_get( 'max_execution_time' );
+			
+			$util               = Utilities::get_instance();
+			$current_timeout    = ini_get( 'max_execution_time' );
+			$default_time_limit = 20;
 			
 			if ( ! empty( $current_timeout ) ) {
-				$default_time_limit = floor( $current_timeout * 0.8 );
-			} else {
-				$default_time_limit = 20;
+				
+				$default_time_limit = floor( $current_timeout * 0.95 );
+				
+				// Shouldn't be less than 20 seconds (change web host provider if this is necessary!)
+				if ( $default_time_limit < 20 ) {
+					$default_time_limit = 20;
+				}
 			}
+			
+			$util->log( "Timeout value during processing: {$default_time_limit}" );
 			
 			$finish = $this->start_time + apply_filters( $this->identifier . '_default_time_limit', $default_time_limit ); // 20 seconds
 			$return = false;
@@ -414,19 +423,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 */
 		public function schedule_cron_healthcheck( $schedules ) {
 			
-			$util = Utilities::get_instance();
+			$util            = Utilities::get_instance();
 			$current_timeout = ini_get( 'max_execution_time' );
 			
-			$util->log("Fetched timeout value: {$current_timeout} seconds" );
+			$util->log( "Fetched timeout value: {$current_timeout} seconds" );
+			$min_interval = 2;
 			
 			if ( ! empty( $current_timeout ) ) {
 				$max_in_mins  = ceil( $current_timeout / 60 );
 				$min_interval = $max_in_mins + 1;
-			} else {
-				$min_interval = 2;
 			}
 			
-			$util->log("Setting timeout value for cron handler to {$min_interval}" );
+			$util->log( "Setting timeout value for cron handler to {$min_interval}" );
 			
 			$interval = apply_filters( $this->identifier . '_cron_interval', $min_interval );
 			if ( property_exists( $this, 'cron_interval' ) ) {
