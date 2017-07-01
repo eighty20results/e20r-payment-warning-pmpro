@@ -692,7 +692,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$data->email} doesn't match! Saving to metadata!" );
 				
-				do_action( 'e20r_pw_addon_save_email_error_data', $cust_id, $data->email, $user_email );
+				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
 				
 				return false;
 			}
@@ -781,9 +781,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					
 				} else {
 					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
-					do_action( 'e20r_pw_addon_save_subscription_mismatch', $user_data, $local_order, $subscription );
+					/**
+					 * @action e20r_pw_addon_save_subscription_mismatch
+					 *
+					 * @param string       $this->gateway_name
+					 * @param User_Data    $user_data
+					 * @param \MemberOrder $local_order
+					 * @param Subscription $subscription
+					 */
+					do_action( 'e20r_pw_addon_save_subscription_mismatch', $this->gateway_name, $user_data, $local_order, $subscription );
 				}
 			}
+			
+			$utils->log( "Returning possibly updated user data to calling function" );
 			
 			return $user_data;
 		}
@@ -848,7 +858,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					
 					$month = sprintf( "%02d", $payment_source->exp_month );
 					$utils->log( "Adding {$payment_source->brand} ( {$payment_source->last4} ) with {$month}/{$payment_source->exp_year}" );
-					$user_data->add_card_expiry( $payment_source->brand, $payment_source->last4, $month, $payment_source->exp_year );
+					$user_data->add_card( $payment_source->brand, $payment_source->last4, $month, $payment_source->exp_year );
 				}
 			}
 			
