@@ -372,8 +372,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			/**
 			 * Configuration actions & filters
 			 */
-			add_filter( 'e20r-license-add-new-licenses', array( self::get_instance(), 'add_new_license_info', ), 10, 1 );
-			add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array( self::get_instance(), 'register_settings', ), 10, 1 );
+			add_filter( 'e20r-license-add-new-licenses', array(
+				self::get_instance(),
+				'add_new_license_info',
+			), 10, 1 );
+			add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array(
+				self::get_instance(),
+				'register_settings',
+			), 10, 1 );
 			
 			if ( true === parent::is_enabled( $stub ) ) {
 				
@@ -381,14 +387,35 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				// Add-on specific filters and actions
 				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 0 );
-				add_action( 'e20r_pw_addon_save_email_error_data', array( self::get_instance(), 'save_email_error', ), 10, 4 );
-				add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch', ), 10, 4 );
-				add_filter( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions', ), 10, 1 );
+				add_action( 'e20r_pw_addon_save_email_error_data', array(
+					self::get_instance(),
+					'save_email_error',
+				), 10, 4 );
+				add_action( 'e20r_pw_addon_save_subscription_mismatch', array(
+					self::get_instance(),
+					'save_subscription_mismatch',
+				), 10, 4 );
+				add_filter( 'e20r_pw_addon_get_user_subscriptions', array(
+					self::get_instance(),
+					'get_gateway_subscriptions',
+				), 10, 1 );
 				
-				add_filter( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 1 );
-				add_filter( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id', ), 10, 3 );
-				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_stripe_subscription_statuses', ), 10, 2 );
-				add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info', ), 10, 3 );
+				add_filter( 'e20r_pw_addon_get_user_payments', array(
+					self::get_instance(),
+					'get_gateway_payments',
+				), 10, 1 );
+				add_filter( 'e20r_pw_addon_get_user_customer_id', array(
+					self::get_instance(),
+					'get_local_user_customer_id',
+				), 10, 3 );
+				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array(
+					self::get_instance(),
+					'valid_stripe_subscription_statuses',
+				), 10, 2 );
+				add_filter( 'e20r_pw_addon_process_cc_info', array(
+					self::get_instance(),
+					'update_credit_card_info',
+				), 10, 3 );
 				
 				if ( WP_DEBUG ) {
 					add_action( 'wp_ajax_test_get_gateway_subscriptions', array(
@@ -428,7 +455,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					
 					if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
 						update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
-					} else if ( ! isset($current['gateway_name']) || $this->gateway_name === $current['gateway_name'] ) {
+					} else if ( ! isset( $current['gateway_name'] ) || $this->gateway_name === $current['gateway_name'] ) {
 						add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
 					}
 				}
@@ -663,10 +690,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			// Iterate through subscription plans on Stripe.com & fetch required date info
 			foreach ( $data->subscriptions->data as $subscription ) {
 				
+				$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+				
+			    if ( $user_data->has_subscription_id( $subscription->id ) && $payment_next == $user_data->get_next_payment( $subscription->id ) ) {
+			        
+			        $utils->log("Have a current version of the upstream subscription record. No need to process!");
+			        continue;
+                }
+                
 				$user_data->set_active_subscription( true );
 				
 				if ( $subscription->id == $local_order->subscription_transaction_id && in_array( $subscription->status, $stripe_statuses ) ) {
-					
 					
 					$utils->log( "Processing {$subscription->id} for customer ID {$cust_id}" );
 					
@@ -697,7 +731,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$utils->log( "End of the current payment period: {$current_payment_until}" );
 						
 						// Add a day (first day of new payment period)
-						$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+						
 						$user_data->set_next_payment( $payment_next );
 						$utils->log( "Next payment on: {$payment_next}" );
 						
@@ -720,7 +754,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						// Get the amount & cast it to a floating point value
 						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
 						$user_data->set_next_payment_amount( $amount );
-						$utils->log( "Next payment will be scheduled for {$plan_currency} {$amount} within 24 hours of {$payment_next}" );
+						$utils->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
 						
 						$user_data->set_reminder_type( 'recurring' );
 					} else {
@@ -738,12 +772,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					/**
 					 * @action e20r_pw_addon_save_subscription_mismatch
 					 *
-					 * @param string       $this->gateway_name
+					 * @param string       $this ->gateway_name
 					 * @param User_Data    $user_data
 					 * @param \MemberOrder $local_order
 					 * @param Subscription $subscription
 					 */
 					do_action( 'e20r_pw_addon_save_subscription_mismatch', $this->gateway_name, $user_data, $local_order, $subscription );
+					
 				}
 			}
 			
