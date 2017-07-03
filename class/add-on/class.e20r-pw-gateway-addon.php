@@ -195,8 +195,8 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		global $e20r_pw_addons;
 		
-		$e20r_pw_addons[ $stub ]['is_active']      = get_option( "e20r_pw_addon_{$stub}_enabled", true );
-		$e20r_pw_addons[ $stub ]['active_license'] = get_option( "e20r_pw_addon_{$stub}_licensed", true );
+		$e20r_pw_addons[ $stub ]['is_active']      = ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false );
+		$e20r_pw_addons[ $stub ]['active_license'] = ( true == get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false );
 		
 		$utils->log( "is_active setting: " . $e20r_pw_addons[ $stub ]['is_active'] );
 		
@@ -210,10 +210,13 @@ abstract class E20R_PW_Gateway_Addon {
 			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
 		}
 		
+		if ( false === $e20r_pw_addons[$stub]['active_license'] ) {
+			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub );
+		}
+		
 		$utils->log( "The {$stub} add-on is licensed? {$e20r_pw_addons[ $stub ]['active_license']}" );
 		
 		$e20r_pw_addons[ $stub ]['is_active'] = ( $enabled && $e20r_pw_addons[ $stub ]['active_license'] );
-		// $e20r_pw_addons[ $stub ][ 'active_license' ] = $e20r_pw_addons[ $stub ]['active_license'];
 		
 		if ( $e20r_pw_addons[ $stub ]['is_active'] ) {
 			$e20r_pw_addons[ $stub ]['status'] = 'active';
@@ -240,7 +243,7 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		global $e20r_pw_addons;
 		
-		$utils    = Utilities::get_instance();
+		$utils = Utilities::get_instance();
 		
 		$utils->log( "In toggle_addon action handler for the {$e20r_pw_addons[$addon]['label']} add-on" );
 		
