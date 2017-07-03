@@ -273,7 +273,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 			$delays = array();
 			self::$instance->log("Processing start delays for {$level->id}");
 			
-			if ( pmpro_isLevelRecurring( $level ) ) {
+			if ( true === pmpro_isLevelRecurring( $level ) ) {
        
 			    self::$instance->log("Level {$level->id} is a recurring payments level");
 			    
@@ -282,7 +282,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 					self::$instance->log("Invalid cache... Loading from scratch");
 					
 					// Calculate the trial period (may be smaller than a normal billing period
-					if ( ! empty( $level->cycle_number ) ) {
+					if ( $level->cycle_number > 0 ) {
 						
 						self::$instance->log("Is a recurring billing level");
 						
@@ -297,6 +297,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 						if ( ! empty( $trial_cycles ) ) {
 							$delays['trial'] = $trial_cycles * $billing_cycle_days;
 						}
+      
+						$delays[$level->id] = ( $billing_cycle_days * $level->cycle_number );
+						self::$instance->log("Days used for delay value: {$delays[$level->id]} ");
 					}
 					
 					// We have Subscription Delays add-on for PMPro installed and active
