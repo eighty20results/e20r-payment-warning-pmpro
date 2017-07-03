@@ -72,7 +72,7 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 			
 			$utils->log( "Checking license for {$product_stub}" );
 			
-			if ( WP_DEBUG ) {
+			if ( WP_DEBUG && true === $force ) {
 				$utils->log("Clearing license cache");
 				Cache::delete( self::CACHE_KEY, self::CACHE_GROUP );
 			}
