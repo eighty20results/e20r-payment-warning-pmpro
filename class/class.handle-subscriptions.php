@@ -60,22 +60,41 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		
 		$util = Utilities::get_instance();
 		
-		$util->log("Trigger per-addon subscription fetch for " . $user_data->get_user_ID() );
-		$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
+		$util->log("Trigger per-addon subscription fetch for user" );
 		
-		if ( false !== $user_data && $user_data->has_active_subscription() && null !== $user_data->get_last_pmpro_order() ) {
+		if ( ! is_bool( $user_data ) ) {
 			
-			$util->log("Fetched subscription data from payment gateway for " . $user_data->get_user_email() );
-			if ( false === $user_data->save_to_db() ) {
-				$util->log("User record not saved. May be a-ok...");
+			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
+			
+			if ( false !== $user_data && $user_data->has_active_subscription() && null !== $user_data->get_last_pmpro_order() ) {
+				
+				$util->log( "Fetched subscription data from payment gateway for " . $user_data->get_user_email() . ". Saving to DB..." );
+				if ( true === $user_data->save_to_db() ) {
+					
+					$util->log( "Done processing data for " . $user_data->get_user_ID() . ". Removing the item from the queue" );
+					
+					return false;
+				}
 			}
+			$util->log( "User record not saved/processed. May be a-ok..." );
+		} else {
+			$util->log("Incorrect format (bool) for received data");
 		}
 		
-		// Remove the current entry/task from the task list
 		return false;
 	}
 	
-	
+	public function clear_queue() {
+		global $wpdb;
+		$table  = $wpdb->options;
+		$column = 'option_name';
+		if ( is_multisite() ) {
+			$table  = $wpdb->sitemeta;
+			$column = 'meta_key';
+		}
+		$key = $this->identifier . "_batch_%";
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) );
+	}
 	/**
 	 * Log & complete the Handle_Subscriptions background operation
 	 *
@@ -86,6 +105,7 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		
 		parent::complete();
 		
+		$this->clear_queue();
 		// Show notice to user or perform some other arbitrary task...
 		$util = Utilities::get_instance();
 		$util->log("Completed remote subscription data fetch for all active gateways");
