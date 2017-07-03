@@ -104,6 +104,478 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * @var string $option_name
 		 */
 		private $option_name = 'e20r_egwao_stripe';
+  
+		/**
+		 * Save error info about mismatched gateway customer ID and email record(s).
+		 *
+		 * @action e20r_pw_addon_save_email_error_data - Action hook to save data mis-match between payment gateway & local email address on file
+		 *
+		 * @param string $gateway_name
+		 * @param string $gateway_cust_id
+		 * @param string $gateway_email_addr
+		 * @param string $local_email_addr
+		 */
+		public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr ) {
+			
+			$metadata = array(
+				'gateway_name'        => $gateway_name,
+				'local_email_addr'    => $local_email_addr,
+				'gateway_email_addr'  => $gateway_email_addr,
+				'gateway_customer_id' => $gateway_cust_id,
+			);
+			
+			$user_data        = get_user_by( 'email', $local_email_addr );
+			$email_error_data = get_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', false );
+			
+			if ( false === $email_error_data ) {
+				add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+			} else {
+				foreach ( $email_error_data as $current ) {
+					
+					if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
+						update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+					} else if ( ! isset( $current['gateway_name'] ) || $this->gateway_name === $current['gateway_name'] ) {
+						add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+					}
+				}
+			}
+		}
+		
+		/**
+		 * Save error info about unexpected subscription entries on upstream gateway
+		 *
+		 * @action e20r_pw_addon_save_subscription_mismatch - Action hook to save subscription mis-match between payment gateway & local data
+		 *
+		 * @param string       $gateway_name
+		 * @param User_Data    $user_data
+		 * @param \MemberOrder $member_order
+		 * @param Subscription $gateway_subscription_data
+		 *
+		 * @return mixed
+		 */
+		public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_data ) {
+			
+			$util = Utilities::get_instance();
+			
+			$metadata = array(
+				'gateway_name'     => $gateway_name,
+				'local_subscr_id'  => $member_order->subscription_transaction_id,
+				'remote_subscr_id' => $gateway_subscription_data->id,
+			);
+			
+			$util->log( "Expected Subscription ID from upstream: {$member_order->subscription_transaction_id}, got something different ({$gateway_subscription_data->id})!" );
+			
+			$subscr_error_data = get_user_meta( $user_data->get_user_ID(), 'e20rpw_gateway_subscription_mismatched', false );
+			$user_id           = $user_data->get_user_ID();
+			
+			if ( ! empty( $user_id ) && false === $subscr_error_data ) {
+				add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+			} else {
+				foreach ( $subscr_error_data as $current ) {
+					
+					if ( ! empty( $user_id ) && false !== $current && ! empty( $current['gateway_name'] ) && $gateway_name === $current['gateway_name'] ) {
+						$util->log( "Updating existing subscription mismatch record for {$gateway_name}/{$user_id}" );
+						update_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata, $current );
+					} else if ( $gateway_name === $current['gateway_name'] ) {
+						$util->log( "Adding subscription mismatch record for {$gateway_name}/{$user_id}" );
+						add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+					}
+				}
+			}
+		}
+		
+		/**
+		 * Return the array of supported subscription statuses to capture data about
+		 *
+		 * @param array  $statuses Array of valid gateway statuses
+		 * @param string $gateway  The gateway name we're processing for
+		 *
+		 * @return array
+		 */
+		public function valid_stripe_subscription_statuses( $statuses, $gateway ) {
+			
+			if ( $gateway === $this->gateway_name ) {
+				
+				$statuses = array( 'trialing', 'active', 'unpaid', 'past_due', );
+			}
+			
+			return $statuses;
+		}
+		
+		/**
+		 * Fetch the (current) Payment Gateway specific customer ID from the local Database
+		 *
+		 * @param string    $gateway_customer_id
+		 * @param string    $gateway_name
+		 * @param User_Data $user_info
+		 *
+		 * @return mixed
+		 */
+		public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
+			
+			$util = Utilities::get_instance();
+			$stub = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			
+			if ( false === $this->verify_gateway_processor( $user_info, $stub, $this->gateway_name ) ) {
+				$util->log( "Failed check of gateway / gateway addon licence for the add-on" );
+				
+				return $gateway_customer_id;
+			}
+			
+			// Don't run this action handler (unexpected gateway name)
+			if ( $gateway_name != $this->gateway_name ) {
+				$util->log( "Specified gateway name doesn't match this add-on's gateway: {$gateway_name} vs {$this->gateway_name}. Returning: {$gateway_customer_id}" );
+				
+				return $gateway_customer_id;
+			}
+			
+			$gateway_customer_id = get_user_meta( $user_info->get_user_ID(), 'pmpro_stripe_customerid', true );
+			$util->log( "Located Stripe user ID: {$gateway_customer_id} for WP User " . $user_info->get_user_ID() );
+			
+			return $gateway_customer_id;
+		}
+		
+		/**
+		 * Do what's required to make Stripe libraries visible/active
+		 */
+		private function load_stripe_libs() {
+			
+			$this->pmpro_gateway = new \PMProGateway_stripe();
+			$this->pmpro_gateway->loadStripeLibrary();
+			$this->gateway_loaded = true;
+			
+		}
+		
+		/**
+		 * Load the payment gateway specific class/code/settings from PMPro
+		 */
+		public function load_gateway() {
+			
+			$util = Utilities::get_instance();
+			
+			// This will load the Stripe/PMPro Gateway class _and_ its library(ies)
+			$util->log( "PMPro loaded? " . ( defined( 'PMPRO_VERSION' ) ? 'Yes' : 'No' ) );
+			$util->log( "PMPro Stripe gateway loaded? " . ( class_exists( "\PMProGateway_stripe" ) ? 'Yes' : 'No' ) );
+			$util->log( "Stripe Class(es) loaded? " . ( class_exists( 'Stripe\Stripe' ) ? 'Yes' : 'No' ) );
+			
+			if ( defined( 'PMPRO_VERSION' ) && class_exists( "\PMProGateway_stripe" ) && class_exists( 'Stripe\Stripe' ) && false === $this->gateway_loaded ) {
+				$util->log( "Loading the PMPro Stripe Gateway instance" );
+				$this->load_stripe_libs();
+				
+			} else {
+				$util->log( "Egad! Stripe library is missing/not loaded!!!" );
+				$this->load_stripe_libs();
+			}
+			
+			try {
+				
+				if ( defined( 'DEBUG_STRIPE_KEY' ) && '' != DEBUG_STRIPE_KEY ) {
+					
+					$util->log( "Using Test Key for Stripe API" );
+					$api_key = DEBUG_STRIPE_KEY;
+				} else {
+					$util->log( "Using PMPro specified Key for Stripe API" );
+					$api_key = pmpro_getOption( 'stripe_secretkey' );
+				}
+				
+				Stripe::setApiKey( $api_key );
+				
+				$api_version = $this->load_option( 'stripe_api_version' );
+				
+				// Not configured locally, so using whatever the Dashboard is configured for.
+				if ( empty( $api_version ) ) {
+					$api_version = Stripe::getApiVersion();
+					$util->log( "Having to fetch the upstream API version to use: {$api_version}" );
+				}
+				
+				$util->log( "Using Stripe API Version: {$api_version}" );
+				
+				// Configure Stripe API call version
+				Stripe::setApiVersion( $api_version );
+				
+				return true;
+			} catch ( \Exception $e ) {
+				
+				$utils = Utilities::get_instance();
+				$utils->add_message( sprintf( __( 'Unable to load the Stripe.com Payment Gateway settings of PMPro (%s)', Payment_Warning::plugin_slug ), $e->getMessage() ), 'error', 'backend' );
+				
+				return false;
+			}
+		}
+		
+		/**
+		 * Configure the subscription information for the user data for the current Payment Gateway
+		 *
+		 * @param User_Data $user_data The User_Data record to process for
+		 *
+		 * @return bool|User_Data
+		 */
+		public function get_gateway_subscriptions( User_Data $user_data ) {
+			
+			$utils = Utilities::get_instance();
+			$stub = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
+			$data  = null;
+			
+			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
+				$utils->log( "Failed check of gateway / gateway licence for the add-on" );
+				
+				return false;
+			}
+			
+			if ( false === $this->gateway_loaded ) {
+				$utils->log( "Loading the PMPro Stripe Gateway instance" );
+				$this->load_stripe_libs();
+			}
+			
+			$cust_id = $user_data->get_gateway_customer_id();
+			
+			if ( empty( $cust_id ) ) {
+				
+				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
+				
+				return false;
+			}
+			
+			try {
+				
+				$utils->log( "Accessing Stripe API service for {$cust_id}" );
+				$data = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
+				
+			} catch ( \Exception $exeption ) {
+				
+				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
+				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
+				
+				$user_data->set_active_subscription( false );
+				
+				return false;
+			}
+			
+			$user_email = $user_data->get_user_email();
+			
+			$utils->log( "All available Stripe subscription data collected for {$cust_id} -> {$user_email}" );
+			// Make sure the user email on record locally matches that of the upstream email record for the specified Stripe gateway ID
+			if ( isset( $data->email ) && $user_email !== $data->email ) {
+				
+				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$data->email} doesn't match! Saving to metadata!" );
+				
+				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
+				
+				return false;
+			}
+			
+			// $utils->log( "Retrieved customer data: " . print_r( $data, true ) );
+			
+			$utils->log( "Loading most recent local PMPro order info" );
+			
+			$local_order     = $user_data->get_last_pmpro_order();
+			$stripe_statuses = apply_filters( 'e20r_pw_addon_gateway_subscr_statuses', array(), $this->gateway_name );
+			
+			$user_data->add_subscription_list( $data->subscriptions->data );
+			
+			// Iterate through subscription plans on Stripe.com & fetch required date info
+			foreach ( $data->subscriptions->data as $subscription ) {
+				
+				$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+				$already_saved = $user_data->has_subscription_id( $subscription->id );
+				$saved_next = $user_data->get_next_payment( $subscription->id );
+				
+				$utils->log("Using {$payment_next} for payment_next and saved_next: {$saved_next}");
+				$utils->log("Stored subscription ID? " . ( $already_saved ? 'Yes' : 'No'));
+				
+				if ( true === $already_saved && $payment_next == $saved_next ) {
+					
+					$utils->log("Have a current version of the upstream subscription record. No need to process!");
+					continue;
+				}
+				
+				$user_data->set_gw_subscription_id( $subscription->id );
+				$user_data->set_active_subscription( true );
+				
+				if ( $subscription->id == $local_order->subscription_transaction_id && in_array( $subscription->status, $stripe_statuses ) ) {
+					
+					$utils->log( "Processing {$subscription->id} for customer ID {$cust_id}" );
+					
+					if ( empty( $subscription->cancel_at_period_end ) && empty( $subscription->cancelled_at ) && in_array( $subscription->status, array(
+							'trialing',
+							'active',
+						) )
+					) {
+						$utils->log( "Setting payment status to 'active' for {$cust_id}" );
+						$user_data->set_payment_status( 'active' );
+					}
+					
+					if ( ! empty( $subscription->cancel_at_period_end ) || ! empty( $subscription->cancelled_at ) || ! in_array( $subscription->status, array(
+							'trialing',
+							'active',
+						) )
+					) {
+						$utils->log( "Setting payment status to 'stopped' for {$cust_id}" );
+						$user_data->set_payment_status( 'stopped' );
+					}
+					
+					// Set the date for the next payment
+					if ( $user_data->get_payment_status() === 'active' ) {
+						
+						// Get the date when the currently paid for period ends.
+						$current_payment_until = date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end );
+						$user_data->set_end_of_paymentperiod( $current_payment_until );
+						$utils->log( "End of the current payment period: {$current_payment_until}" );
+						
+						// Add a day (first day of new payment period)
+						
+						$user_data->set_next_payment( $payment_next );
+						$utils->log( "Next payment on: {$payment_next}" );
+						
+						global $pmpro_currencies;
+						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
+						$user_data->set_payment_currency( $plan_currency );
+						
+						$utils->log( "Payments are made in: {$plan_currency}" );
+						$has_decimals = true;
+						
+						if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
+							
+							// Is this for a no-decimal currency?
+							if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
+								$utils->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
+								$has_decimals = false;
+							}
+						}
+						
+						// Get the amount & cast it to a floating point value
+						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
+						$user_data->set_next_payment_amount( $amount );
+						$utils->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
+						
+						$user_data->set_reminder_type( 'recurring' );
+					} else {
+						
+						$utils->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
+						$user_data->set_subscription_end();
+					}
+					
+					$utils->log( "Attempting to load credit card (payment method) info from gateway" );
+					// Trigger handler for credit card data
+					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
+					
+				} else {
+					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
+					/**
+					 * @action e20r_pw_addon_save_subscription_mismatch
+					 *
+					 * @param string       $this ->gateway_name
+					 * @param User_Data    $user_data
+					 * @param \MemberOrder $local_order
+					 * @param Subscription $subscription
+					 */
+					do_action( 'e20r_pw_addon_save_subscription_mismatch', $this->gateway_name, $user_data, $local_order, $subscription );
+					
+				}
+			}
+			
+			$utils->log( "Returning possibly updated user data to calling function" );
+			
+			return $user_data;
+		}
+		
+		/**
+		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
+		 * FIXME: Add data fetch for payments (non-recurring)
+		 * @param User_Data $user_data User data to update/process
+		 *
+		 * @return bool|User_Data
+		 */
+		public function get_gateway_payments( User_Data $user_data ) {
+			
+			$utils = Utilities::get_instance();
+			$stub  = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			$data  = null;
+			
+			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
+				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
+				
+				return $user_data;
+			}
+			
+			if ( false === $this->gateway_loaded ) {
+				$utils->log( "Loading the PMPro Stripe Gateway instance" );
+				$this->load_stripe_libs();
+			}
+			
+			// $user_data->set_reminder_type( 'expiration' );
+			
+			return $user_data;
+		}
+		
+		/**
+		 * Filter handler for upstream user Credit Card data...
+		 *
+		 * @filter e20r_pw_addon_process_cc_info
+		 *
+		 * @param           $card_data
+		 * @param User_Data $user_data
+		 * @param           $gateway_name
+		 *
+		 * @return User_Data
+		 */
+		public function update_credit_card_info( User_Data $user_data, $card_data, $gateway_name ) {
+			
+			$utils = Utilities::get_instance();
+			$stub = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null);
+			
+			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
+				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
+				
+				return $user_data;
+			}
+			
+			if ( $gateway_name !== $this->gateway_name ) {
+				$utils->log( "Not processing data from the {$this->gateway_name} gateway. Returning..." );
+				
+				return $user_data;
+			}
+			
+			// $user_data->clear_card_info( $user_data->get_user_ID() );
+			
+			// Add payment information expiration data
+			foreach ( $card_data as $payment_source ) {
+				
+				// Only applies for cards
+				if ( $payment_source->object === 'card' ) {
+					
+					$month = sprintf( "%02d", $payment_source->exp_month );
+					$utils->log( "Adding {$payment_source->brand} ( {$payment_source->last4} ) with {$month}/{$payment_source->exp_year}" );
+					$user_data->add_card( $payment_source->brand, $payment_source->last4, $month, $payment_source->exp_year );
+				}
+			}
+			
+			return $user_data;
+		}
+		
+		/**
+         * List of Stripe API versions
+         * TODO: Maintain the STRIPE API version list manually (no call to fetch current versions as of 07/03/2017)
+         *
+		 * @return array
+		 */
+		public function fetch_stripe_api_versions() {
+			
+			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
+				'2017-06-05',
+				'2017-05-25',
+				'2017-04-06',
+				'2017-02-14',
+				'2017-01-27',
+				'2016-10-19',
+				'2016-07-06',
+				'2016-06-15',
+				'2016-03-07',
+				'2016-02-29',
+			));
+			
+			return $versions;
+		}
 		
 		/**
 		 *  E20R_Stripe_Gateway_Addon constructor.
@@ -258,8 +730,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		private function load_defaults() {
 			
 			return array(
-				'stripe_api_version' => '2017-07-17',
-				'deactivation_reset' => false,
+				'stripe_api_version' => 0,
 			);
 			
 		}
@@ -425,435 +896,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				}
 			}
 		}
-		
-		/**
-		 * Save error info about mismatched gateway customer ID and email record(s).
-		 *
-		 * @action e20r_pw_addon_save_email_error_data - Action hook to save data mis-match between payment gateway & local email address on file
-		 *
-		 * @param string $gateway_name
-		 * @param string $gateway_cust_id
-		 * @param string $gateway_email_addr
-		 * @param string $local_email_addr
-		 */
-		public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr ) {
-			
-			$metadata = array(
-				'gateway_name'        => $gateway_name,
-				'local_email_addr'    => $local_email_addr,
-				'gateway_email_addr'  => $gateway_email_addr,
-				'gateway_customer_id' => $gateway_cust_id,
-			);
-			
-			$user_data        = get_user_by( 'email', $local_email_addr );
-			$email_error_data = get_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', false );
-			
-			if ( false === $email_error_data ) {
-				add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
-			} else {
-				foreach ( $email_error_data as $current ) {
-					
-					if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
-						update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
-					} else if ( ! isset( $current['gateway_name'] ) || $this->gateway_name === $current['gateway_name'] ) {
-						add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
-					}
-				}
-			}
-		}
-		
-		/**
-		 * Save error info about unexpected subscription entries on upstream gateway
-		 *
-		 * @action e20r_pw_addon_save_subscription_mismatch - Action hook to save subscription mis-match between payment gateway & local data
-		 *
-		 * @param string       $gateway_name
-		 * @param User_Data    $user_data
-		 * @param \MemberOrder $member_order
-		 * @param Subscription $gateway_subscription_data
-		 *
-		 * @return mixed
-		 */
-		public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_data ) {
-			
-			$util = Utilities::get_instance();
-			
-			$metadata = array(
-				'gateway_name'     => $gateway_name,
-				'local_subscr_id'  => $member_order->subscription_transaction_id,
-				'remote_subscr_id' => $gateway_subscription_data->id,
-			);
-			
-			$util->log( "Expected Subscription ID from upstream: {$member_order->subscription_transaction_id}, got something different ({$gateway_subscription_data->id})!" );
-			
-			$subscr_error_data = get_user_meta( $user_data->get_user_ID(), 'e20rpw_gateway_subscription_mismatched', false );
-			$user_id           = $user_data->get_user_ID();
-			
-			if ( ! empty( $user_id ) && false === $subscr_error_data ) {
-				add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
-			} else {
-				foreach ( $subscr_error_data as $current ) {
-					
-					if ( ! empty( $user_id ) && false !== $current && ! empty( $current['gateway_name'] ) && $gateway_name === $current['gateway_name'] ) {
-						$util->log( "Updating existing subscription mismatch record for {$gateway_name}/{$user_id}" );
-						update_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata, $current );
-					} else if ( $gateway_name === $current['gateway_name'] ) {
-						$util->log( "Adding subscription mismatch record for {$gateway_name}/{$user_id}" );
-						add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
-					}
-				}
-			}
-		}
-		
-		/**
-		 * Return the array of supported subscription statuses to capture data about
-		 *
-		 * @param array  $statuses Array of valid gateway statuses
-		 * @param string $gateway  The gateway name we're processing for
-		 *
-		 * @return array
-		 */
-		public function valid_stripe_subscription_statuses( $statuses, $gateway ) {
-			
-			if ( $gateway === $this->gateway_name ) {
-				
-				$statuses = array( 'trialing', 'active', 'unpaid', 'past_due', );
-			}
-			
-			return $statuses;
-		}
-		
-		/**
-		 * Fetch the (current) Payment Gateway specific customer ID from the local Database
-		 *
-		 * @param string    $gateway_customer_id
-		 * @param string    $gateway_name
-		 * @param User_Data $user_info
-		 *
-		 * @return mixed
-		 */
-		public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
-			
-			$util = Utilities::get_instance();
-			
-			// Don't run this action handler (unexpected gateway name)
-			if ( $gateway_name != $this->gateway_name ) {
-				$util->log( "Specified gateway name doesn't match this add-on's gateway: {$gateway_name} vs {$this->gateway_name}. Returning: {$gateway_customer_id}" );
-				
-				return $gateway_customer_id;
-			}
-			
-			$gateway_customer_id = get_user_meta( $user_info->get_user_ID(), 'pmpro_stripe_customerid', true );
-			$util->log( "Located Stripe user ID: {$gateway_customer_id} for WP User " . $user_info->get_user_ID() );
-			
-			return $gateway_customer_id;
-		}
-		
-		/**
-		 * Do what's required to make Stripe libraries visible/active
-		 */
-		private function load_stripe_libs() {
-			
-			$this->pmpro_gateway = new \PMProGateway_stripe();
-			$this->pmpro_gateway->loadStripeLibrary();
-			$this->gateway_loaded = true;
-			
-		}
-		
-		/**
-		 * Load the payment gateway specific class/code/settings from PMPro
-		 */
-		public function load_gateway() {
-			
-			$util = Utilities::get_instance();
-			
-			// This will load the Stripe/PMPro Gateway class _and_ its library(ies)
-			$util->log( "PMPro loaded? " . ( defined( 'PMPRO_VERSION' ) ? 'Yes' : 'No' ) );
-			$util->log( "PMPro Stripe gateway loaded? " . ( class_exists( "\PMProGateway_stripe" ) ? 'Yes' : 'No' ) );
-			$util->log( "Stripe Class(es) loaded? " . ( class_exists( 'Stripe\Stripe' ) ? 'Yes' : 'No' ) );
-			
-			if ( defined( 'PMPRO_VERSION' ) && class_exists( "\PMProGateway_stripe" ) && class_exists( 'Stripe\Stripe' ) && false === $this->gateway_loaded ) {
-				$util->log( "Loading the PMPro Stripe Gateway instance" );
-				$this->load_stripe_libs();
-				
-			} else {
-				$util->log( "Egad! Stripe library is missing/not loaded!!!" );
-				$this->load_stripe_libs();
-			}
-			
-			try {
-				
-				if ( defined( 'DEBUG_STRIPE_KEY' ) && '' != DEBUG_STRIPE_KEY ) {
-					
-					$util->log( "Using Test Key for Stripe API" );
-					$api_key = DEBUG_STRIPE_KEY;
-				} else {
-					$util->log( "Using PMPro specified Key for Stripe API" );
-					$api_key = pmpro_getOption( 'stripe_secretkey' );
-				}
-				
-				Stripe::setApiKey( $api_key );
-				
-				$api_version = $this->load_option( 'stripe_api_version' );
-				
-				// Not configured locally, so using whatever the Dashboard is configured for.
-				if ( empty( $api_version ) ) {
-					$api_version = Stripe::getApiVersion();
-					$util->log( "Having to fetch the upstream API version to use: {$api_version}" );
-				}
-				
-				$util->log( "Using Stripe API Version: {$api_version}" );
-				
-				// Configure Stripe API call version
-				Stripe::setApiVersion( $api_version );
-				
-				return true;
-			} catch ( \Exception $e ) {
-				
-				$utils = Utilities::get_instance();
-				$utils->add_message( sprintf( __( 'Unable to load the Stripe.com Payment Gateway settings of PMPro (%s)', Payment_Warning::plugin_slug ), $e->getMessage() ), 'error', 'backend' );
-				
-				return false;
-			}
-		}
-		
-		/**
-		 * Configure the subscription information for the user data for the current Payment Gateway
-		 *
-		 * @param User_Data $user_data The User_Data record to process for
-		 *
-		 * @return bool|User_Data
-		 */
-		public function get_gateway_subscriptions( User_Data $user_data ) {
-			
-			$utils = Utilities::get_instance();
-			$stub  = strtolower( $this->get_class_name() );
-			$data  = null;
-			
-			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
-				$utils->log( "Failed check of gateway for this plugin" );
-				
-				return false;
-			}
-			
-			if ( false === $this->gateway_loaded ) {
-				$utils->log( "Loading the PMPro Stripe Gateway instance" );
-				$this->load_stripe_libs();
-			}
-			
-			$cust_id = $user_data->get_gateway_customer_id();
-			
-			if ( empty( $cust_id ) ) {
-				
-				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
-				
-				return false;
-			}
-			
-			try {
-				
-				$utils->log( "Accessing Stripe API service for {$cust_id}" );
-				$data = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
-				
-			} catch ( \Exception $exeption ) {
-				
-				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
-				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
-				
-				$user_data->set_active_subscription( false );
-				
-				return false;
-			}
-			
-			$user_email = $user_data->get_user_email();
-			
-			$utils->log( "All available Stripe subscription data collected for {$cust_id} -> {$user_email}" );
-			// Make sure the user email on record locally matches that of the upstream email record for the specified Stripe gateway ID
-			if ( isset( $data->email ) && $user_email !== $data->email ) {
-				
-				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$data->email} doesn't match! Saving to metadata!" );
-				
-				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
-				
-				return false;
-			}
-			
-			// $utils->log( "Retrieved customer data: " . print_r( $data, true ) );
-			
-			$utils->log( "Loading most recent local PMPro order info" );
-			
-			$local_order     = $user_data->get_last_pmpro_order();
-			$stripe_statuses = apply_filters( 'e20r_pw_addon_gateway_subscr_statuses', array(), $this->gateway_name );
-			
-			$user_data->add_subscription_list( $data->subscriptions->data );
-			
-			// Iterate through subscription plans on Stripe.com & fetch required date info
-			foreach ( $data->subscriptions->data as $subscription ) {
-				
-				$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
-				
-			    if ( $user_data->has_subscription_id( $subscription->id ) && $payment_next == $user_data->get_next_payment( $subscription->id ) ) {
-			        
-			        $utils->log("Have a current version of the upstream subscription record. No need to process!");
-			        continue;
-                }
-                
-				$user_data->set_active_subscription( true );
-				
-				if ( $subscription->id == $local_order->subscription_transaction_id && in_array( $subscription->status, $stripe_statuses ) ) {
-					
-					$utils->log( "Processing {$subscription->id} for customer ID {$cust_id}" );
-					
-					if ( empty( $subscription->cancel_at_period_end ) && empty( $subscription->cancelled_at ) && in_array( $subscription->status, array(
-							'trialing',
-							'active',
-						) )
-					) {
-						$utils->log( "Setting payment status to 'active' for {$cust_id}" );
-						$user_data->set_payment_status( 'active' );
-					}
-					
-					if ( ! empty( $subscription->cancel_at_period_end ) || ! empty( $subscription->cancelled_at ) || ! in_array( $subscription->status, array(
-							'trialing',
-							'active',
-						) )
-					) {
-						$utils->log( "Setting payment status to 'stopped' for {$cust_id}" );
-						$user_data->set_payment_status( 'stopped' );
-					}
-					
-					// Set the date for the next payment
-					if ( $user_data->get_payment_status() === 'active' ) {
-						
-						// Get the date when the currently paid for period ends.
-						$current_payment_until = date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end );
-						$user_data->set_end_of_paymentperiod( $current_payment_until );
-						$utils->log( "End of the current payment period: {$current_payment_until}" );
-						
-						// Add a day (first day of new payment period)
-						
-						$user_data->set_next_payment( $payment_next );
-						$utils->log( "Next payment on: {$payment_next}" );
-						
-						global $pmpro_currencies;
-						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
-						$user_data->set_payment_currency( $plan_currency );
-						
-						$utils->log( "Payments are made in: {$plan_currency}" );
-						$has_decimals = true;
-						
-						if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
-							
-							// Is this for a no-decimal currency?
-							if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
-								$utils->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
-								$has_decimals = false;
-							}
-						}
-						
-						// Get the amount & cast it to a floating point value
-						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
-						$user_data->set_next_payment_amount( $amount );
-						$utils->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
-						
-						$user_data->set_reminder_type( 'recurring' );
-					} else {
-						
-						$utils->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
-						$user_data->set_subscription_end();
-					}
-					
-					$utils->log( "Attempting to load credit card (payment method) info from gateway" );
-					// Trigger handler for credit card data
-					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
-					
-				} else {
-					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
-					/**
-					 * @action e20r_pw_addon_save_subscription_mismatch
-					 *
-					 * @param string       $this ->gateway_name
-					 * @param User_Data    $user_data
-					 * @param \MemberOrder $local_order
-					 * @param Subscription $subscription
-					 */
-					do_action( 'e20r_pw_addon_save_subscription_mismatch', $this->gateway_name, $user_data, $local_order, $subscription );
-					
-				}
-			}
-			
-			$utils->log( "Returning possibly updated user data to calling function" );
-			
-			return $user_data;
-		}
-		
-		/**
-		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
-		 *
-		 * @param User_Data $user_data User data to update/process
-		 *
-		 * @return bool|User_Data
-		 */
-		public function get_gateway_payments( User_Data $user_data ) {
-			
-			$utils = Utilities::get_instance();
-			$stub  = strtolower( $this->get_class_name() );
-			$data  = null;
-			
-			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
-				$utils->log( "Failed check of gateway for this plugin" );
-				
-				return false;
-			}
-			
-			if ( false === $this->gateway_loaded ) {
-				$utils->log( "Loading the PMPro Stripe Gateway instance" );
-				$this->load_stripe_libs();
-			}
-			
-			// $user_data->set_reminder_type( 'expiration' );
-			
-			return $user_data;
-		}
-		
-		/**
-		 * Filter handler for upstream user Credit Card data...
-		 *
-		 * @filter e20r_pw_addon_process_cc_info
-		 *
-		 * @param           $card_data
-		 * @param User_Data $user_data
-		 * @param           $gateway_name
-		 *
-		 * @return User_Data
-		 */
-		public function update_credit_card_info( User_Data $user_data, $card_data, $gateway_name ) {
-			
-			$utils = Utilities::get_instance();
-			
-			if ( $gateway_name !== $this->gateway_name ) {
-				$utils->log( "Not processing data from the {$this->gateway_name} gateway. Returning..." );
-				
-				return $user_data;
-			}
-			
-			// $user_data->clear_card_info( $user_data->get_user_ID() );
-			
-			// Add payment information expiration data
-			foreach ( $card_data as $payment_source ) {
-				
-				// Only applies for cards
-				if ( $payment_source->object === 'card' ) {
-					
-					$month = sprintf( "%02d", $payment_source->exp_month );
-					$utils->log( "Adding {$payment_source->brand} ( {$payment_source->last4} ) with {$month}/{$payment_source->exp_year}" );
-					$user_data->add_card( $payment_source->brand, $payment_source->last4, $month, $payment_source->exp_year );
-				}
-			}
-			
-			return $user_data;
-		}
-		
+  
 		/**
 		 * Append this add-on to the list of configured & enabled add-ons
 		 *
@@ -893,14 +936,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					'render_callback' => array( $this, 'render_settings_text' ),
 					'fields'          => array(
 						array(
-							'id'              => 'primary_gateway',
-							'label'           => __( "Primary Payment Gateway", Payment_Warning::plugin_slug ),
+							'id'              => 'stripe_api_version',
+							'label'           => __( "Stripe API Version to use", Payment_Warning::plugin_slug ),
 							'render_callback' => array( $this, 'render_select' ),
-						),
-						array(
-							'id'              => 'deactivation_reset',
-							'label'           => __( "Clean up on Deactivate", Payment_Warning::plugin_slug ),
-							'render_callback' => array( $this, 'render_cleanup' ),
 						),
 					),
 				),
@@ -980,27 +1018,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$utils = Utilities::get_instance();
 			
-			$primary_gateway = $this->load_option( 'primary_gateway' );
-			$utils->log( "Setting for Stripe gateway: {$primary_gateway}" );
+			$stripe_api_version = $this->load_option( 'stripe_api_version' );
+			$utils->log( "Setting for Stripe API Version: {$stripe_api_version}" );
 			?>
-            <select name="<?php esc_attr_e( $this->option_name ); ?>[primary_gateway]"
-                    id="<?php esc_attr_e( $this->option_name ); ?>_primary_gateway">
-                <option value="0" <?php selected( $primary_gateway, 0 ); ?>>
-					<?php _e( 'Disabled', Payment_Warning::plugin_slug ); ?>
+            <select name="<?php esc_attr_e( $this->option_name ); ?>[stripe_api_version]"
+                    id="<?php esc_attr_e( $this->option_name ); ?>_stripe_api_version">
+                <option value="0" <?php selected( $stripe_api_version, 0 ); ?>>
+					<?php _e( 'Default', Payment_Warning::plugin_slug ); ?>
                 </option>
 				<?php
-				$all_gateways = pmpro_gateways();
+				$all_api_versions = $this->fetch_stripe_api_versions();
 				
-				foreach ( $all_gateways as $gw ) {
+				foreach ( $all_api_versions as $version ) {
 					?>
-                    <option value="<?php esc_attr_e( $gw ); ?>" <?php selected( $primary_gateway, $gw ); ?>>
-						<?php echo ucwords( $gw ); ?>
+                    <option value="<?php esc_attr_e( $version ); ?>" <?php selected( $version, $stripe_api_version ); ?>>
+						<?php esc_attr_e( $version ); ?>
                     </option>
 				<?php } ?>
             </select>
 			<?php
 		}
-		
+  
 		/**
 		 * Fetch the properties for the Stripe Gateway add-on class
 		 *
@@ -1032,9 +1070,9 @@ $stub = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'E20R_Stripe_Gateway_Addon',
-	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == true ? true : false ),
-	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
-	'status'                => 'active',
+	'is_active'             => ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false ),
+	'active_license'        => ( true == get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false ),
+	'status'                => ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'inactive' ),
 	'label'                 => 'Stripe Gateway',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
