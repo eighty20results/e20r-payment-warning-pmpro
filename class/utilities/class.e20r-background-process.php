@@ -180,15 +180,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			
 			if ( $this->is_process_running() ) {
 				// Background process already running.
-				wp_die();
+				return $this->send_or_die();
 			}
 			if ( $this->is_queue_empty() ) {
 				// No data to process.
-				wp_die();
+				return $this->send_or_die();
 			}
 			check_ajax_referer( $this->identifier, 'nonce' );
 			$this->handle();
-			wp_die();
+			return $this->send_or_die();
 		}
 		
 		/**
@@ -282,8 +282,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			LIMIT 1
 		", $key ) );
 			$batch       = new \stdClass();
-			$batch->key  = $query->$column;
-			$batch->data = maybe_unserialize( $query->$value_column );
+			$batch->key  = $query->{$column};
+			$batch->data = maybe_unserialize( $query->{$value_column} );
 			
 			return $batch;
 		}
@@ -324,7 +324,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			} else {
 				$this->complete();
 			}
-			wp_die();
+			return $this->send_or_die();
 		}
 		
 		/**
@@ -358,7 +358,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 				// Sensible default.
 				$memory_limit = '128M';
 			}
-			if ( ! $memory_limit || - 1 === $memory_limit ) {
+			if ( ! $memory_limit || - 1 === intval($memory_limit ) ) {
 				// Unlimited, set to 32GB.
 				$memory_limit = '32000M';
 			}
