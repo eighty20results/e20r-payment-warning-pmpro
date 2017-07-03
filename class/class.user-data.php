@@ -80,6 +80,8 @@ class User_Data {
 	
 	private $gateway_subscr_id = null;
 	
+	private $has_local_recurring_membership = false;
+	
 	/**
 	 * User_Data constructor.
 	 *
@@ -99,18 +101,6 @@ class User_Data {
 				$this->user = get_user_by( 'email', $user );
 			} else if ( is_numeric( $user ) && is_int( (int) $user ) ) {
 				$this->user = get_user_by( 'ID', $user );
-			}
-			
-			if ( ! is_null( $user ) ) {
-				
-				$util->log( "Loading membership level info for {$user->ID}" );
-				$user->current_membership_level = pmpro_getMembershipLevelForUser( $user->ID );
-				
-				if ( ! empty( $user->current_membership_level->id ) ) {
-					$user->current_membership_level->categories = pmpro_getMembershipCategories( $user->current_membership_level->ID );
-				}
-				
-				$user->membership_levels = pmpro_getMembershipLevelsForUser( $user->ID );
 			}
 		}
 		
@@ -157,10 +147,12 @@ class User_Data {
 		
 		if ( is_null( $level_id ) || ( isset( $this->user->current_membership_level->id ) && ! empty( $level_id ) && $level_id !== $this->user->current_membership_level->id ) ) {
 			
+			$util->log("Having to (re)set the membership level info for the user");
+			
 			if ( is_null( $level_id ) ) {
 				$level_id = isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null;
 			} else {
-				$this->user->current_membership_level = pmpro_getLevel( $level_id );
+				$this->user = Fetch_User_Data::set_membership_info( $this->user );
 			}
 		}
 		
@@ -428,7 +420,7 @@ class User_Data {
 			
 			if ( ! empty( $exists ) ) {
 				
-				$util->log( "Previous CC record exists for {$card_data['last4']}/{$this->user->ID}. Updating" );
+				$util->log( "Previous CC record exists for {$last4}/{$this->user->ID}. Updating" );
 				$result = $wpdb->update(
 					$this->cc_info_table_name,
 					$cc_info,
@@ -837,6 +829,22 @@ class User_Data {
 	}
 	
 	/**
+	 * Set (local) recurring membership status based on user's membership level
+	 */
+	public function set_recurring_membership_status() {
+	
+		$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+	}
+	
+	/**
+	 * Return recurring membership status as recorded locally
+	 *
+	 * @return bool
+	 */
+	public function get_recurring_membership_status() {
+		return $this->has_local_recurring_membership;
+	}
+	/**
 	 * Get the User's email address (identifier)
 	 *
 	 * @return bool|string
@@ -893,15 +901,9 @@ class User_Data {
 		} else {
 			
 			$util->log( "Loading membership level info for {$this->user->ID}" );
-			$this->user->current_membership_level = pmpro_getMembershipLevelForUser( $this->user->ID );
+			$this->user = Fetch_User_Data::set_membership_info( $this->user );
 			
-			if ( ! empty( $this->user->current_membership_level->id ) ) {
-				$this->user->current_membership_level->categories = pmpro_getMembershipCategories( $this->user->current_membership_level->ID );
-			}
-			
-			$this->user->membership_levels = pmpro_getMembershipLevelsForUser( $this->user->ID );
-			
-			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A"  );
+			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . !empty( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A"  );
 			
 			if ( isset( $this->user->current_membership_level->id ) ) {
 				return $this->user->current_membership_level->id;
@@ -1143,6 +1145,7 @@ class User_Data {
 					gateway_subscr_id varchar(50) NULL,
 					is_delinquent tinyint(1) DEFAULT 0,
 					has_active_subscription tinyint(1) DEFAULT 0,
+					has_local_recurring_membership tinyint(1) DEFAULT 0,
 					payment_currency varchar(4) NOT NULL DEFAULT 'USD',
 					next_payment_amount varchar(9) NOT NULL DEFAULT '0.00',
 					tax_amount varchar(9) NULL,
