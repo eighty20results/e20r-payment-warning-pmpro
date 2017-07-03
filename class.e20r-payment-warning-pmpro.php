@@ -36,6 +36,8 @@ use E20R\Payment_Warning\Addon;
 use E20R\Payment_Warning\Editor\Editor;
 use E20R\Payment_Warning\Utilities\Cache;
 use E20R\Payment_Warning\Utilities\Cron_Handler;
+use E20R\Payment_Warning\Utilities\E20R_Async_Request;
+use E20R\Payment_Warning\Utilities\E20R_Background_Process;
 use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Licensing\Licensing;
 
@@ -126,7 +128,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				add_action( 'wp_mail_failed', 'E20R\Payment_Warning\Utilities\Email_Message::email_error_handler', 10 );
 				
 				add_action( 'e20r_run_remote_data_update', array( Cron_Handler::get_instance(), 'fetch_gateway_payment_info') );
-				
 				add_action( 'e20r_send_payment_warning_emails', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
 				add_action( 'e20r_send_expiration_warning_emails', array( Cron_Handler::get_instance(), 'send_expiration_messages' ) );
 				add_action( 'e20r_send_creditcard_warning_emails', array( Cron_Handler::get_instance(), 'send_cc_warning_messages' ) );
@@ -180,7 +181,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			// TODO: Testing action:
 			
-			add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'get_remote_data' ) );
+			add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'get_remote_subscription_data' ) );
+			add_action( 'wp_ajax_test_get_remote_payment', array( Fetch_User_Data::get_instance(), 'get_remote_payment_data' ) );
             add_action( 'wp_ajax_test_run_record_check', array( Payment_Reminder::get_instance(), 'process_reminders') );
 			add_action( 'wp_ajax_test_clear_cache', array( Fetch_User_Data::get_instance(), 'clear_member_cache') );
 			add_action( 'wp_ajax_test_update_period', array( Cron_Handler::get_instance(), 'find_shortest_recurring_period' ) );
@@ -189,6 +191,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// Last thing to do on deactivation (Required for this plugin)
 			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array( Editor::get_instance(), 'deactivate_plugin' ), 10, 1 );
+			// add_action( 'e20r_pw_addon_deactivating_core', array( Handle_Subscriptions::get_instance(), 'deactivate' ), 10, 1);
 			// add_action( 'e20r_pw_addon_activating_core', array( Cron_Handler::get_instance(), 'configure_cron_schedules'), 10, 0);
    
 			add_action( 'wp_ajax_e20rpw_save_template', array( Editor::get_instance(), 'save_template' ) );
@@ -254,13 +257,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 */
 		public function validate_settings( $input ) {
 			
-			global $e20r_payment_gateways;
+			global $e20r_pw_addons;
 			
 			$utils = Utilities::get_instance();
 			
 			$utils->log( "E20R Payment Warning input settings: " . print_r( $input, true ) );
 			
-			foreach ( $e20r_payment_gateways as $addon_name => $settings ) {
+			foreach ( $e20r_pw_addons as $addon_name => $settings ) {
 				
 				$utils->log( "Trigger local toggle_addon action for {$addon_name}" );
 				
