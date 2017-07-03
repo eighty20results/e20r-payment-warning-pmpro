@@ -180,15 +180,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			
 			if ( $this->is_process_running() ) {
 				// Background process already running.
-				return $this->send_or_die();
+				wp_die();
 			}
 			if ( $this->is_queue_empty() ) {
 				// No data to process.
-				return $this->send_or_die();
+				wp_die();
 			}
 			check_ajax_referer( $this->identifier, 'nonce' );
 			$this->handle();
-			return $this->send_or_die();
+			wp_die();
 		}
 		
 		/**
@@ -237,7 +237,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 * defined in the time_exceeded() method.
 		 */
 		protected function lock_process() {
-			$this->start_time = time(); // Set start time of current process.
+			$this->start_time = current_time( 'timestamp' ); // Set start time of current process.
 			$lock_duration    = ( property_exists( $this, 'queue_lock_time' ) ) ? $this->queue_lock_time : 60; // 1 minute
 			$lock_duration    = apply_filters( $this->identifier . '_queue_lock_time', $lock_duration );
 			set_site_transient( $this->identifier . '_process_lock', microtime(), $lock_duration );
@@ -324,7 +324,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			} else {
 				$this->complete();
 			}
-			return $this->send_or_die();
+			wp_die();
 		}
 		
 		/**
@@ -358,7 +358,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 				// Sensible default.
 				$memory_limit = '128M';
 			}
-			if ( ! $memory_limit || - 1 === intval($memory_limit ) ) {
+			if ( ! $memory_limit || - 1 === intval( $memory_limit ) ) {
 				// Unlimited, set to 32GB.
 				$memory_limit = '32000M';
 			}
@@ -394,7 +394,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 			
 			$finish = $this->start_time + apply_filters( $this->identifier . '_default_time_limit', $default_time_limit ); // 20 seconds
 			$return = false;
-			if ( time() >= $finish ) {
+			if ( current_time('timestamp' ) >= $finish ) {
 				$return = true;
 			}
 			
@@ -474,7 +474,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 */
 		protected function schedule_event() {
 			if ( ! wp_next_scheduled( $this->cron_hook_identifier ) ) {
-				wp_schedule_event( time(), $this->cron_interval_identifier, $this->cron_hook_identifier );
+				wp_schedule_event( current_time( 'timestamp' ), $this->cron_interval_identifier, $this->cron_hook_identifier );
 			}
 		}
 		
