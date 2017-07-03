@@ -64,15 +64,17 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		$util = Utilities::get_instance();
 		
-		$util->log("Trigger per-addon payment/charge download for " . $user_data->get_user_ID() );
+		$util->log("Trigger per-addon payment/charge download for user" );
 		
 		$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
 		
 		if ( false !== $user_data ) {
 			
 			$util->log("Fetched payments for " . $user_data->get_user_email() );
+			
 			// TODO: Only do this once the user payments settings have been saved
 			// $user_data->save_to_db();
+			$util->log("Completed payment fetch and save for user");
 		}
 		
 		return false;
