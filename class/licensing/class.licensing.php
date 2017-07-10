@@ -726,7 +726,7 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 		    $utils = Utilities::get_instance();
 			$utils->log("Loading section HTML for License Settings");
 			
-			$pricing_page = apply_filters( 'e20r-license-pricing-page-url', 'https://eighty20results.com/account/service-plan-levels/' );
+			$pricing_page = apply_filters( 'e20r-license-pricing-page-url', 'https://eighty20results.com/shop/' );
 			?>
             <p class="e20r-licensing-section"><?php _e( "This add-on is distributed under version 2 of the GNU Public License (GPLv2). One of the things the GPLv2 license grants is the right to use this software on your site, free of charge.", self::$text_domain ); ?></p>
             <p class="e20r-licensing-section">
