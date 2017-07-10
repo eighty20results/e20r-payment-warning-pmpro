@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
- * Description: Send Payment warnings (Expiration warnings and Recurring payments)
+ * Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
  * Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
  * Author: Thomas Sjolshagen <thomas@eighty20results.com>
  * Author URI: https://eighty20results.com/thomas-sjolshagen/
@@ -178,16 +178,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
-			
-			// TODO: Testing action:
-			
-			add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'get_remote_subscription_data' ) );
-			add_action( 'wp_ajax_test_get_remote_payment', array( Fetch_User_Data::get_instance(), 'get_remote_payment_data' ) );
-            add_action( 'wp_ajax_test_run_record_check', array( Payment_Reminder::get_instance(), 'process_reminders') );
-			add_action( 'wp_ajax_test_clear_cache', array( Fetch_User_Data::get_instance(), 'clear_member_cache') );
-			add_action( 'wp_ajax_test_update_period', array( Cron_Handler::get_instance(), 'find_shortest_recurring_period' ) );
-			add_action( 'wp_ajax_test_send_reminder', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
-			
+   
 			// Last thing to do on deactivation (Required for this plugin)
 			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array( Editor::get_instance(), 'deactivate_plugin' ), 10, 1 );
@@ -196,6 +187,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
    
 			add_action( 'wp_ajax_e20rpw_save_template', array( Editor::get_instance(), 'save_template' ) );
 			add_action( 'wp_ajax_e20rpw_reset_template', array( Editor::get_instance(), 'reset_template' ) );
+			
+			$utils->log("Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons");
+			/** Add all module remote AJAX call actions */
+			do_action( 'e20r_pw_addon_add_remote_call_handler' );
+			
+			// TODO: Testing actions:
+			add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'get_remote_subscription_data' ) );
+			add_action( 'wp_ajax_test_get_remote_payment', array( Fetch_User_Data::get_instance(), 'get_remote_payment_data' ) );
+			add_action( 'wp_ajax_test_run_record_check', array( Payment_Reminder::get_instance(), 'process_reminders') );
+			add_action( 'wp_ajax_test_clear_cache', array( Fetch_User_Data::get_instance(), 'clear_member_cache') );
+			add_action( 'wp_ajax_test_update_period', array( Cron_Handler::get_instance(), 'find_shortest_recurring_period' ) );
+			add_action( 'wp_ajax_test_send_reminder', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
+			
 		}
 		
 		/**
@@ -753,6 +757,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    $utils->log("Trigger deactivation action for add-ons");
 		    do_action( 'e20r_pw_addon_deactivating_core', $clean_up );
         }
+
 		/**
 		 * Class auto-loader for this plugin
 		 *
@@ -767,7 +772,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				return;
 			}
 			
-			error_log( "Loading: {$class_name}" );
+			error_log( "Payment_Warning is loading: {$class_name}" );
 			$parts = explode( '\\', $class_name );
 			$name  = strtolower( preg_replace( '/_/', '-', $parts[ ( count( $parts ) - 1 ) ] ) );
 			
@@ -844,7 +849,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 /**
  * Register the auto-loader and the activation/deactiviation hooks.
  */
-spl_autoload_register( 'E20R\\Payment_Warning\\Payment_Warning::auto_loader' );
+spl_autoload_register( 'E20R\Payment_Warning\Payment_Warning::auto_loader' );
 
 register_activation_hook( __FILE__, array( Payment_Warning::get_instance(), 'activate' ) );
 register_deactivation_hook( __FILE__, array( Payment_Warning::get_instance(), 'deactivate' ) );
