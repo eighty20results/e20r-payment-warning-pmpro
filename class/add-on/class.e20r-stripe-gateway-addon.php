@@ -19,12 +19,14 @@
 
 namespace E20R\Payment_Warning\Addon;
 
+use Braintree\Exception;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
 use E20R\Payment_Warning\Utilities\Cache;
 use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Licensing\Licensing;
 use Stripe\Customer;
+use Stripe\Event;
 use Stripe\Stripe;
 use Stripe\Subscription;
 
@@ -104,7 +106,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * @var string $option_name
 		 */
 		private $option_name = 'e20r_egwao_stripe';
-  
+		
 		/**
 		 * Save error info about mismatched gateway customer ID and email record(s).
 		 *
@@ -313,7 +315,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function get_gateway_subscriptions( User_Data $user_data ) {
 			
 			$utils = Utilities::get_instance();
-			$stub = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
+			$stub  = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
@@ -376,16 +378,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			// Iterate through subscription plans on Stripe.com & fetch required date info
 			foreach ( $data->subscriptions->data as $subscription ) {
 				
-				$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+				$payment_next  = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
 				$already_saved = $user_data->has_subscription_id( $subscription->id );
-				$saved_next = $user_data->get_next_payment( $subscription->id );
+				$saved_next    = $user_data->get_next_payment( $subscription->id );
 				
-				$utils->log("Using {$payment_next} for payment_next and saved_next: {$saved_next}");
-				$utils->log("Stored subscription ID? " . ( $already_saved ? 'Yes' : 'No'));
+				$utils->log( "Using {$payment_next} for payment_next and saved_next: {$saved_next}" );
+				$utils->log( "Stored subscription ID? " . ( $already_saved ? 'Yes' : 'No' ) );
 				
 				if ( true === $already_saved && $payment_next == $saved_next ) {
 					
-					$utils->log("Have a current version of the upstream subscription record. No need to process!");
+					$utils->log( "Have a current version of the upstream subscription record. No need to process!" );
 					continue;
 				}
 				
@@ -482,6 +484,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		/**
 		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
 		 * FIXME: Add data fetch for payments (non-recurring)
+		 *
 		 * @param User_Data $user_data User data to update/process
 		 *
 		 * @return bool|User_Data
@@ -522,7 +525,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function update_credit_card_info( User_Data $user_data, $card_data, $gateway_name ) {
 			
 			$utils = Utilities::get_instance();
-			$stub = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null);
+			$stub  = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
@@ -554,9 +557,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		}
 		
 		/**
-         * List of Stripe API versions
-         * TODO: Maintain the STRIPE API version list manually (no call to fetch current versions as of 07/03/2017)
-         *
+		 * List of Stripe API versions
+		 * TODO: Maintain the STRIPE API version list manually (no call to fetch current versions as of 07/03/2017)
+		 *
 		 * @return array
 		 */
 		public function fetch_stripe_api_versions() {
@@ -572,7 +575,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				'2016-06-15',
 				'2016-03-07',
 				'2016-02-29',
-			));
+			) );
 			
 			return $versions;
 		}
@@ -856,6 +859,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "{$e20r_pw_addons[$stub]['label']} active: Loading add-on specific actions/filters" );
 				
+				add_action( 'e20r_pw_addon_add_remote_call_handler', array(
+					self::get_instance(),
+					'load_webhook_handler',
+				) );
+				
 				// Add-on specific filters and actions
 				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 0 );
 				add_action( 'e20r_pw_addon_save_email_error_data', array(
@@ -896,7 +904,638 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				}
 			}
 		}
-  
+		
+		/**
+		 * Loading add-on specific webhook handler for Stripe.com (late handling to stay out of the way of PMpro itself)
+		 */
+		public function load_webhook_handler() {
+			
+			$util = Utilities::get_instance();
+			$util->log( "Loading stripe.com Webhook handler functions..." );
+			add_action( 'wp_ajax_nopriv_stripe_webhook', array( self::get_instance(), 'webhook_handler' ), 5 );
+			add_action( 'wp_ajax_stripe_webhook', array( self::get_instance(), 'webhook_handler' ), 5 );
+			
+			$util->log( "Site has the expected action: " . (
+				has_action(
+					'wp_ajax_stripe_webhook',
+					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
+			);
+		}
+		
+		public function webhook_handler() {
+			
+			global $pmpro_stripe_event;
+			
+			$util    = Utilities::get_instance();
+			$event   = null;
+			$is_live = false;
+			
+			if ( ! function_exists( 'pmpro_getOption' ) ) {
+				$util->log( "The Paid Memberships Pro plugin is _not_ loaded and activated! Exiting..." );
+				
+				return false;
+			}
+			
+			$util->log( "In the Stripe.com Gateway Webhook handler for Payment Warnings plugin" );
+			
+			$util->log( "Incoming request: " . print_r( $_REQUEST, true ) );
+			
+			if ( false === $this->gateway_loaded ) {
+				$util->log( "Loading the PMPro Stripe Gateway instance" );
+				$this->load_stripe_libs();
+			}
+			
+			try {
+				Stripe::setApiKey( pmpro_getOption( "stripe_secretkey" ) );
+				
+			} catch ( \Exception $e ) {
+				
+				$util->log( "Unable to set API key for Stripe gateway: " . $e->getMessage() );
+				
+				return false;
+			}
+			
+			$api_version_to_use = $this->load_option( 'stripe_api_version' );
+			
+			try {
+				Stripe::setApiVersion( $api_version_to_use );
+			} catch ( \Exception $e ) {
+				$util->log( "Error attempting to set the API version to {$api_version_to_use}: " . $e->getMessage() );
+				
+				return false;
+			}
+			
+			$event_id = $util->get_variable( 'event_id', null );
+			
+			if ( ! empty( $event_id ) ) {
+				$util->log( "Loading event: {$event_id} from Stripe.com" );
+				try {
+					$event = Event::retrieve( $event_id );
+				} catch ( \Exception $e ) {
+					$util->log( "Error proceesing {$event_id}: " . $e->getMessage() );
+				}
+			} else if ( empty( $pmpro_stripe_event ) && empty( $event_id ) ) {
+				
+				$util->log( "Having to try to load the body of the request from the input stream:" );
+				
+				$body = @file_get_contents( 'php://input' );
+				
+				if ( ! empty( $body ) ) {
+					
+					$util->log( "Got 'something' (json?) from the input stream" );
+					
+					// Attempt to decode JSON (and return as Class/Object
+					$post_event = json_decode( $body, false );
+					
+					if ( ! isset( $post_event->object ) || ( isset( $post_event->object ) && 'event' !== $post_event->object ) ) {
+						
+						if ( ! empty( $post_event ) && ! is_bool( $post_event ) ) {
+							
+							
+							//Find the event ID
+							if ( ! empty( $post_event ) ) {
+								
+								$event_id = $post_event->id;
+							}
+							
+							$util->log( "Attempting to grab the event from Stripe.com for {$event_id}" );
+							
+							try {
+								
+								$event = Event::retrieve( $event_id );
+								
+							} catch ( \Exception $e ) {
+								
+								$util->log( "Error retrieving {$event_id}: " . $e->getMessage() );
+								
+								return false;
+							}
+							
+						} else {
+							$util->log( "Error attempting to decode the Stripe.com JSON text" );
+							
+							return false;
+						}
+					} else {
+						
+						$util->log( "Body/Event Parsed." );
+						$event = $post_event;
+					}
+				}
+				
+			} else if ( ! empty( $pmpro_stripe_event ) ) {
+				
+				$util->log( "Grabbing event from PMPro and using it for processing: {$pmpro_stripe_event->id}" );
+				$event = $pmpro_stripe_event;
+			}
+			
+			// Have what we believe to be a Stripe event object
+			if ( ! empty( $event ) ) {
+				
+				$util->log( "Loading data for {$event->id}" );
+				
+				$is_live   = is_bool( $event->livemode ) ? (bool) $event->livemode : false;
+				$data_list = $event->data;
+				
+				if ( ( true === $is_live && ! empty( $data_list ) ) || ( true === WP_DEBUG && ! empty( $data_list ) ) ) {
+					
+					$util->log( "Sending data to processing by event type. In DEBUG mode? " . ( true === WP_DEBUG ? 'Yes' : 'No' ) );
+					
+					return $this->process_event_data( $event->type, $data_list );
+				}
+			}
+			
+			return false;
+		}
+		
+		/**
+		 * Process and select the event type handler for this webhook event
+		 *
+		 * @param string $event_type
+		 * @param array  $data_array
+		 */
+		public function process_event_data( $event_type, $data_array ) {
+			
+			$util = Utilities::get_instance();
+			
+			switch ( $event_type ) {
+				
+				case 'customer.source.updated': // Credit Card was updated by Stripe.com
+					$util->log( "Customer payment source was updated" );
+					$this->maybe_update_credit_card( 'update', $data_array );
+					break;
+				
+				case 'customer.source.deleted': // Credit Card was deleted at Stripe.com
+					$util->log( "Customer payment source was deleted" );
+					$this->maybe_update_credit_card( 'delete', $data_array );
+					break;
+				
+				case 'customer.source.created': // Credit Card was added at Stripe.com
+					$util->log( "Customer payment source was added" );
+					$this->maybe_update_credit_card( 'add', $data_array );
+					break;
+				
+				case 'customer.subscription.deleted': // Subscription plan was deleted / expired / ended
+					$util->log( "Customer subscription plan was deleted" );
+					$this->maybe_update_subscription( 'delete', $data_array );
+					break;
+				
+				case 'customer.subscription.created': // Subscription plan was deleted / expired / ended
+					$util->log( "Customer subscription plan was deleted" );
+					$this->maybe_update_subscription( 'add', $data_array );
+					break;
+					/*
+					//				case 'customer.subscription.updated': // Subscription plan was deleted / expired / ended
+					//					$util->log( "Customer subscription plan was deleted" );
+					//					$this->maybe_update_subscription( 'update', $data_array );
+					//					break;
+					*/
+				case 'source.failed': //Payment source failed!
+					$util->log( "Payement by customer's payment source failed" );
+					$this->maybe_send_payment_failure_message( $data_array );
+					break;
+				
+				case 'invoice.upcoming':
+					$util->log( "The customer has an upcoming invoice" );
+					// An invoice is about to be charged in X days (default: 7 days) (options: 3, 7, 15, 30, 45 days)
+					$this->maybe_update_subscription( 'update', $data_array );
+					break;
+				
+				case 'customer.subscription.trial_will_end': // Triggers when the first _recurring_ payment is about to happen (3 days before)
+					$util->log( "The customer's first automatic membership payment will be charged in 3 days" );
+					$this->maybe_update_subscription( 'update', $data_array );
+					
+					break;
+				
+				default:
+					$util->log( "No processing defined for {$event_type}: " . print_r( $data_array, true ) );
+			}
+			
+		}
+		
+		public function maybe_send_payment_failure_message( $data ) {
+			$util = Utilities::get_instance();
+			$util->log( "Dumping Payment failure data: " . print_r( $data, true ) );
+		}
+		
+		/**
+		 * @param $operation
+		 * @param $data
+		 *
+		 * @return bool
+		 */
+		public function maybe_update_credit_card( $operation, $data ) {
+			
+			$util = Utilities::get_instance();
+			$util->log( "Dumping Credit Card event data (for: {$operation}): " . print_r( $data, true ) );
+			$customer_id = null;
+			$customer    = null;
+			$user        = null;
+			
+			if ( isset( $data->object->customer ) ) {
+				
+				$util->log( "Found stripe customer ID: {$data->object->customer}" );
+				$customer_id = $data->object->customer;
+				
+			} else if ( isset( $data->object->owner->email ) ) {
+				
+				$util->log( "Found user email ({$data->object->owner->email}). Loading the Stripe customer ID..." );
+				$user = get_user_by( 'email', $data->object->owner->email );
+				
+				if ( ! empty( $user ) ) {
+					$customer_id = get_user_meta( $user->ID, 'pmpro_stripe_customer_id', true );
+				}
+			}
+			
+			if ( ! empty( $customer_id ) ) {
+				
+				try {
+					$customer = Customer::retrieve( $customer_id );
+					$user     = get_user_by( 'email', $customer->email );
+					
+				} catch ( \Exception $e ) {
+					$util->log( "Unable to retrieve customer data from object: {$data->object->customer} (probably not a Credit Card)" );
+				}
+				
+			} else {
+				$util->log( "No customer ID to use to update credit card data" );
+			}
+			
+			if ( 'card' !== $data->object->object || empty( $user ) ) {
+				$util->log( "Not processing a credit card, and didn't find a user!" );
+				
+				return false;
+			}
+			
+			$util->log( "Processing {$operation} card operation for user ID: {$user->ID}" );
+			
+			// We're looking to add/update
+			if ( 'delete' !== $operation ) {
+				
+				$util->log( "It's an update or add operation" );
+				
+				if ( 'update' === $operation ) {
+					$old_card_attributes = (array) $data->previous_attributes;
+					$util->log( "Previously saved (now updated): " . print_r( $old_card_attributes, true ) );
+				}
+				
+				$current_card_attributes = (array) $data->object;
+				$util->log( "Current saved (aka the updated) card details: " . print_r( $current_card_attributes, true ) );
+				
+				$search_for            = User_Data::default_card_format();
+				$search_for['user_id'] = $user->ID;
+				
+				foreach ( $search_for as $key => $value ) {
+					
+					if ( ! empty( $current_card_attributes[ $key ] ) ) {
+						$util->log( "Saving new/existing card info for {$key}: {$current_card_attributes[$key]}" );
+						$search_for[ $key ] = $current_card_attributes[ $key ];
+					}
+					
+					if ( 'update' === $operation && ! empty( $old_card_attributes[ $key ] ) ) {
+						$util->log( "Updating search array for key {$key} with: {$old_card_attributes[ $key ]}" );
+						$search_for[ $key ] = $old_card_attributes[ $key ];
+					}
+				}
+				
+				$card_id = User_Data::find_card_info( $search_for );
+				
+				if ( false !== $card_id ) {
+					$search_for['ID'] = $card_id;
+				}
+				
+				$search_for['user_id'] = $user->ID;
+				
+				$util->log( "Found card with record ID? " . ( isset( $search_for['ID'] ) ? 'Yes' : 'No' ) );
+				
+				foreach ( $search_for as $key => $value ) {
+					
+					if ( isset( $current_card_attributes[ $key ] ) && ! empty( $current_card_attributes[ $key ] ) ) {
+						$search_for[ $key ] = $current_card_attributes[ $key ];
+					}
+				}
+				
+				$util->log( "Will insert/update credit card info for {$user->user_email}: " . print_r( $search_for, true ) );
+				
+				if ( false === User_Data::save_credit_card( $search_for, isset( $search_for['ID'] ) ) ) {
+					
+					$util->log( "Unable to save/update credit card info locally..." );
+					
+					return false;
+				}
+				
+				// Deleting the card
+			} else if ( 'delete' === $operation ) {
+				
+				$current_card_attributes = (array) $data->object;
+				$search_for              = $current_card_attributes;
+				
+				$util->log( "Attempting to delete card: " );
+				
+				$card_info            = User_Data::default_card_format();
+				$card_info['user_id'] = $user->ID;
+				
+				$received = (array) $data->object;
+				
+				$util->log( "Received data for {$operation} operation: " . print_r( $received, true ) );
+				
+				foreach ( $card_info as $key => $value ) {
+					
+					if ( isset( $current_card_attributes[ $key ] ) ) {
+						$card_info[ $key ] = $current_card_attributes[ $key ];
+					}
+				}
+				
+				$card_id = User_Data::find_card_info( $card_info );
+				
+				if ( ! empty( $card_id ) ) {
+					
+					$util->log( "Found card with ID: {$card_id}" );
+					
+					if ( false === User_Data::delete_card( $card_id ) ) {
+						
+						$util->log( "Unable to delete {$card_info['brand']}/{$card_info['last4']} with ID {$card_id}" );
+						
+						return false;
+					}
+					
+					$util->log( "Deleted card with ID: {$card_id}" );
+				} else {
+					
+					$util->log( "Card with ID {$card_id} not found???" );
+					
+					return true;
+				}
+			}
+			
+			return true;
+		}
+		
+		/**
+		 * Update/Delete subscription data for specified user
+		 *
+		 * @param string $operation
+		 * @param array  $data
+		 *
+		 * @return bool
+		 */
+		public function maybe_update_subscription( $operation, $data ) {
+			
+			$util = Utilities::get_instance();
+			$util->log( "Dumping subscription related event data (for: {$operation}) -> " . print_r( $data, true ) );
+			
+			if ( isset( $data->object->object ) && 'subscription' !== $data->object->object ) {
+				$util->log( "Not a subscription object! Exiting" );
+				
+				return false;
+			}
+			
+			$subscription = $data->object;
+			$customer_id  = isset( $subscription->customer ) ? $subscription->customer : null;
+			
+			if ( ! empty( $customer_id ) ) {
+				
+				try {
+					$customer = Customer::retrieve( $customer_id );
+					$user     = get_user_by( 'email', $customer->email );
+				} catch ( \Exception $e ) {
+					$util->log( "Error fetching customer data from Stripe.com: " . $e->getMessage() );
+					
+					return false;
+				}
+			}
+			
+			if ( empty( $user ) ) {
+				$util->log( "Customer/User with Stripe ID {$customer_id} not found on local system!" );
+				
+				return false;
+			}
+			
+			if ( 'delete' === $operation ) {
+				$util->log( "Will be removing subscription data for {$subscription->id}/{$customer_id}/{$user->user_email}" );
+				
+				if ( false === User_Data::delete_subscription_record( $user->ID, $subscription->id ) ) {
+					$util->log( "Error deleting subscription record: {$subscription->id} for {$user->ID}" );
+				}
+				
+				return true;
+			}
+			
+			if ( 'add' === $operation ) {
+				
+				$util->log( "Wanting to add a new subscription for user {$customer_id}/{$user->ID}" );
+				
+				if ( !empty( $customer ) && !empty( $user ) && !empty( $subscription ) ) {
+				    
+				    $util->log("Adding local PMPro order for {$user->ID}/{$customer->id}");
+					$user_info = $this->add_local_order( $customer, $user, $subscription );
+					
+					$user_info->set_gw_subscription_id( $subscription->id );
+					$user_info->set_payment_currency( $subscription->items->data[0]->plan->currency );
+					
+					if ( empty( $subscription->cancel_at_period_end ) && empty( $subscription->cancelled_at ) && in_array( $subscription->status, array(
+							'trialing',
+							'active',
+						) )
+					) {
+						$util->log( "Setting payment status to 'active' for {$customer->id}" );
+						$user_info->set_payment_status( 'active' );
+					}
+					
+					if ( ! empty( $subscription->cancel_at_period_end ) || ! empty( $subscription->cancelled_at ) || ! in_array( $subscription->status, array(
+							'trialing',
+							'active',
+						) )
+					) {
+						$util->log( "Setting payment status to 'stopped' for {$customer->id}" );
+						$user_info->set_payment_status( 'stopped' );
+					}
+					
+					// Set the date for the next payment
+					if ( $user_info->get_payment_status() === 'active' ) {
+						
+						// Get the date when the currently paid for period ends.
+						$current_payment_until = date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end );
+						$user_info->set_end_of_paymentperiod( $current_payment_until );
+						$util->log( "End of the current payment period: {$current_payment_until}" );
+						
+						// Add a day (first day of new payment period)
+						$payment_next  = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+						
+						$user_info->set_next_payment( $payment_next );
+						$util->log( "Next payment on: {$payment_next}" );
+						
+						global $pmpro_currencies;
+						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
+						$user_info->set_payment_currency( $plan_currency );
+						
+						$util->log( "Payments are made in: {$plan_currency}" );
+						$has_decimals = true;
+						
+						if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
+							
+							// Is this for a no-decimal currency?
+							if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
+								$util->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
+								$has_decimals = false;
+							}
+						}
+						
+						// Get the amount & cast it to a floating point value
+						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
+						$user_info->set_next_payment_amount( $amount );
+						$util->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
+						
+						$user_info->set_reminder_type( 'recurring' );
+					} else {
+						
+						$util->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
+						$user_info->set_subscription_end();
+					}
+					
+					$user_info->set_active_subscription( true );
+					$util->log( "Attempting to load credit card (payment method) info from gateway" );
+     
+					// Trigger handler for credit card data
+					$user_info = $this->process_credit_card_info( $user_info, $customer->sources->data, $this->gateway_name );
+					
+					$user_info->save_to_db();
+					return true;
+				}
+			}
+			
+			if ( 'update' === $operation ) {
+			    
+            }
+			
+			return false;
+		}
+		
+		/**
+		 * Add a local order record if we can't find one by the stripe Subscription ID
+		 *
+		 * @param Customer $stripe_customer
+		 * @param \WP_User $user
+		 * @param array    $subscription
+		 *
+		 * @return User_Data
+		 */
+		public function add_local_order( $stripe_customer, $user, $subscription ) {
+			
+			$util = Utilities::get_instance();
+			
+			$order = new \MemberOrder();
+			
+			$order->getLastMemberOrderBySubscriptionTransactionID( $subscription->id );
+			
+			// Add a new order record to local system if needed
+			if ( empty( $order->user_id ) ) {
+				
+				$order->getEmptyMemberOrder();
+				
+				$order->setGateway( 'stripe' );
+				$order->gateway_environment = pmpro_getOption( "gateway_environment" );
+				
+				$order->user_id = $user->ID;
+				
+				// Set the current level info if needed
+				if ( ! isset( $user->membership_level ) || empty( $user->membership_level ) ) {
+				    
+				    $util->log("Adding membership level info for user {$user->ID}");
+					$user->membership_level = pmpro_getMembershipLevelForUser( $user->ID );
+				}
+				
+				$order->membership_id               = isset( $user->membership_level->id ) ? $user->membership_level->id : 0;
+				$order->membership_name             = isset( $user->membership_level->name ) ? $user->membership_level->name : null;
+				$order->subscription_transaction_id = $subscription->id;
+				
+				// No initial payment info found...
+				$order->InitialPayment = 0;
+				
+				if ( isset( $subscription->items ) ) {
+					
+					// Process the subscription plan(s)
+					global $pmpro_currencies;
+					if ( count( $subscription->items->data ) <= 1 ) {
+						
+						$util->log( "One or less Plans for the Subscription" );
+						$plan = $subscription->items->data[0]->plan;
+						
+						$currency        = $pmpro_currencies[ strtoupper( $plan->currency ) ];
+						$decimal_divisor = 100;
+						$decimals        = 2;
+						
+						if ( isset( $currency['decimals'] ) ) {
+							$decimals = $currency['decimals'];
+						}
+						
+						$decimal_divisor = intval( sprintf( "1'%0{$decimals}d", $decimal_divisor ) );
+						$util->log( "Using decimal divisor of: {$decimal_divisor}" );
+						
+						$order->PaymentAmount    = floatval( $plan->amount / $decimal_divisor );
+						$order->BillingPeriod    = ucfirst( $plan->interval );
+						$order->BillingFrequency = intval( $plan->interval_count );
+						$order->ProfileStartDate = date_i18n( 'Y-m-d H:i:s', $plan->created );
+						
+						$order->status = 'success';
+					}
+				}
+				
+				
+				$order->billing   = $this->get_billing_info( $stripe_customer );
+				$order->FirstName = $user->first_name;
+				$order->LastName  = $user->last_name;
+				$order->Email     = $user->user_email;
+				
+				$order->Address1 = $order->billing->street;
+				$order->City     = $order->billing->city;
+				$order->State    = $order->billing->state;
+				
+				$order->Zip         = $order->billing->zip;
+				$order->PhoneNumber = null;
+				
+				// Card data
+				$order->cardtype        = $stripe_customer->sources->data[0]->brand;
+				$order->accountnumber   = hideCardNumber( $stripe_customer->sources->data[0]->last4 );
+				$order->expirationmonth = $stripe_customer->sources->data[0]->exp_month;
+				$order->expirationyear  = $stripe_customer->sources->data[0]->exp_year;
+				
+				// Custom card expiration info
+				$order->ExpirationDate        = "{$order->expirationmonth}{$order->expirationyear}";
+				$order->ExpirationDate_YdashM = "{$order->expirationyear}-{$order->expirationmonth}";
+				
+				$order->saveOrder();
+				$order->getLastMemberOrder( $user->ID );
+				
+				$util->log( "Saved new (local) order for user ({$user->ID})" );
+			}
+			
+			$user_info = new User_Data( $user, $order, 'recurring' );
+			
+			return $user_info;
+		}
+		
+		/**
+		 * @param Customer $customer -- Stripe Customer Object
+		 *
+		 * @return \stdClass
+		 */
+		public function get_billing_info( $customer ) {
+			
+			$stripe_billing_info = $customer->sources->data[0];
+			
+			$billing          = new \stdClass();
+			$billing->name    = $stripe_billing_info->name;
+			$billing->street  = $stripe_billing_info->address_line1;
+			$billing->city    = $stripe_billing_info->address_city;
+			$billing->state   = $stripe_billing_info->address_state;
+			$billing->zip     = $stripe_billing_info->address_zip;
+			$billing->country = $stripe_billing_info->address_country;
+			$billing->phone   = null;
+			
+			return $billing;
+		}
+		
 		/**
 		 * Append this add-on to the list of configured & enabled add-ons
 		 *
@@ -1038,7 +1677,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
             </select>
 			<?php
 		}
-  
+		
 		/**
 		 * Fetch the properties for the Stripe Gateway add-on class
 		 *
