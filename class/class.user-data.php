@@ -109,6 +109,7 @@ class User_Data {
 		// Add the last order if the order object is present
 		if ( ! is_null( $order ) && isset( $order->id ) ) {
 			
+			$util->log("Adding order: {$order->id}");
 			$this->last_order        = $order;
 			$this->user_gateway      = $order->gateway;
 			$this->user_gateway_type = $order->gateway_environment;
@@ -147,7 +148,7 @@ class User_Data {
 		
 		if ( is_null( $level_id ) || ( isset( $this->user->current_membership_level->id ) && ! empty( $level_id ) && $level_id !== $this->user->current_membership_level->id ) ) {
 			
-			$util->log("Having to (re)set the membership level info for the user");
+			$util->log( "Having to (re)set the membership level info for the user" );
 			
 			if ( is_null( $level_id ) ) {
 				$level_id = isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null;
@@ -280,8 +281,9 @@ class User_Data {
 	public function save_to_db() {
 		
 		global $wpdb;
-		$util   = Utilities::get_instance();
-		$result = false;
+		$util    = Utilities::get_instance();
+		$result  = false;
+		$cc_info = array();
 		
 		$util->log( "Saving user subscription data for {$this->user->ID}" );
 		
@@ -291,7 +293,7 @@ class User_Data {
 			
 			$user_data = array(
 				'user_id'                 => $this->user->ID,
-				'level_id'                => $this->user->current_membership_level->id,
+				'level_id'                => isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : 0,
 				'last_order_id'           => $this->last_order->id,
 				'gateway_subscr_id'       => $this->gateway_subscr_id,
 				'is_delinquent'           => $this->is_delinquent,
@@ -332,6 +334,12 @@ class User_Data {
 				'last_order_id' => $this->last_order->id,
 			);
 			
+			// No valid membership level defined!
+			if ( empty( $user_data['level_id'] ) ) {
+				$util->log("User doesn't have a valid/current membership level on this system. Exiting the save operation!");
+				return false;
+			}
+			
 			$where_format = array( '%d', '%d', '%d' );
 			
 			$check_sql = $wpdb->prepare(
@@ -355,7 +363,8 @@ class User_Data {
 		if ( false === $result ) {
 			
 			$util->log( "No record added/updated for {$this->user->ID} to {$this->user_info_table_name}. Maybe missing subscription record? or active order?" );
-			
+			$util->log( "Record: " . print_r( $user_data, true ) );
+			$util->log( "Where: " . print_r( $where, true ) );
 			// $util->add_message( sprintf( __( "Error inserting/updating data for %s", Payment_Warning::plugin_slug ), $this->user->user_email ), 'error', 'backend' );
 			
 			return false;
@@ -368,7 +377,7 @@ class User_Data {
 			
 			if ( is_a( $card_data, 'stdClass' ) ) {
 				
-				$util->log( "Processing card for (" .$this->get_user_ID() . "): " . print_r( $card_data, true ) );
+				$util->log( "Processing card for (" . $this->get_user_ID() . "): " . print_r( $card_data, true ) );
 				$last4 = isset( $card_data->last4 ) ? $card_data->last4 : $card_data->card_id;
 				
 				$cc_info = array(
@@ -378,6 +387,7 @@ class User_Data {
 					'exp_year'  => $card_data->exp_year,
 					'brand'     => $card_data->brand,
 				);
+				
 				$where = array(
 					'user_id' => $this->user->ID,
 					'last4'   => $last4,
@@ -387,7 +397,7 @@ class User_Data {
 			
 			if ( is_array( $card_data ) ) {
 				
-				$util->log( "Processing card for (" .$this->get_user_ID() . "): " . print_r( $card_data, true ) );
+				$util->log( "Processing card for (" . $this->get_user_ID() . "): " . print_r( $card_data, true ) );
 				$last4 = isset( $card_data['last4'] ) ? $card_data['last4'] : $card_data['card_id'];
 				
 				$cc_info = array(
@@ -406,37 +416,18 @@ class User_Data {
 			
 			$format = array( '%d', '%s', '%s', '%s', '%s' );
 			
-			$where_format = array( '%d', '%s' );
-			
-			$cc_sql = $wpdb->prepare(
-				"SELECT ID FROM {$this->cc_info_table_name} WHERE user_id = %d AND last4 = %s",
-				$this->user->ID,
-				$last4
-			);
-			
-			$exists = $wpdb->get_var( $cc_sql );
+			$where_format = array( '%s', '%s' );
+			$exists       = self::find_card_info( $cc_info );
 			
 			$util->log( "Does card info exist? " . print_r( $exists, true ) );
 			
 			if ( ! empty( $exists ) ) {
-				
-				$util->log( "Previous CC record exists for {$last4}/{$this->user->ID}. Updating" );
-				$result = $wpdb->update(
-					$this->cc_info_table_name,
-					$cc_info,
-					$where,
-					$format,
-					$where_format
-				);
-			} else {
-				$util->log( "No previous CC record exists for {$last4}/{$this->user->ID}. Inserting" );
-				
-				$result = $wpdb->insert(
-					$this->cc_info_table_name,
-					$cc_info,
-					$format
-				);
+				$where['ID'] = $exists;
+				unset( $where['last4'] );
+				$where_format = array( '%s', '%s' );
 			}
+			
+			$result = self::save_credit_card( $cc_info, ! empty( $exists ) );
 			
 			if ( false === $result ) {
 				$util->log( "Error: Failed to update Credit Card info for {$this->user->ID}/{$last4}: {$wpdb->last_error}" );
@@ -449,6 +440,120 @@ class User_Data {
 	}
 	
 	/**
+	 * Save/Update the Credit Card data
+	 *
+	 * @param array $card
+	 * @param bool  $exists
+	 *
+	 * @return false|int
+	 */
+	public static function save_credit_card( $card, $exists = false ) {
+		
+		global $wpdb;
+		$util = Utilities::get_instance();
+		
+		$cc_info = array(
+			'user_id'   => $card['user_id'],
+			'last4'     => $card['last4'],
+			'exp_month' => $card['exp_month'],
+			'exp_year'  => $card['exp_year'],
+			'brand'     => $card['brand'],
+		);
+		$format  = array( '%d', '%s', '%s', '%s', '%s' );
+		
+		$where        = array(
+			'user_id' => $card['user_id'],
+			'last4'   => $card['last4'],
+		);
+		$where_format = array( '%d', '%s' );
+		
+		// Using the recorded ID of the local Card record
+		if ( ! empty( $card['ID'] ) ) {
+			$where['ID'] = $card['ID'];
+			unset( $where['last4'] );
+			$where_format = array( '%s', '%s' );
+		}
+		
+		// Get the table name
+		$table_name = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
+		
+		// Check
+		if ( true === $exists ) {
+			
+			$util->log( "Previous CC record exists for {$card['last4']}/{$card['user_id']}. Updating" );
+			$result = $wpdb->update(
+				$table_name,
+				$cc_info,
+				$where,
+				$format,
+				$where_format
+			);
+		} else {
+			$util->log( "No previous CC record exists for {$card['last4']}/{$card['user_id']}. Inserting" );
+			
+			$result = $wpdb->insert(
+				$table_name,
+				$cc_info,
+				$format
+			);
+		}
+		
+		return $result;
+	}
+	
+	/**
+	 * Delete a specific card from the local DB
+	 *
+	 * @param int $card_id
+	 *
+	 * @return false|int
+	 */
+	public static function delete_card( $card_id ) {
+	
+		$util = Utilities::get_instance();
+		global $wpdb;
+		
+		// Query parameters
+		$where = array( 'ID' => $card_id );
+		$where_format = array( '%d' );
+		$table_name = apply_filters('e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc");
+		
+		$util->log("Attempting to delete card with record ID {$card_id} from {$table_name} ");
+		return $wpdb->delete( $table_name, $where, $where_format );
+	}
+	
+	/**
+	 * Deleting Subscription record from local DB
+	 *
+	 * @param int $user_id      Local User ID
+	 * @param string $subscription_id Remote gateway Subscription ID
+	 *
+	 * @return bool
+	 */
+	public static function delete_subscription_record( $user_id, $subscription_id ) {
+		
+		global $wpdb;
+		
+		$util = Utilities::get_instance();
+		$where = array( 'user_id' => $user_id,'gateway_subscr_id' => $subscription_id );
+		$where_format = array( '%d', '%s' );
+		$table_name = apply_filters('e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info");
+		
+		$util->log("Deleting record from {$table_name} using: " . print_r( $where, true ));
+		
+		$result = $wpdb->delete( $table_name, $where, $where_format );
+		if ( false !== $result ) {
+			
+			$util->log("Records deleted: {$result}");
+			return true;
+		}
+		
+		$util->log("Error deleting record for {$user_id}/{$subscription_id}");
+		return false;
+	}
+	
+	/**
+	 * Let's us know if the user ID/subscription ID combination exists in local DB
 	 *
 	 * @param $subscription_id
 	 *
@@ -672,6 +777,43 @@ class User_Data {
 		return $this->next_payment_date;
 	}
 	
+	public function get_cc_table_name() {
+		
+		return $this->cc_info_table_name;
+	}
+	
+	public static function find_card_info( $card ) {
+		
+		global $wpdb;
+		$util = Utilities::get_instance();
+		
+		$table_name = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
+		
+		$cc_sql = $wpdb->prepare(
+			"SELECT ID FROM {$table_name} WHERE user_id = %d AND last4 = %s AND brand = %s",
+			$card['user_id'],
+			$card['last4'],
+			$card['brand']
+		);
+		
+		$result = $wpdb->get_var( $cc_sql );
+		
+		$util->log("Looking up card from {$table_name} for {$card['user_id']} and {$card['last4']}/{$card['brand']}: " . print_r( $result, true ));
+		
+		return $result;
+	}
+	
+	public static function default_card_format() {
+		
+		return array(
+			'user_id'   => null,
+			'brand'     => null,
+			'last4'     => null,
+			'exp_month' => null,
+			'exp_year'  => null,
+		);
+	}
+	
 	/**
 	 * Set the card specific expiration date
 	 *
@@ -832,7 +974,7 @@ class User_Data {
 	 * Set (local) recurring membership status based on user's membership level
 	 */
 	public function set_recurring_membership_status() {
-	
+		
 		$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
 	}
 	
@@ -844,6 +986,7 @@ class User_Data {
 	public function get_recurring_membership_status() {
 		return $this->has_local_recurring_membership;
 	}
+	
 	/**
 	 * Get the User's email address (identifier)
 	 *
@@ -903,7 +1046,7 @@ class User_Data {
 			$util->log( "Loading membership level info for {$this->user->ID}" );
 			$this->user = Fetch_User_Data::set_membership_info( $this->user );
 			
-			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . !empty( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A"  );
+			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . ! empty( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A" );
 			
 			if ( isset( $this->user->current_membership_level->id ) ) {
 				return $this->user->current_membership_level->id;
