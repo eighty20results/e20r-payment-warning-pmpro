@@ -43,14 +43,6 @@ class Editor {
 	public function __construct() {
 		
 		$util = Utilities::get_instance();
-		
-		/*
-		if ( ! Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
-			$util->log( "The Payment Warnings product isn't licensed, so exiting!" );
-			
-			return false;
-		}
-		*/
 	}
 	
 	/**
@@ -60,10 +52,17 @@ class Editor {
 	 */
 	public static function get_instance() {
 		
+		$util = Utilities::get_instance();
+		
 		if ( is_null( self::$instance ) ) {
-			self::$instance = new self;
 			
-			self::$instance->load_hooks();
+			if ( Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
+				$util->log( "The Payment Warnings product isn't licensed, so exiting!" );
+				
+				self::$instance = new self;
+				self::$instance->load_hooks();
+				
+			}
 		}
 		
 		return self::$instance;
@@ -99,15 +98,20 @@ class Editor {
 	 */
 	public function enqueue() {
 		
+		$util = Utilities::get_instance();
+		
 		// In backend
-		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-templates' === $_REQUEST['page'] ) {
+		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-payment-warning-templates' === $_REQUEST['page'] ) {
+			
+			wp_enqueue_editor();
+			
+			$util->log("Loading style(s) for Payment Warning plugin");
+			
 			wp_enqueue_style( 'e20r-payment-warning-pmpro-admin', plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', E20R_PW_DIR ), null, Payment_Warning::version );
 			
-			wp_enqueue_script( 'e20r-payment-warning-pmpro-admin', plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', E20R_PW_DIR ), array( 'jquery' ), Payment_Warning::version, true );
-		}
-		
-		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-payment-warning-templates' === $_REQUEST['page'] ) {
-			wp_register_script( 'e20r-payment-warning-editor', plugins_url( 'javascript/e20r-payment-warning-editor.js', E20R_PW_DIR ), array( 'jquery' ), Payment_Warning::version, true );
+			wp_enqueue_script( 'e20r-payment-warning-pmpro-admin', plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', E20R_PW_DIR ), array( 'jquery', 'editor' ), Payment_Warning::version, true );
+			
+			wp_register_script( 'e20r-payment-warning-editor', plugins_url( 'javascript/e20r-payment-warning-editor.js', E20R_PW_DIR ), array( 'jquery', 'editor' ), Payment_Warning::version, true );
 			
 			$new_row_settings = self::default_template_settings( 'new' );
 			$new_rows         = Template_Editor_View::add_template_entry( 'new', $new_row_settings, true );
@@ -130,7 +134,6 @@ class Editor {
 				)
 			);
 			
-			wp_enqueue_editor();
 			wp_enqueue_script( 'e20r-payment-warning-editor' );
 		}
 	}
