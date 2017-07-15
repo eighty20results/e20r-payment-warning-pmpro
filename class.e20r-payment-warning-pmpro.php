@@ -5,7 +5,7 @@
  * Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
  * Author: Thomas Sjolshagen <thomas@eighty20results.com>
  * Author URI: https://eighty20results.com/thomas-sjolshagen/
- * Version: 1.0
+ * Version: 1.0.1
  * License: GPL2
  * Text Domain: e20r-payment-warning-pmpro
  * Domain Path: /languages
@@ -237,7 +237,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			return array(
 				'deactivation_reset' => false,
-                'upcoming_payment_reminders' => array(),
+                'enable_expiration_warnings' => false,
+                'enable_payment_warnings' => false,
+				'enable_cc_expiration_warnings' => false,
 			);
 		}
 		
@@ -452,7 +454,39 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				'e20r_pw_global',
 				array( 'option_name' => 'deactivation_reset' )
 			);
-   
+			
+			/**
+			 *                 'enable_payment_warnings' => false,
+			'enable_cc_expiration_warnings' => false,
+			 
+			 */
+			add_settings_field(
+				'e20r_pw_global_expiration_warning',
+				__( "Membership Expiration", Payment_Warning::plugin_slug ),
+				array( $this, 'render_checkbox' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'enable_expiration_warnings' )
+			);
+			
+			add_settings_field(
+				'e20r_pw_global_payment_warnings',
+				__( "Recurring Payment", Payment_Warning::plugin_slug ),
+				array( $this, 'render_checkbox' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'enable_payment_warnings' )
+			);
+			
+			add_settings_field(
+				'e20r_pw_global_cc_warning',
+				__( "Credit Card Expiration", Payment_Warning::plugin_slug ),
+				array( $this, 'render_checkbox' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'enable_cc_expiration_warnings' )
+			);
+			
 			$utils->log("Added Add-on Settings for Payment Warnings");
 			add_settings_section(
 				'e20r_pw_addons',
@@ -563,7 +597,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function render_global_settings_text() {
 			?>
             <p class="e20r-pw-global-settings-text">
-				<?php _e( "Configure deactivation settings", Payment_Warning::plugin_slug ); ?>
+				<?php _e( "Configure plugin settings", Payment_Warning::plugin_slug ); ?>
             </p>
 			<?php
 		}
@@ -626,11 +660,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$active_addons = $this->get_active_addons();
 			$level_id      = isset( $_REQUEST['edit'] ) ? intval( $_REQUEST['edit'] ) : ( isset( $_REQUEST['copy'] ) ? intval( $_REQUEST['copy'] ) : null );
 			?>
-            <div class="e20r-roles-for-pmpro-level-settings">
-                <h3 class="topborder"><?php _e( 'Roles for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
+            <div class="e20r-pw-for-pmpro-level-settings">
+                <h3 class="topborder"><?php _e( 'Payment Warnings for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
                 <hr style="width: 90%; border-bottom: 2px solid #c5c5c5;"/>
-                <h4 class="e20r-roles-for-pmpro-section"><?php _e( 'Default user role settings', Payment_Warning::plugin_slug ); ?></h4>
-				<?php do_action( 'e20r_roles_level_settings', $level_id, $active_addons ); ?>
+                <h4 class="e20r-pw-for-pmpro-section"><?php _e( 'Default gateway settings', Payment_Warning::plugin_slug ); ?></h4>
+				<?php do_action( 'e20r_pw_level_settings', $level_id, $active_addons ); ?>
             </div>
 			<?php
 		}
@@ -644,7 +678,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$active_addons = $this->get_active_addons();
 			
-			do_action( 'e20r_roles_level_settings_save', $level_id, $active_addons );
+			do_action( 'e20r_pw_level_settings_save', $level_id, $active_addons );
 		}
 		
 		/**
@@ -656,7 +690,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$active_addons = $this->get_active_addons();
 			
-			do_action( 'e20r_roles_level_settings_delete', $level_id, $active_addons );
+			do_action( 'e20r_pw_level_settings_delete', $level_id, $active_addons );
 		}
 		
 		/**
@@ -732,6 +766,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			wp_localize_script( self::plugin_slug . '-admin', $key, $vars );
 		}
 		
+		/**
+		 * Plugin activation
+		 */
 		public function activate() {
 		    
 		    $util = Utilities::get_instance();
@@ -748,7 +785,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			    do_action( 'e20r_pw_addon_activating_core' );
 		    }
 		}
-        
+		
+		/**
+		 * Plugin deactivation
+		 */
         public function deactivate() {
 		    
 		    $clean_up = $this->load_options('deactivation_reset' );
@@ -759,7 +799,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
         }
 
 		/**
-		 * Class auto-loader for this plugin
+		 * Class auto-loader for the Payment Warnings plugin
 		 *
 		 * @param string $class_name Name of the class to auto-load
 		 *
