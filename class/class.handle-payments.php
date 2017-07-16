@@ -64,21 +64,41 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		$util = Utilities::get_instance();
 		
-		$util->log("Trigger per-addon payment/charge download for user" );
-		
-		$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
-		
-		if ( false !== $user_data ) {
+		if ( false === $user_data->has_active_subscription()) {
 			
-			$util->log("Fetched payments for " . $user_data->get_user_email() );
+			$util->log("Trigger per-addon payment/charge download for user" );
+			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
 			
-			// TODO: Only do this once the user payments settings have been saved
-			// $user_data->save_to_db();
-			$util->log("Completed payment fetch and save for user");
+			if ( false !== $user_data ) {
+				
+				$util->log( "Fetched payments for " . $user_data->get_user_email() );
+				
+				$user_data->save_to_db( 'payments' );
+				$util->log( "Completed payment fetch and save for user" );
+			}
 		}
 		
 		return false;
 		
+	}
+	
+	/**
+	 * Clear queue of entries for this handler
+	 */
+	public function clear_queue() {
+		
+		global $wpdb;
+		
+		$table  = $wpdb->options;
+		$column = 'option_name';
+		
+		if ( is_multisite() ) {
+			$table  = $wpdb->sitemeta;
+			$column = 'meta_key';
+		}
+		
+		$key = $this->identifier . "_batch_%";
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) );
 	}
 	
 	/**
@@ -89,6 +109,11 @@ class Handle_Payments extends E20R_Background_Process {
 	 */
 	protected function complete() {
 		parent::complete();
-		// Show notice to user or perform some other arbitrary task...
+		
+		$this->clear_queue();
+	
+			// Show notice to user or perform some other arbitrary task...
+		$util = Utilities::get_instance();
+		$util->log("Completed remote payment/charge data fetch for all active gateways");
 	}
 }
