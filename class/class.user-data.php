@@ -80,7 +80,17 @@ class User_Data {
 	
 	private $gateway_subscr_id = null;
 	
+	private $gateway_payment_id = null;
+	
 	private $has_local_recurring_membership = false;
+	
+	private $payment_amount = null;
+	
+	private $payment_date = null;
+	
+	private $is_payment_paid = null;
+	
+	private $failure_description = null;
 	
 	/**
 	 * User_Data constructor.
@@ -109,7 +119,7 @@ class User_Data {
 		// Add the last order if the order object is present
 		if ( ! is_null( $order ) && isset( $order->id ) ) {
 			
-			$util->log("Adding order: {$order->id}");
+			$util->log( "Adding order: {$order->id}" );
 			$this->last_order        = $order;
 			$this->user_gateway      = $order->gateway;
 			$this->user_gateway_type = $order->gateway_environment;
@@ -122,6 +132,18 @@ class User_Data {
 		global $wpdb;
 		$this->user_info_table_name = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
 		$this->cc_info_table_name   = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
+	}
+	
+	/**
+	 * Save the amount for the payment and its currency
+	 *
+	 * @param float       $amount
+	 * @param string $currency
+	 */
+	public function set_payment_amount( $amount, $currency = 'USD' ) {
+		
+		$this->payment_amount   = $amount;
+		$this->payment_currency = $currency;
 	}
 	
 	/**
@@ -276,38 +298,49 @@ class User_Data {
 	/**
 	 * Save the existing user data to the respective database table(s)
 	 *
+	 * @param string $type
+	 *
 	 * @return bool
 	 */
-	public function save_to_db() {
+	public function save_to_db( $type = 'subscriptions' ) {
 		
 		global $wpdb;
-		$util    = Utilities::get_instance();
-		$result  = false;
-		$cc_info = array();
+		$util      = Utilities::get_instance();
+		$result    = false;
+		$cc_info   = array();
+		$user_data = array();
+		$where     = array();
 		
-		$util->log( "Saving user subscription data for {$this->user->ID}" );
+		$util->log( "Saving user data for {$this->user->ID}" );
 		
-		if ( ! empty( $this->payment_currency ) && null !== $this->last_order ) {
+		if ( ! empty( $this->payment_currency ) && ( ! empty( $this->gateway_subscr_id ) || ! empty( $this->gateway_payment_id ) ) ) {
 			
-			$util->log( "Have a valid subscription record for {$this->user->ID}" );
+			$util->log( "Have what we think is valid data for {$this->user->ID}" );
 			
 			$user_data = array(
-				'user_id'                 => $this->user->ID,
-				'level_id'                => isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : 0,
-				'last_order_id'           => $this->last_order->id,
-				'gateway_subscr_id'       => $this->gateway_subscr_id,
-				'is_delinquent'           => $this->is_delinquent,
-				'has_active_subscription' => ( ! empty( $this->user_subscriptions ) ? true : false ),
-				'payment_currency'        => $this->payment_currency,
-				'next_payment_amount'     => $this->next_payment_amount,
-				'tax_amount'              => $this->tax_amount,
-				'user_payment_status'     => $this->user_payment_status,
-				'next_payment_date'       => $this->next_payment_date,
-				'end_of_payment_period'   => $this->end_of_payment_period,
-				'end_of_membership_date'  => $this->end_of_membership_date,
-				'reminder_type'           => $this->reminder_type,
-				'user_subscriptions'      => $this->user_subscriptions,
-				'user_charges'            => $this->user_charges,
+				'user_id'                        => $this->user->ID,
+				'level_id'                       => isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : 0,
+				'last_order_id'                  => $this->last_order->id,
+				'gateway_subscr_id'              => $this->gateway_subscr_id,
+				'gateway_payment_id'             => $this->gateway_payment_id,
+				'is_delinquent'                  => $this->is_delinquent,
+				'has_active_subscription'        => ( ! empty( $this->user_subscriptions ) ? true : false ),
+				'has_local_recurring_membership' => $this->is_local_membership_recurring( $this->user->current_membership_level ),
+				'payment_currency'               => $this->payment_currency,
+				'payment_amount'                 => $this->payment_amount,
+				'next_payment_amount'            => $this->next_payment_amount,
+				'tax_amount'                     => $this->tax_amount,
+				'user_payment_status'            => $this->user_payment_status,
+				'payment_date'                   => $this->payment_date,
+				'is_payment_paid'                => $this->is_payment_paid,
+				'failure_description'            => $this->failure_description,
+				'next_payment_date'              => $this->next_payment_date,
+				'end_of_payment_period'          => $this->end_of_payment_period,
+				'end_of_membership_date'         => $this->end_of_membership_date,
+				'reminder_type'                  => $this->reminder_type,
+				'user_subscriptions'             => ( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
+				'user_charges'                   => ( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
+				'modified'                       => current_time( 'timestamp' ),
 			);
 			
 			$data_format = array(
@@ -317,15 +350,22 @@ class User_Data {
 				'%s', // gateway_subscr_id
 				'%d', // is_delinquent
 				'%d', // has_active_subscription
+				'%d', // has_local_recurring_membership
 				'%s', // payment_currency
+				'%s', // payment_amount
 				'%s', // next_payment_amount (should be float, but doesn't format well)
+				'%s', // tax_amount
 				'%s', // user_payment_status
+				'%s', // payment_date
+				'%d', // is_payment_paid
+				'%s', // failure_description
 				'%s', // next_payment_date
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
 				'%s', // user_subscriptions
 				'%s', // user_charges
+				'%s', // modified
 			);
 			
 			$where = array(
@@ -334,9 +374,13 @@ class User_Data {
 				'last_order_id' => $this->last_order->id,
 			);
 			
+			$util->log( "Record: " . print_r( $user_data, true ) );
+			$util->log( "Where: " . print_r( $where, true ) );
+			
 			// No valid membership level defined!
 			if ( empty( $user_data['level_id'] ) ) {
-				$util->log("User doesn't have a valid/current membership level on this system. Exiting the save operation!");
+				$util->log( "User doesn't have a valid/current membership level on this system. Exiting the save operation!" );
+				
 				return false;
 			}
 			
@@ -362,9 +406,8 @@ class User_Data {
 		
 		if ( false === $result ) {
 			
-			$util->log( "No record added/updated for {$this->user->ID} to {$this->user_info_table_name}. Maybe missing subscription record? or active order?" );
-			$util->log( "Record: " . print_r( $user_data, true ) );
-			$util->log( "Where: " . print_r( $where, true ) );
+			$util->log( "No record added/updated for {$this->user->ID} to {$this->user_info_table_name}. Maybe missing payment/subscription record?" );
+			
 			// $util->add_message( sprintf( __( "Error inserting/updating data for %s", Payment_Warning::plugin_slug ), $this->user->user_email ), 'error', 'backend' );
 			
 			return false;
@@ -509,23 +552,24 @@ class User_Data {
 	 * @return false|int
 	 */
 	public static function delete_card( $card_id ) {
-	
+		
 		$util = Utilities::get_instance();
 		global $wpdb;
 		
 		// Query parameters
-		$where = array( 'ID' => $card_id );
+		$where        = array( 'ID' => $card_id );
 		$where_format = array( '%d' );
-		$table_name = apply_filters('e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc");
+		$table_name   = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
 		
-		$util->log("Attempting to delete card with record ID {$card_id} from {$table_name} ");
+		$util->log( "Attempting to delete card with record ID {$card_id} from {$table_name} " );
+		
 		return $wpdb->delete( $table_name, $where, $where_format );
 	}
 	
 	/**
 	 * Deleting Subscription record from local DB
 	 *
-	 * @param int $user_id      Local User ID
+	 * @param int    $user_id         Local User ID
 	 * @param string $subscription_id Remote gateway Subscription ID
 	 *
 	 * @return bool
@@ -534,21 +578,23 @@ class User_Data {
 		
 		global $wpdb;
 		
-		$util = Utilities::get_instance();
-		$where = array( 'user_id' => $user_id,'gateway_subscr_id' => $subscription_id );
+		$util         = Utilities::get_instance();
+		$where        = array( 'user_id' => $user_id, 'gateway_subscr_id' => $subscription_id );
 		$where_format = array( '%d', '%s' );
-		$table_name = apply_filters('e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info");
+		$table_name   = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
 		
-		$util->log("Deleting record from {$table_name} using: " . print_r( $where, true ));
+		$util->log( "Deleting record from {$table_name} using: " . print_r( $where, true ) );
 		
 		$result = $wpdb->delete( $table_name, $where, $where_format );
 		if ( false !== $result ) {
 			
-			$util->log("Records deleted: {$result}");
+			$util->log( "Records deleted: {$result}" );
+			
 			return true;
 		}
 		
-		$util->log("Error deleting record for {$user_id}/{$subscription_id}");
+		$util->log( "Error deleting record for {$user_id}/{$subscription_id}" );
+		
 		return false;
 	}
 	
@@ -798,7 +844,7 @@ class User_Data {
 		
 		$result = $wpdb->get_var( $cc_sql );
 		
-		$util->log("Looking up card from {$table_name} for {$card['user_id']} and {$card['last4']}/{$card['brand']}: " . print_r( $result, true ));
+		$util->log( "Looking up card from {$table_name} for {$card['user_id']} and {$card['last4']}/{$card['brand']}: " . print_r( $result, true ) );
 		
 		return $result;
 	}
@@ -1176,13 +1222,19 @@ class User_Data {
 	}
 	
 	/**
+	 * Set the membership status (active/inactive)
 	 *
-	 * @param $status
+	 * @param bool $status
 	 */
 	public function set_membership_status( $status ) {
 		$this->has_active_membership = $status;
 	}
 	
+	/**
+	 * Return the membership status (active/inactive)
+	 *
+	 * @return bool
+	 */
 	public function get_membership_status() {
 		return $this->has_active_membership;
 	}
@@ -1267,6 +1319,109 @@ class User_Data {
 	}
 	
 	/**
+	 * Test whether the supplied membership level is a recurring payment membership
+	 *
+	 * @param \stdClass $level
+	 *
+	 * @return bool
+	 */
+	public function is_local_membership_recurring( $level ) {
+		
+		if ( function_exists( 'pmpro_isLevelRecurring' ) ) {
+			return pmpro_isLevelRecurring( $level );
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Record payment status data for charges / non-recurring membership payment(s)
+	 *
+	 * @param bool   $status      Payment status
+	 * @param string $description failure description (if it exists)
+	 */
+	public function is_payment_paid( $status, $description ) {
+		
+		if ( $status == true ) {
+			
+			$this->is_payment_paid     = true;
+			$this->is_delinquent       = false;
+			$this->user_payment_status = 'success';
+			$this->failure_description = null;
+		} else {
+			$this->is_payment_paid     = false;
+			$this->is_delinquent       = true;
+			$this->user_payment_status = 'failed';
+			$this->failure_description = $description;
+		}
+	}
+	
+	/**
+	 * Set the date info (use upstream data, and calculate the enddate for the for the payment/membership)
+	 *
+	 * @param int    $timestamp
+	 * @param string $timezone
+	 */
+	public function set_payment_date( $timestamp, $timezone ) {
+		
+		$util = Utilities::get_instance();
+		
+		if ( function_exists( 'date_i18n' ) ) {
+			$this->payment_date = date_i18n( 'Y-m-d H:i:s', $timestamp );
+		} else {
+			$this->payment_date = date( 'Y-m-d H:i:s', $timestamp );
+		}
+		
+		$util->log( "Using payment date value: {$this->payment_date}" );
+		
+		if ( ! empty( $this->user->current_membership_level->enddate ) ) {
+			
+			$util->log( "Membership end-date in level definition..." );
+			$this->end_of_membership_date = $this->user->current_membership_level->enddate;
+			
+		} else if ( empty( $this->user->current_membership_level->enddate ) ) {
+			
+			$util->log( "Membership end-date calculated from the default membership level info..." );
+			
+			// Calculate the end-date based on the membership level this user has (cycle info).
+			$level = pmpro_getMembershipLevelForUser( $this->user->ID );
+			$util->log( "Member info for {$this->user->ID}: " . print_r( $level, true ) );
+			
+			if ( ! empty( $level->cycle_number ) ) {
+				
+				$interval   = "+ {$level->cycle_number} {$level->cycle_period}";
+				$timestring = "{$this->payment_date} {$timezone} {$interval}";
+				
+				$util->log( "Using interval setting: {$interval} and date string: {$timestring}" );
+				
+				$approx_enddate               = strtotime( $timestring, current_time( 'timestamp' ) );
+				$this->end_of_membership_date = date_i18n( 'Y-m-d H:i:s', $approx_enddate );
+				
+				$util->log( "Using a calculated enddate for this member..." );
+			} else {
+			
+			}
+			
+		} else {
+			
+			$util->log( "No membership level cycle info for:" . $this->get_membership_level_ID() );
+			update_user_meta( $this->user->ID, 'e20r_pw_error_enddate_error', true );
+			
+		}
+		
+		$util->log( "Using membership expiration/end date for ({$this->user->ID}): {$this->end_of_membership_date}" );
+	}
+	
+	/**
+	 * Add the Payment Gateway's charge/payment Identifier
+	 *
+	 * @param $id
+	 */
+	public function set_charge_info( $id ) {
+		$this->gateway_payment_id = $id;
+	}
+	
+	/**
 	 * Plugin activation hook function to create required User data tables
 	 */
 	public static function create_db_tables() {
@@ -1286,13 +1441,18 @@ class User_Data {
 					level_id mediumint(9) NOT NULL DEFAULT 0,
 					last_order_id mediumint(9) NULL,
 					gateway_subscr_id varchar(50) NULL,
+					gateway_payment_id varchar(50) NULL,
 					is_delinquent tinyint(1) DEFAULT 0,
 					has_active_subscription tinyint(1) DEFAULT 0,
 					has_local_recurring_membership tinyint(1) DEFAULT 0,
 					payment_currency varchar(4) NOT NULL DEFAULT 'USD',
-					next_payment_amount varchar(9) NOT NULL DEFAULT '0.00',
+					payment_amount varchar(9) NULL,
+					next_payment_amount varchar(9) NULL,
 					tax_amount varchar(9) NULL,
 					user_payment_status varchar(7) NOT NULL DEFAULT 'stopped',
+					payment_date datetime NULL,
+					is_payment_paid tinyint(1) NULL DEFAULT 0,
+					failure_description varchar(255) NULL,
 					next_payment_date datetime NULL,
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
@@ -1340,6 +1500,7 @@ class User_Data {
 				)
 		";
 		*/
+		
 		$utils = Utilities::get_instance();
 		
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
