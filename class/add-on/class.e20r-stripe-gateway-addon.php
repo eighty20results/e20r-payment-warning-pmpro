@@ -637,7 +637,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$user_data->set_payment_date( $charge->created, $this->gateway_timezone );
 				$user_data->set_reminder_type( 'expiration' );
+				$user_data->add_charge_list( $charge );
 				
+				// Add any/all credit card info used for this transaction
 				$user_data = $this->process_credit_card_info( $user_data, $charge->source, $this->gateway_name );
 			}
 			
