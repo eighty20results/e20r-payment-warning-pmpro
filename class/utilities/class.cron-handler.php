@@ -100,11 +100,8 @@ class Cron_Handler {
 		$default_send_message_start_time = apply_filters( 'e20r_payment_warning_send_message_time', '05:30:00' );
 		$todays_date                     = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$timezone                        = get_option( 'timezone_string' );
-		
-		$now                        = current_time( 'timestamp' );
-		$scheduled                  = strtotime( date( $default_data_collect_start_time, current_time( 'timestamp' ) ) );
-		$next_scheduled_collect_run = ( $now <= $scheduled ) ? "{$default_data_collect_start_time} {$timezone} today" : "{$default_data_collect_start_time} {$timezone} tomorrow";
-		$next_scheduled_message_run = ( $now <= $scheduled ) ? "{$default_send_message_start_time} {$timezone} today" : "{$default_send_message_start_time} {$timezone} tomorrow";
+		$next_scheduled_collect_run      = "{$default_data_collect_start_time} {$timezone}";
+		$next_scheduled_message_run      = "{$default_send_message_start_time} {$timezone}";
 		
 		$util->log( "Delay config: {$delay_config}" );
 		
@@ -123,19 +120,20 @@ class Cron_Handler {
 			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
 		}
 		
+		$next_collect = new \DateTime( $next_scheduled_collect_run, new \DateTimeZone( $timezone ) );
+		
 		// No previously scheduled job for the payment gateway
 		if ( false == $is_scheduled ) {
 			
 			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
 			
 			$util->log( "Using day value of {$days} after a start of {$todays_date} {$default_data_collect_start_time}" );
-			$next_run = strtotime( "{$todays_date} {$default_data_collect_start_time} {$timezone} +{$days} days", current_time( 'timestamp' ) );
 			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}" );
 			
-			wp_schedule_event( strtotime( $next_scheduled_collect_run, current_time( 'timestamp' ) ), 'daily', 'e20r_run_remote_data_update' );
+			wp_schedule_event( $next_collect->getTimestamp(), 'daily', 'e20r_run_remote_data_update' );
 			
-			$util->log( "Configure next (allowed) run time for the cron job to be at {$next_run}" );
-			add_option( 'e20r_pw_next_gateway_check', $next_run );
+			$util->log( "Configure next (allowed) run time for the cron job to be at " . $next_collect->getTimestamp() );
+			add_option( 'e20r_pw_next_gateway_check', $next_collect->getTimestamp() );
 			
 		} else {
 			$next_run = $is_scheduled;
@@ -143,7 +141,9 @@ class Cron_Handler {
 		}
 		
 		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
-		$message_when = strtotime( $next_scheduled_message_run, current_time( 'timestamp' ) );
+		$next_message = new \DateTime( $next_scheduled_message_run, new \DateTimeZone( $timezone ) );
+		$message_when = $next_message->getTimestamp();
+		
 		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
 		
 		if ( false == $cc_scheduled ) {
@@ -161,7 +161,7 @@ class Cron_Handler {
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_expiration_warning_emails' );
 		}
 		
-		return $next_run;
+		return $next_collect->getTimestamp();
 	}
 	
 	/**
@@ -261,6 +261,7 @@ class Cron_Handler {
 		if ( current_time( 'timestamp' ) >= $next_run || true === $override_schedule ) {
 			
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data" );
+			
 			$fetch_data = Fetch_User_Data::get_instance();
 			$fetch_data->get_remote_subscription_data();
 			$fetch_data->get_remote_payment_data();
