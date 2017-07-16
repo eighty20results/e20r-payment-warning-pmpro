@@ -25,8 +25,11 @@ use E20R\Payment_Warning\User_Data;
 use E20R\Payment_Warning\Utilities\Cache;
 use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Licensing\Licensing;
+use Stripe\Account;
+use Stripe\Charge;
 use Stripe\Customer;
 use Stripe\Event;
+use Stripe\Invoice;
 use Stripe\Stripe;
 use Stripe\Subscription;
 
@@ -295,6 +298,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				// Configure Stripe API call version
 				Stripe::setApiVersion( $api_version );
 				
+				if ( empty( $this->gateway_timezone ) ) {
+					
+					$account = Account::retrieve();
+					
+					if ( ! empty( $account ) ) {
+						$util->log( "Using the Stripe.com Gateway timezone info" );
+						$this->gateway_timezone = $account->timezone;
+					} else {
+						$util->log( "Using the default WordPress instance timezone info" );
+						// Default to the same TZ as the WordPress server has.
+						$this->gateway_timezone = get_option( 'timezone_string' );
+					}
+					
+					$util->log( "Using {$this->gateway_timezone} as the timezone value" );
+				}
+				
 				return true;
 			} catch ( \Exception $e ) {
 				
@@ -303,6 +322,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				return false;
 			}
+			
 		}
 		
 		/**
@@ -506,7 +526,121 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$this->load_stripe_libs();
 			}
 			
-			// $user_data->set_reminder_type( 'expiration' );
+			$cust_id = $user_data->get_gateway_customer_id();
+			$user_data->set_active_subscription( false );
+			
+			$last_order    = $user_data->get_last_pmpro_order();
+			$last_order_id = ! empty( $last_order->payment_transaction_id ) ? $last_order->payment_transaction_id : null;
+			
+			if ( empty( $cust_id ) ) {
+				
+				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
+				
+				return false;
+			}
+			
+			try {
+				
+				$utils->log( "Accessing Stripe API service for {$cust_id}" );
+				$customer = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
+    
+			} catch ( \Exception $exeption ) {
+				
+				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
+				
+				// $utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
+				
+				return false;
+			}
+			
+			if ( $customer->subscriptions->total_count > 0 ) {
+    
+				$utils->log( "User ID ({$cust_id}) on stripe.com has {$customer->subscriptions->total_count} subscription plans. Skipping payment/charge processing" );
+				return $user_data;
+			}
+			
+			$user_email = $user_data->get_user_email();
+			
+			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'in_' ) ) {
+				try {
+					$inv = Invoice::retrieve( $last_order_id );
+					
+					if ( ! empty( $inv ) ) {
+						$last_order_id = $inv->charge;
+					}
+				} catch ( \Exception $exception ) {
+					$utils->log( "Error fetching invoice info: " . $exception->getMessage() );
+					
+					return false;
+				}
+			}
+			
+			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'ch_' ) ) {
+				try {
+					
+					$utils->log( "Loading charge data for {$last_order_id}" );
+					$charge = Charge::retrieve( $last_order_id );
+					
+				} catch ( \Exception $exception ) {
+					$utils->log( "Error fetching charge/payment: " . $exception->getMessage() );
+					
+					return false;
+				}
+			}
+			
+			$utils->log( "Stripe payment data collected for {$last_order_id} -> {$user_email}" );
+			
+			// Make sure the user email on record locally matches that of the upstream email record for the specified Stripe gateway ID
+			if ( isset( $customer->email ) && $user_email !== $customer->email ) {
+				
+				$utils->log( "The specified user ({$user_email}) and the customer's email Stripe account {$customer->email} doesn't match! Saving to metadata!" );
+				
+				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $customer->email, $user_email );
+				
+				return false;
+			}
+			
+			if ( ! empty( $charge ) ) {
+				
+				if ( 'charge' != $charge->object ) {
+					$utils->log( "Error: This is not a valid Stripe Charge! " . print_r( $charge, true ) );
+					
+					return $user_data;
+				}
+				
+				$user_data->set_charge_info( $last_order_id );
+    
+				$currency = apply_filters('e20r_payment_warning_default_currency', 'USD' );
+				
+				if ( $currency !== $charge->currency ) {
+					$currency = strtoupper( $charge->currency );
+				}
+				
+				$decimals = 2;
+				global $pmpro_currencies;
+				
+				if ( isset( $pmpro_currencies[ $currency ]['decimals'] ) ) {
+					$decimals = intval( $pmpro_currencies[ $currency ]['decimals'] );
+				}
+				
+				
+				$divisor = intval( str_pad( '1', ( 1 + $decimals ),'0', STR_PAD_RIGHT ) );
+				$utils->log("Divisor for calculation: {$divisor}");
+				
+                $amount = number_format_i18n( ( $charge->amount / $divisor ), $decimals );
+				$utils->log("Using amount: {$amount} for {$currency} vs {$charge->amount}");
+				
+				$user_data->set_payment_amount( $amount, $currency );
+				
+				$payment_status = ( 'paid' == $charge->paid ? true : false );
+				$user_data->is_payment_paid( $payment_status, $charge->failure_message );
+				
+				$user_data->set_payment_date( $charge->created, $this->gateway_timezone );
+				$user_data->set_reminder_type( 'expiration' );
+				
+				$user_data = $this->process_credit_card_info( $user_data, $charge->source, $this->gateway_name );
+			}
+			
 			
 			return $user_data;
 		}
@@ -1084,12 +1218,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					$util->log( "Customer subscription plan was deleted" );
 					$this->maybe_update_subscription( 'add', $data_array );
 					break;
-					/*
-					//				case 'customer.subscription.updated': // Subscription plan was deleted / expired / ended
-					//					$util->log( "Customer subscription plan was deleted" );
-					//					$this->maybe_update_subscription( 'update', $data_array );
-					//					break;
-					*/
+				/*
+				//				case 'customer.subscription.updated': // Subscription plan was deleted / expired / ended
+				//					$util->log( "Customer subscription plan was deleted" );
+				//					$this->maybe_update_subscription( 'update', $data_array );
+				//					break;
+				*/
 				case 'source.failed': //Payment source failed!
 					$util->log( "Payement by customer's payment source failed" );
 					$this->maybe_send_payment_failure_message( $data_array );
@@ -1325,9 +1459,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$util->log( "Wanting to add a new subscription for user {$customer_id}/{$user->ID}" );
 				
-				if ( !empty( $customer ) && !empty( $user ) && !empty( $subscription ) ) {
-				    
-				    $util->log("Adding local PMPro order for {$user->ID}/{$customer->id}");
+				if ( ! empty( $customer ) && ! empty( $user ) && ! empty( $subscription ) ) {
+					
+					$util->log( "Adding local PMPro order for {$user->ID}/{$customer->id}" );
 					$user_info = $this->add_local_order( $customer, $user, $subscription );
 					
 					$user_info->set_gw_subscription_id( $subscription->id );
@@ -1360,7 +1494,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$util->log( "End of the current payment period: {$current_payment_until}" );
 						
 						// Add a day (first day of new payment period)
-						$payment_next  = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+						$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
 						
 						$user_info->set_next_payment( $payment_next );
 						$util->log( "Next payment on: {$payment_next}" );
@@ -1395,18 +1529,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					
 					$user_info->set_active_subscription( true );
 					$util->log( "Attempting to load credit card (payment method) info from gateway" );
-     
+					
 					// Trigger handler for credit card data
 					$user_info = $this->process_credit_card_info( $user_info, $customer->sources->data, $this->gateway_name );
 					
 					$user_info->save_to_db();
+					
 					return true;
 				}
 			}
 			
 			if ( 'update' === $operation ) {
-			    
-            }
+			
+			}
 			
 			return false;
 		}
@@ -1440,8 +1575,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				// Set the current level info if needed
 				if ( ! isset( $user->membership_level ) || empty( $user->membership_level ) ) {
-				    
-				    $util->log("Adding membership level info for user {$user->ID}");
+					
+					$util->log( "Adding membership level info for user {$user->ID}" );
 					$user->membership_level = pmpro_getMembershipLevelForUser( $user->ID );
 				}
 				
