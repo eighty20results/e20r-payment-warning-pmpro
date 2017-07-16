@@ -19,230 +19,240 @@
 var e20r_editor = {};
 
 (function ($) {
-    "use strict";
+        "use strict";
 
-    // TODO: Add check that no more than a single template per delay value combo exists.
-    e20r_editor = {
-        init: function () {
+        // TODO: Add check that no more than a single template per delay value combo exists.
+        e20r_editor = {
+            init: function () {
 
-            this.hideable = $('.e20r-start-hidden');
-            this.selected_template = $('select#e20r-message-templates');
-            this.new_schedule_entry = $('.e20r-add-new-schedule');
-            this.remove_entry = $('.e20r-delete-schedule-entry');
-            this.type_select = $('select[id^="e20r-message-type"]');
-            this.first_remove_btn = this.remove_entry.first();
-            this.save_btn = $('#save-template-data');
-            this.reset_btn = $('#reset-template-data');
-            this.add_btn = $('#add-new-template');
-            this.schedule_fields = $('input.e20r-message-schedule');
-            this.disable_template = $('input[id^="e20r-message-disabled"]');
+                this.hideable = $('.e20r-start-hidden');
+                this.selected_template = $('select#e20r-message-templates');
+                this.new_schedule_entry = $('.e20r-add-new-schedule');
+                this.remove_entry = $('.e20r-delete-schedule-entry');
+                this.type_select = $('select[id^="e20r-message-type"]');
+                this.first_remove_btn = this.remove_entry.first();
+                this.save_btn = $('#save-template-data');
+                this.reset_btn = $('#reset-template-data');
+                this.add_btn = $('#add-new-template');
+                this.schedule_fields = $('input.e20r-message-schedule');
+                this.disable_template = $('input[id^="e20r-message-disabled"]');
+                this.file_frame = null;
+                this.new_media = $('#e20r-load-media-btn');
 
-            var self = this;
+                var self = this;
 
-            self.hide_all(self.hideable);
+                self.hide_all(self.hideable);
 
-            // Select the template to edit/update
-            self.selected_template.unbind('change').on('change', function () {
+                // Select the template to edit/update
+                self.selected_template.unbind('change').on('change', function () {
 
-                var $template_name = self.selected_template.val();
-                console.log($template_name);
+                    var $template_name = self.selected_template.val();
+                    console.log($template_name);
 
-                if ($template_name === '-1') {
-                    self.hide_all(self.hideable);
-                } else if ($template_name === 'new') {
-                    self.hide_all(self.hideable);
-                    self.add_new_template_entry();
-                    $('tr.controls').show();
+                    if ($template_name === '-1') {
+                        self.hide_all(self.hideable);
+                    } else if ($template_name === 'new') {
+                        self.hide_all(self.hideable);
+                        self.add_new_template_entry();
+                        $('tr.controls').show();
 
-                    // attach a click event (or whatever you want) to some element on your page
-                    var file_frame; // variable for the wp.media file_frame
+                        self.activate_media_btn();
 
-                    $( '#e20r-load-media-btn' ).on( 'click', function( event ) {
+                    } else {
+                        self.toggle_visibility($('.e20r-message-settings .e20r-message-template-name_' + $template_name));
+                    }
+                });
 
-                        window.console.log("Clicked the media button for the new entry");
+                // Add new schedule (day) entry for the template
+                self.type_select.unbind('change').on('change', function () {
 
-                        event.preventDefault();
+                    var $current_type = $(this).val();
+                    var $template_name = self.extract_template_name();
+                    var append_to = $('.e20r-message-template-name_' + $template_name + '.e20r-message-schedule th.e20r-message-template-col');
 
-                        // if the file_frame has already been created, just reuse it
-                        if ( file_frame ) {
-                            file_frame.open();
-                            return;
-                        }
+                    $('.e20r-message-template-name_' + $template_name + '.e20r-message-schedule-info td.e20r-message-template-col').empty();
 
-                        file_frame = wp.media.frames.file_frame = wp.media({
-                            title: $( this ).data( 'uploader_title' ),
-                            button: {
-                                text: $( this ).data( 'uploader_button_text' ),
-                            },
-                            multiple: false // set this to true for multiple file selection
-                        });
+                    if ('-1' !== $current_type) {
+                        self.add_schedule_entry(append_to, true);
+                    } else {
+                        self.add_schedule_entry(append_to, false);
+                    }
+                });
 
-                        file_frame.on( 'select', function() {
-                            var attachment = file_frame.state().get('selection').first().toJSON();
+                // Disable the current template (disable input fields & tinyMCE editor
+                self.disable_template.on('click', function () {
 
-                            // do something with the file here
-                            $( '#frontend-button' ).hide();
-                            $( '#frontend-image' ).attr('src', attachment.url);
-                        });
+                    var $template_name = self.extract_template_name();
+                    self.disable_fields($(this), $template_name);
+                });
 
-                        file_frame.open();
+                // Save the template content to the back-end
+                self.save_btn.unbind('click').on('click', function () {
+
+                    self.save_template_settings();
+                });
+
+                self.reset_btn.unbind('click').on('click', function () {
+                    // TODO: Implement reset logic
+                    console.log("TODO: Implement template reset (load default template if available)");
+                });
+
+                // Add another schedule entry to the template definition
+                self.update_add_action();
+                self.update_remove_action();
+                self.hide_first_remove_btn();
+                self.update_schedule_action();
+                self.activate_media_btn();
+
+                // Loop through and enable/disable the fields for the template(s)
+                $('input[name="e20r_message_template-key"]').each(function () {
+
+                    var $template_name = $(this).val();
+
+                    // Run on a delay (to allow TinyMCE to complete init)
+                    setTimeout(function () {
+                        self.disable_fields($('input#e20r-message-disabled_' + $template_name), $template_name);
+                    }, 1000);
+                });
+            },
+            activate_media_btn: function () {
+
+                var self = this;
+                self.new_media = $('button#e20r-load-media-btn');
+                window.console.log("Loading click event for NEW media button: ", self.new_media );
+
+                self.new_media.unbind('click').on('click', function () {
+
+                    window.console.log("Clicked the media button for the new entry");
+
+                    event.preventDefault();
+
+                    // if the file_frame has already been created, just reuse it
+                    if (self.file_frame) {
+                        self.file_frame.open();
+                        return;
+                    }
+
+                    self.file_frame = wp.media.frames.file_frame = wp.media({
+                        title: $(this).data('uploader_title'),
+                        button: {
+                            text: $(this).data('uploader_button_text'),
+                        },
+                        multiple: false // set this to true for multiple file selection
                     });
 
-                } else {
-                    self.toggle_visibility($('.e20r-message-settings .e20r-message-template-name_' + $template_name));
-                }
-            });
+                    self.file_frame.on('select', function () {
+                        var attachment = self.file_frame.state().get('selection').first().toJSON();
 
-            // Add new schedule (day) entry for the template
-            self.type_select.unbind('change').on('change', function () {
+                        // do something with the file here
+                        $('#frontend-button').hide();
+                        $('#frontend-image').attr('src', attachment.url);
+                    });
 
-                var $current_type = $(this).val();
-                var $template_name = self.extract_template_name();
-                var append_to = $('.e20r-message-template-name_' + $template_name + '.e20r-message-schedule th.e20r-message-template-col');
+                    self.file_frame.open();
+                });
+            },
+            add_new_template_entry: function () {
 
-                $('.e20r-message-template-name_' + $template_name + '.e20r-message-schedule-info td.e20r-message-template-col').empty();
+                var self = this;
 
-                if ('-1' !== $current_type) {
-                    self.add_schedule_entry(append_to, true);
-                } else {
-                    self.add_schedule_entry(append_to, false);
-                }
-            });
+                event.preventDefault();
+                var $new_entry = e20r_pw_editor.data.new_template;
 
-            // Disable the current template (disable input fields & tinyMCE editor
-            self.disable_template.on('click', function () {
+                window.console.log("Generating empty template row/column");
+                var $last_row = $('table.e20r-message-settings > tbody tr:last-child');
+                $last_row.after($new_entry);
 
-                var $template_name = self.extract_template_name();
-                self.disable_fields($(this), $template_name);
-            });
+                self.update_remove_action();
+                self.update_add_action();
+                self.update_schedule_action();
 
-            // Save the template content to the back-end
-            self.save_btn.unbind('click').on('click', function () {
-
-                self.save_template_settings();
-            });
-
-            self.reset_btn.unbind('click').on('click', function () {
-                // TODO: Implement reset logic
-                console.log("TODO: Implement template reset (load default template if available)");
-            });
-
-            // Add another schedule entry to the template definition
-            self.update_add_action();
-            self.update_remove_action();
-            self.hide_first_remove_btn();
-            self.update_schedule_action();
-
-            // Loop through and enable/disable the fields for the template(s)
-            $('input[name="e20r_message_template-key"]').each(function () {
-
-                var $template_name = $(this).val();
-
-                // Run on a delay (to allow TinyMCE to complete init)
-                setTimeout(function () {
-                    self.disable_fields($('input#e20r-message-disabled_' + $template_name), $template_name);
-                }, 1000);
-            });
-        },
-        add_new_template_entry: function () {
-
-            var self = this;
-
-            event.preventDefault();
-            var $new_entry = e20r_pw_editor.data.new_template;
-
-            window.console.log("Generating empty template row/column");
-            var $last_row = $('table.e20r-message-settings > tbody tr:last-child');
-            $last_row.after($new_entry);
-
-            self.update_remove_action();
-            self.update_add_action();
-            self.update_schedule_action();
-
-            var settings = {
-                tinymce: {
-                    add_form_submit_trigger: true,
-                    add_unload_trigger: true,
-                    branding: false,
-                    convert_fonts_to_spans: true,
-                    convert_urls: false,
-                    doctype: "<!DOCTYPE html>",
-                    end_container_on_empty_block: true,
-                    fix_list_elements: true,
-                    theme: 'modern',
-                    skin: "lightgray",
-                    selector: '#e20r-message-body_new',
-                    height: 350,
-                    font_size_legacy_values: "xx-small,small,medium,large,x-large,xx-large,300%",
-                    font_size_style_values: "xx-small,x-small,small,medium,large,x-large,xx-large",
-                    ie7_compat: true,
-                    indent: true,
-                    indent_after: "p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,tfoot,tbody,tr,section,article,hgroup,aside,figure,figcaption,option,optgroup,datalist",
-                    indent_before: "p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,tfoot,tbody,tr,section,article,hgroup,aside,figure,figcaption,option,optgroup,datalist",
-                    indentation: "30px",
-                    inline_styles: true,
-                    insert_button_items: "image link | inserttable | insertdatetime",
-                    keep_styles: false,
-                    menubar: false,
-                    object_resizing: true,
-                    padd_empty_editor: true,
-                    plugins: "charmap,colorpicker,hr,lists,media,paste,tabfocus,textcolor,fullscreen,wordpress,wpautoresize,wpeditimage,wpemoji,wpgallery,wplink,wpdialogs,wptextpattern,wpview",
-                    preview_styles: "font-family font-size font-weight font-style text-decoration text-transform",
-                    remove_script_host: false,
-                    remove_trailing_brs: true,
-                    render_ui: true,
-                    resize: "vertical",
-                    toolbar1: "formatselect,bold,italic,bullist,numlist,blockquote,alignleft,aligncenter,alignright,link,unlink,wp_more,spellchecker,fullscreen,wp_adv",
-                    toolbar2: "strikethrough,hr,forecolor,pastetext,removeformat,charmap,outdent,indent,undo,redo,wp_help",
-                    toolbar3: "",
-                    toolbar4: "",
-                    wpautop: true,
-                    wpeditimage_html5_captions: true,
-                    wp_shortcut_labels: {
-                        'Align center': "accessC",
-                        'Align left': "accessL",
-                        'Align right': "accessR",
-                        'Blockquote': "accessQ",
-                        'Bold': "metaB",
-                        'Bullet list': "accessU",
-                        'Code': "accessX",
-                        'Copy': "metaC",
-                        'Cut': "metaX",
-                        'Distraction-free writing mode': "accessW",
-                        'Heading 1': "access1",
-                        'Heading 2': "access2",
-                        'Heading 3': "access3",
-                        'Heading 4': "access4",
-                        'Heading 5': "access5",
-                        'Heading 6': "access6",
-                        'Insert Page Break tag': "accessP",
-                        'Insert Read More tag': "accessT",
-                        'Insert/edit image': "accessM",
-                        'Italic': "metaI",
-                        'Justify': "accessJ",
-                        'Keyboard Shortcuts': "accessH",
-                        'Numbered list': "accessO",
-                        'Paragraph': "access7",
-                        'Paste': "metaV",
-                        'Redo': "metaY",
-                        'Remove link': "accessS",
-                        'Select all': "metaA",
-                        'Strikethrough': "accessD",
-                        'Toolbar Toggle': "accessZ",
-                        'Underline': "metaU",
-                        'Undo': "metaZ"
+                var settings = {
+                    tinymce: {
+                        add_form_submit_trigger: true,
+                        add_unload_trigger: true,
+                        branding: false,
+                        convert_fonts_to_spans: true,
+                        convert_urls: false,
+                        doctype: "<!DOCTYPE html>",
+                        end_container_on_empty_block: true,
+                        fix_list_elements: true,
+                        theme: 'modern',
+                        skin: "lightgray",
+                        selector: '#e20r-message-body_new',
+                        height: 350,
+                        font_size_legacy_values: "xx-small,small,medium,large,x-large,xx-large,300%",
+                        font_size_style_values: "xx-small,x-small,small,medium,large,x-large,xx-large",
+                        ie7_compat: true,
+                        indent: true,
+                        indent_after: "p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,tfoot,tbody,tr,section,article,hgroup,aside,figure,figcaption,option,optgroup,datalist",
+                        indent_before: "p,h1,h2,h3,h4,h5,h6,blockquote,div,title,style,pre,script,td,th,ul,ol,li,dl,dt,dd,area,table,thead,tfoot,tbody,tr,section,article,hgroup,aside,figure,figcaption,option,optgroup,datalist",
+                        indentation: "30px",
+                        inline_styles: true,
+                        insert_button_items: "image link | inserttable | insertdatetime",
+                        keep_styles: false,
+                        menubar: false,
+                        object_resizing: true,
+                        padd_empty_editor: true,
+                        plugins: "charmap,colorpicker,hr,lists,media,paste,tabfocus,textcolor,fullscreen,wordpress,wpautoresize,wpeditimage,wpemoji,wpgallery,wplink,wpdialogs,wptextpattern,wpview",
+                        preview_styles: "font-family font-size font-weight font-style text-decoration text-transform",
+                        remove_script_host: false,
+                        remove_trailing_brs: true,
+                        render_ui: true,
+                        resize: "vertical",
+                        toolbar1: "formatselect,bold,italic,bullist,numlist,blockquote,alignleft,aligncenter,alignright,link,unlink,wp_more,spellchecker,fullscreen,wp_adv",
+                        toolbar2: "strikethrough,hr,forecolor,pastetext,removeformat,charmap,outdent,indent,undo,redo,wp_help",
+                        toolbar3: "",
+                        toolbar4: "",
+                        wpautop: true,
+                        wpeditimage_html5_captions: true,
+                        wp_shortcut_labels: {
+                            'Align center': "accessC",
+                            'Align left': "accessL",
+                            'Align right': "accessR",
+                            'Blockquote': "accessQ",
+                            'Bold': "metaB",
+                            'Bullet list': "accessU",
+                            'Code': "accessX",
+                            'Copy': "metaC",
+                            'Cut': "metaX",
+                            'Distraction-free writing mode': "accessW",
+                            'Heading 1': "access1",
+                            'Heading 2': "access2",
+                            'Heading 3': "access3",
+                            'Heading 4': "access4",
+                            'Heading 5': "access5",
+                            'Heading 6': "access6",
+                            'Insert Page Break tag': "accessP",
+                            'Insert Read More tag': "accessT",
+                            'Insert/edit image': "accessM",
+                            'Italic': "metaI",
+                            'Justify': "accessJ",
+                            'Keyboard Shortcuts': "accessH",
+                            'Numbered list': "accessO",
+                            'Paragraph': "access7",
+                            'Paste': "metaV",
+                            'Redo': "metaY",
+                            'Remove link': "accessS",
+                            'Select all': "metaA",
+                            'Strikethrough': "accessD",
+                            'Toolbar Toggle': "accessZ",
+                            'Underline': "metaU",
+                            'Undo': "metaZ"
+                        }
+                    },
+                    quicktags: {
+                        height: 350,
+                        width: '100%',
+                        buttons: 'strong,em,block,del,img,link,code,li,ol,ins,more,ul,spell,close'
                     }
-                },
-                quicktags: {
-                    height: 350,
-                    width: '100%',
-                    buttons: 'strong,em,block,del,img,link,code,li,ol,ins,more,ul,spell,close'
-                }
-            };
+                };
 
-            wp.editor.initialize('e20r-message-body_new', settings);
-            self.save_btn.show();
-        },
+                wp.editor.initialize('e20r-message-body_new', settings);
+                self.activate_media_btn();
+
+                self.save_btn.show();
+            },
             update_add_action: function () {
 
                 var self = this;
@@ -261,6 +271,7 @@ var e20r_editor = {};
 
                     self.update_schedule_action();
                     self.update_remove_action();
+                    self.activate_media_btn();
                 });
             }
             ,
@@ -380,14 +391,14 @@ var e20r_editor = {};
                 self.hide_first_remove_btn();
                 self.update_remove_action();
                 self.update_add_action();
+                self.activate_media_btn();
                 self.update_schedule_action();
             }
             ,
             extract_template_name: function () {
 
                 return $('#e20r-message-templates').val();
-            }
-            ,
+            },
             reset_template_settings: function () {
 
                 // TODO: Implement reset template logic!
@@ -415,8 +426,7 @@ var e20r_editor = {};
                         alert("Error: Unable to reset template");
                     }
                 });
-            }
-            ,
+            },
             save_template_settings: function () {
 
                 event.preventDefault();
@@ -511,12 +521,7 @@ var e20r_editor = {};
                 });
             }
         }
-    }
-    )(jQuery);
-
-jQuery(document).on('wp-before-quicktags-init', function (event, editor) {
-    window.console.log("TinyMCE Quicktag Settings: ", editor );
-});
+    })(jQuery);
 
 jQuery(document).ready(function () {
     "use strict";
