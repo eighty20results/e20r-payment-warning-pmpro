@@ -308,10 +308,38 @@ class Email_Message {
 		$this->prepare_headers();
 		
 		$this->subject = apply_filters( 'e20r-payment-warning-email-subject', $this->template_settings['subject'], $type );
+		$to            = $this->user_info->get_user_email();
 		
-		$util->log( "Sending message to " . $this->user_info->get_user_email() . ' -> ' . $this->subject );
+		$util->log( "Sending message to {$to} -> " . $this->subject );
+		$status = wp_mail( $to, $this->subject, $this->template_settings['body'], $this->headers );
 		
-		return wp_mail( $this->user_info->get_user_email(), $this->subject, $this->template_settings['body'], $this->headers );
+		if ( true == $status ) {
+			
+			$util->log( "Recording that we attempted to send a {$type} message to: {$to}" );
+			$today = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+			$who   = get_option( "e20r_pw_sent_{$type}", array() );
+			
+			if ( ! isset ( $who[ $today ] ) ) {
+				
+				$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
+				
+				$who[ $today ] = array();
+				
+				if ( count( $who ) > 1 ) {
+					
+					$util->log( "Cleaning up the array of users" );
+					$new = array( $today => array() );
+					$who = array_intersect_key( $who, $new );
+				}
+			}
+			
+			$who[ $today ][] = $to;
+			update_option( "e20r_pw_sent_{$type}", $who, false );
+		} else {
+			$util->log( "Error sending {$type} message to {$to}" );
+		}
+		
+		return $status;
 	}
 	
 	/**
