@@ -53,6 +53,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		public function get_remote_subscription_data() {
 			
 			$utils = Utilities::get_instance();
+			$main = Payment_Warning::get_instance();
+			
 			
 			$utils->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
@@ -64,18 +66,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			foreach ( $this->active_members as $user_data ) {
 				
-				$utils->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
-				$this->process_subscriptions->push_to_queue( $user_data );
+				if ( true == $main->load_options( 'enable_payment_warnings' ) ) {
+					
+					$utils->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
+					$this->process_subscriptions->push_to_queue( $user_data );
+					
+					$utils->log( "Dispatch the background job for the subscription data" );
+					$this->process_subscriptions->save()->dispatch();
+					
+				}
 				
-				// $utils->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
-				// $this->process_payments->push_to_queue( $user_data );
+				// Only process if the admin wants to process expiration warning data _and_ the user doesn't already have subscrption data
+				if ( true == $main->load_options( 'enable_expiration_warnings' ) ) {
+
+					$utils->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
+					$this->process_payments->push_to_queue( $user_data );
+					
+					$utils->log( "Dispatch the background job for the payment data" );
+					$this->process_payments->save()->dispatch();
+					
+				}
 			}
-			
-			$utils->log( "Dispatch the background job for the subscription data" );
-			$this->process_subscriptions->save()->dispatch();
-			
-			//$utils->log( "Dispatch the background job for the payment data" );
-			//$this->process_payments->save()->dispatch();
 			
 		}
 		
@@ -85,6 +96,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		public function get_remote_payment_data() {
 			
 			$utils = Utilities::get_instance();
+			$main = Payment_Warning::get_instance();
+			
+			if ( false == $main->load_options( 'enable_expiration_warnings' ) ) {
+				
+				$utils->log("User has not configured payment download to execute!");
+				return;
+			}
 			
 			$utils->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
