@@ -202,12 +202,9 @@ class Template_Editor_View {
 						wp_editor( ( ! empty( $template['body'] ) ? $template['body'] : null ), "e20r-message-body_{$template_name}", array( 'editor_height' => 350 ) );
 					} else {
 						?>
-                        <div id="wp-e20r-message-body_new-media-buttons" class="wp-media-buttons">
-                            <button id="e20r-load-media-btn" type="button" class="button insert-media add_media" data-editor="e20r-message-body_new">
-                                <span class="wp-media-buttons-icon"></span>
-                                <?php _e("Add Media", Payment_Warning::plugin_slug ); ?>
-                            </button>
-                        </div>
+                        <!-- <div id="wp-e20r-message-body_new-media-buttons" class="wp-media-buttons"> -->
+                            <button id="e20r-load-media-btn" type="button" class="button insert-media add_media" data-editor="e20r-message-body_new"><span class="wp-media-buttons-icon"></span><?php _e("Add Media", Payment_Warning::plugin_slug ); ?></button>
+                        <!-- </div> -->
                         <textarea name="e20r-message-body_new" id="e20r-message-body_new"></textarea><?php
 					} ?>
                 </div>
