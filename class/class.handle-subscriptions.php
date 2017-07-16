@@ -84,17 +84,25 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		return false;
 	}
 	
+	/**
+	 * Clear queue of entries for this handler
+	 */
 	public function clear_queue() {
+		
 		global $wpdb;
+		
 		$table  = $wpdb->options;
 		$column = 'option_name';
+		
 		if ( is_multisite() ) {
 			$table  = $wpdb->sitemeta;
 			$column = 'meta_key';
 		}
+		
 		$key = $this->identifier . "_batch_%";
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) );
 	}
+	
 	/**
 	 * Log & complete the Handle_Subscriptions background operation
 	 *
