@@ -103,7 +103,10 @@ class Editor {
 		// In backend
 		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-payment-warning-templates' === $_REQUEST['page'] ) {
 			
+			global $post;
+			
 			wp_enqueue_editor();
+			wp_enqueue_media( $post->ID );
 			
 			$util->log("Loading style(s) for Payment Warning plugin");
 			
