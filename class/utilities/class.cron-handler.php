@@ -190,7 +190,16 @@ class Cron_Handler {
 	 */
 	public function send_cc_warning_messages() {
 		
-		$util = Utilities::get_instance();
+		$util      = Utilities::get_instance();
+		$first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
+		
+		if ( true == $first_run ) {
+			$util->log("Not running on startup!");
+			update_option( 'e20r_pw_firstrun_cc_msg', true, false );
+			
+			return;
+		}
+		
 		$util->log( "Running send email handler (cron job) for credit card expiration warnings" );
 		
 		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
@@ -208,7 +217,16 @@ class Cron_Handler {
 	 */
 	public function send_expiration_messages() {
 		
-		$util = Utilities::get_instance();
+		$util      = Utilities::get_instance();
+		$first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
+		
+		if ( true == $first_run ) {
+			$util->log("Not running on startup!");
+			update_option( 'e20r_pw_firstrun_exp_msg', true, false );
+			
+			return;
+		}
+		
 		$util->log( "Running send email handler (cron job) for expiration warnings" );
 		
 		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
@@ -226,7 +244,16 @@ class Cron_Handler {
 	 */
 	public function send_reminder_messages() {
 		
-		$util = Utilities::get_instance();
+		$util      = Utilities::get_instance();
+		$first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
+		
+		if ( true == $first_run ) {
+			$util->log("Not running on startup!");
+			update_option( 'e20r_pw_firstrun_reminder_msg', true, false );
+			
+			return;
+		}
+		
 		$util->log( "Running send email handler (cron job)" );
 		
 		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
@@ -243,7 +270,15 @@ class Cron_Handler {
 	 */
 	public function fetch_gateway_payment_info() {
 		
-		$util = Utilities::get_instance();
+		$util      = Utilities::get_instance();
+		$first_run = get_option( 'e20r_pw_firstrun_fetch_data', false );
+		
+		if ( true == $first_run ) {
+			$util->log("Not running on startup!");
+			update_option( 'e20r_pw_firstrun_fetch_data', true, false );
+			
+			return;
+		}
 		$util->log( "Running remote data update handler (cron job)" );
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
