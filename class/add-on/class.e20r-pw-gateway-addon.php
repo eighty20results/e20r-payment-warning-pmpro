@@ -59,6 +59,12 @@ abstract class E20R_PW_Gateway_Addon {
 	private $option_name = 'e20r_pwgw_default';
 	
 	/**
+	 * @var null|string Timezone string for payment gateway config
+	 *
+	 * @access protected
+	 */
+	protected $gateway_timezone;
+	/**
 	 * Local settings array
 	 *
 	 * @var array
@@ -125,7 +131,7 @@ abstract class E20R_PW_Gateway_Addon {
 	public function verify_gateway_processor( User_Data $user_data, $stub, $gateway_name ) {
 		
 		$utils = Utilities::get_instance();
-		$utils->log( "Processing gateway subscription fetch for {$stub}" );
+		$utils->log( "Processing gateway data fetch for {$stub}" );
 		
 		if ( false === $this->is_active( $stub ) ) {
 			$utils->log( "The {$stub} add-on is not active!" );
