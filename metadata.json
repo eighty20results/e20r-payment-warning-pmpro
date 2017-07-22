@@ -1,17 +1,17 @@
 {
   "name" : "E20R Payment Warnings for Paid Memberships Pro",
   "slug" : "e20r-payment-warning-pmpro",
-  "download_url" : "https://eighty20results.com/protected-content/e20r-payment-warning-pmpro/e20r-payment-warning-pmpro-1.0.0.zip",
-  "version" : "1.0.0",
+  "download_url" : "https://eighty20results.com/protected-content/e20r-payment-warning-pmpro/e20r-payment-warning-pmpro-1.0.zip",
+  "version" : "1.0",
   "tested": "4.8",
   "requires": "4.8",
-  "author" : "Thoams Sjolshagen @ Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>",
+  "author" : "Thomas Sjolshagen @ Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>",
   "author_homepage": "https://eighty20results.com/thomas-sjolshagen",
-  "last_updated": "2017-06-15 14:00:00",
+  "last_updated": "2017-07-22 17:15:00",
   "homepage": "https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro/",
   "sections" : {
     "description" : "Payment Warning Messages for Paid Memberships Pro.",
-    "changelog": "",
+    "changelog": "<h3>1.0</h3><ol><li>Initial Release (v1.0)</li></ol>",
     "faq": "<h3>I found a bug in the plugin.</h3>Please report your issue to us by using the <a href='https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-warning-pmpro/' target='_blank'>E20R Payment Warning for Paid Memberships Pro</a> Support Forum on The Eighty / 20 Website, and we'll try to respond within 1 business day."
     }
 }

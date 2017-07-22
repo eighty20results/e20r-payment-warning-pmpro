@@ -26,6 +26,19 @@ Generates and sends notices to active Paid Memberships Pro members about their u
 
  Please report your issue to us by using the (E20R Payment Warning for PMPro)[link="https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-gateway-pmpro/"] Support Forum on The Eighty / 20 Website, and we'll try to respond within 1 business day.
 
+= Known Issues =
+
+The "Add Media" button when adding a new template in the E20R Template editor is a little troublesome and may required extra clicks to close/update.
+
+The "Text" window in the E20R Template Editor is mis-sized (doesn't fill the full width of the Visual editor).
+
+The "Credit Card Expiration" messages will not get sent/processed (upcoming feature).
+
+The plugin currently supports the Stripe.com payment gateway. Adding more gateways is on the roadmap, but will require sponsorships. You can sponsor support for a new gateway by going to (The Eighty / 20 Results Shopping page)[link="https://eighty20results.com/shop"] and purchase a sponsorship. When you sponsor the development of gateway support you will receive support for life, plus a lifetime license to the E20R Payment Warning for PMPro plugin.
+
 = Changelog =
 
+== 1.0 ==
 
+* Initial Release (v1.0)
+* ENHANCEMENT: Prevent Cron jobs from running immediately
