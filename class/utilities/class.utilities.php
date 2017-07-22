@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.3
+ * @version 1.6
  */
 
 namespace E20R\Payment_Warning\Utilities;
@@ -137,6 +137,43 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		}
 		
 		/**
+		 * Test whether the plugin is active on the system or in the network
+		 *
+		 * @param null|string $plugin_file
+		 * @param null|string $function_name
+		 *
+		 * @return bool
+		 */
+		public function plugin_is_active( $plugin_file = null, $function_name = null ) {
+			
+			$this->log( "Testing whether plugin file ({$plugin_file}) or function ({$function_name}) exists/indicates an active plugin" );
+			if ( ! is_admin() ) {
+				
+				if ( ! empty( $function_name ) ) {
+					$this->log( "{$function_name} is present and loaded?" );
+					
+					return function_exists( $function_name );
+				}
+			} else {
+				
+				$this->log( "In WordPress backend..." );
+				if ( ! empty( $plugin_file ) ) {
+					$this->log( "{$plugin_file} is loaded and activated?" );
+					
+					return ( is_plugin_active( $plugin_file ) || is_plugin_active_for_network( $plugin_file ) );
+				}
+				
+				if ( ! empty( $function_name ) ) {
+					$this->log( "{$function_name} function is present, implying the plugin is loaded and activated" );
+					
+					return function_exists( $function_name );
+				}
+			}
+			
+			return false;
+		}
+		
+		/**
 		 * Return last message of a specific type
 		 *
 		 * @param string $type
@@ -241,11 +278,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		}
 		
 		/**
-         * Idenitfy the calling function (used in debug logger
-         *
+		 * Identify the calling function (used in debug logger
+		 *
 		 * @return array|string
-         *
-         * @access private
+		 *
+		 * @access private
 		 */
 		private function _who_called_me() {
 			
@@ -262,8 +299,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		}
 		
 		/**
-         * Return all delay values for a membership payment start
-         *
+		 * Return all delay values for a membership payment start
+		 *
 		 * @param $level
 		 *
 		 * @return array|bool|mixed|null
@@ -271,20 +308,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		public static function get_membership_start_delays( $level ) {
 			
 			$delays = array();
-			self::$instance->log("Processing start delays for {$level->id}");
+			self::$instance->log( "Processing start delays for {$level->id}" );
 			
 			if ( true === pmpro_isLevelRecurring( $level ) ) {
-       
-			    self::$instance->log("Level {$level->id} is a recurring payments level");
-			    
+				
+				self::$instance->log( "Level {$level->id} is a recurring payments level" );
+				
 				if ( null === ( $delays = Cache::get( "start_delay_{$level->id}", self::$cache_key ) ) ) {
 					
-					self::$instance->log("Invalid cache... Loading from scratch");
+					self::$instance->log( "Invalid cache... Loading from scratch" );
 					
 					// Calculate the trial period (may be smaller than a normal billing period
 					if ( $level->cycle_number > 0 ) {
 						
-						self::$instance->log("Is a recurring billing level");
+						self::$instance->log( "Is a recurring billing level" );
 						
 						$trial_cycles       = $level->trial_limit;
 						$period_days        = self::convert_period( $level->cycle_period );
@@ -297,30 +334,30 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 						if ( ! empty( $trial_cycles ) ) {
 							$delays['trial'] = $trial_cycles * $billing_cycle_days;
 						}
-      
-						$delays[$level->id] = ( $billing_cycle_days * $level->cycle_number );
-						self::$instance->log("Days used for delay value: {$delays[$level->id]} ");
+						
+						$delays[ $level->id ] = ( $billing_cycle_days * $level->cycle_number );
+						self::$instance->log( "Days used for delay value: {$delays[$level->id]} " );
 					}
 					
 					// We have Subscription Delays add-on for PMPro installed and active
 					if ( function_exists( 'pmprosd_getDelay' ) ) {
 						
-						self::$instance->log( "Processing Subscription Delay values for {$level->id}");
+						self::$instance->log( "Processing Subscription Delay values for {$level->id}" );
 						
 						//Get the default delay value (days)
 						$date_or_num = pmprosd_getDelay( $level->id, null );
-						self::$instance->log("Received default delay value: {$date_or_num}");
+						self::$instance->log( "Received default delay value: {$date_or_num}" );
 						
-						if ( !empty( $date_or_num ) ) {
-						    $val = ( is_numeric( $date_or_num ) ? $date_or_num : pmprosd_daysUntilDate( $date_or_num ) );
+						if ( ! empty( $date_or_num ) ) {
+							$val = ( is_numeric( $date_or_num ) ? $date_or_num : pmprosd_daysUntilDate( $date_or_num ) );
 							
-						    if ( !empty( $val ) ) {
+							if ( ! empty( $val ) ) {
 								$delays['default'] = $val;
 								self::$instance->log( "Configured default value {$delays[ 'default' ]}" );
 							}
 						} else {
-						    self::$instance->log("No default value for level {$level->id} specified");
-                        }
+							self::$instance->log( "No default value for level {$level->id} specified" );
+						}
 						
 						// Fetch discount codes to locate delays for
 						$active_codes = self::get_all_discount_codes();
@@ -335,10 +372,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 								
 								if ( ! empty( $d ) ) {
 									
-								    self::$instance->log("Processing {$d}");
+									self::$instance->log( "Processing {$d}" );
 									$val = ( is_numeric( $d ) ? $d : pmprosd_daysUntilDate( $d ) );
 									
-									if ( !empty( $val )) {
+									if ( ! empty( $val ) ) {
 										$delays[ $code->code ] = $val;
 										self::$instance->log( "Configured {$code->code} value {$delays[ $code->code ]}" );
 									}
@@ -354,14 +391,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 						Cache::set( "start_delay_{$level->id}", $delays, WEEK_IN_SECONDS, self::$cache_key );
 					}
 				}
-            }
-            
+			}
+			
 			return $delays;
 		}
 		
 		/**
-         * Convert a Cycle Period (from PMPro) string to an approximate day count
-         *
+		 * Convert a Cycle Period (from PMPro) string to an approximate day count
+		 *
 		 * @param string $period
 		 *
 		 * @return int|null
@@ -393,13 +430,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		}
 		
 		/**
-         * Return all PMPro discount codes from the system
-         *
+		 * Return all PMPro discount codes from the system
+		 *
 		 * @return array|null|object
 		 */
 		public static function get_all_discount_codes() {
 			
 			global $wpdb;
+			
 			return $wpdb->get_results( "SELECT id, code FROM {$wpdb->pmpro_discount_codes}" );
 		}
 		
@@ -408,13 +446,92 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		 */
 		public function clear_delay_cache( $level_id ) {
 			
-		    $this->log("Clearing delay cache for {$level_id}");
-            Cache::delete( "start_delay_{$level_id}", self::$cache_key );
+			$this->log( "Clearing delay cache for {$level_id}" );
+			Cache::delete( "start_delay_{$level_id}", self::$cache_key );
 		}
 		
 		/**
-         * Print a message to the WP_DEBUG logger if configured
-         *
+		 * Test whether the user is in Trial mode (i.e. the user's startdate is configured as 'after' the current date/time
+		 *
+		 * @param int $user_id
+		 * @param int $level_id
+		 *
+		 * @return int|bool - Returns the Timestamp (seconds) of when the trial ends, or false if no trial was found
+		 */
+		public function is_in_trial( $user_id, $level_id ) {
+			
+			global $wpdb;
+			$this->log("Processing trial test for {$user_id} and {$level_id}");
+			
+			// Get the most recent (active) membership level record for the specified user/membership level ID
+			$sql = $wpdb->prepare(
+				"SELECT UNIX_TIMESTAMP( mu.startdate ) AS start_date
+                     FROM {$wpdb->pmpro_memberships_users} AS mu
+                     WHERE mu.user_id = %d
+                          AND mu.membership_id = %d
+                     ORDER BY mu.id DESC
+                     LIMIT 1",
+				$user_id,
+				$level_id
+			);
+			
+			$start_ts = intval( $wpdb->get_var( $sql ) );
+			
+			$this->log("Found start Timestamp: {$start_ts}");
+			
+			// No record found for specified user, so can't be in a trial...
+			if ( empty( $start_ts ) ) {
+				$this->log("No start time found for {$user_id}, {$level_id}: {$wpdb->last_error}");
+				return false;
+			}
+			
+			$now = current_time( 'timestamp' );
+			
+			if ( true === $this->plugin_is_active( 'pmprosd_daysUntilDate' ) ) {
+				
+				$this->log( "The PMPro Subscription Delays add-on is active on this system" );
+				
+				// Is the user record in 'pre-start' mode (i.e. using Subscription Delay add-on)
+				if ( ! empty( $start_ts ) && $start_ts <= $now ) {
+					
+					$this->log( "User ({$user_id}) at membership level ({$level_id}) is currently in 'trial' mode: {$start_ts} <= {$now}" );
+					
+					return $start_ts;
+				}
+			} else if ( true === $this->plugin_is_active( 'paid-memberships-pro/paid-memberships-pro.php', 'pmpro_getMembershipLevelForUser' ) ) {
+				
+				$this->log( "No trace of the 'Subscription Delays' add-on..." );
+				
+				$user_level = pmpro_getMembershipLevelForUser( $user_id );
+				
+				// Is there a trial period defined for this user?
+				if ( ! empty( $user_level->cycle_number ) && ! empty( $user_level->trial_limit ) ) {
+					
+					$trial_duration = $user_level->cycle_number * $user_level->trial_limit;
+					$start_date     = date( 'Y-m-d H:i:s', $start_ts );
+					$trial_ends_ts  = strtotime( "{$start_date} + {$trial_duration} {$user_level->cycle_period}" );
+					
+					if ( false !== $trial_ends_ts && $trial_ends_ts >= $now ) {
+						$this->log( "User {$user_id} is in their current trial period for level {$level_id}: It ends at {$trial_ends_ts} which is >= {$now} " );
+						
+						return $trial_ends_ts;
+					} else {
+						$this->log("There was a problem converting the trial period info into a timestamp!" );
+					}
+				} else {
+					$this->log( "No Trial period defined for user..." );
+				}
+				
+			} else {
+				$this->log( "Neither PMPro nor Subscription Delays add-on is installed and active!!" );
+			}
+			
+			return false;
+		}
+		
+		/**
+		 * Print a message to the WP_DEBUG logger if configured
+		 *
 		 * @param $msg
 		 */
 		public function log( $msg ) {
@@ -429,8 +546,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		}
 		
 		/**
-         * Case insensitive search/replace function (recursive)
-         *
+		 * Case insensitive search/replace function (recursive)
+		 *
 		 * @param string $search
 		 * @param string $replacer
 		 * @param string $input
@@ -496,11 +613,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 					} else {
 						$field = wp_kses_post( $field );
 					}
-				}
-				
-				if ( is_array( $field ) ) {
-					
-					$field = array_map( 'sanitize_text_field', $field );
 				}
 				
 			} else {
