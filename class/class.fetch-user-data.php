@@ -52,42 +52,78 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 */
 		public function get_remote_subscription_data() {
 			
-			$utils = Utilities::get_instance();
+			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
 			
-			$utils->log( "Trigger load of the active add-on gateway(s)" );
+			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
-			$utils->log( "Grab all active PMPro Members" );
+			$util->log( "Grab all active PMPro Members" );
 			$this->get_active_subscription_members();
 			
-			$utils->log( "Process subscription data for " . count( $this->active_members ) . " active members" );
+			$data_count = count( $this->active_members );
 			
-			foreach ( $this->active_members as $user_data ) {
+			$util->log( "Process subscription data for {$data_count} active members" );
+			
+			if ( $data_count >= 250 ) {
 				
-				if ( true == $main->load_options( 'enable_payment_warnings' ) ) {
+				$util->log("Using large request handler");
+				
+				$no_chunks = ceil( $data_count / 250 );
+				$util->log( "Splitting data into {$no_chunks} chunks");
+				
+				for( $i = 1 ; $i <= $no_chunks ; $i++ ) {
 					
-					$utils->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
-					$this->process_subscriptions->push_to_queue( $user_data );
+					$to_process = array_chunk( $this->active_members, ( $i * 250 ) );
 					
-					$utils->log( "Dispatch the background job for the subscription data" );
-					$this->process_subscriptions->save()->dispatch();
+					$subscription_handler = new Large_Request_Handler(
+						$this->process_subscriptions,
+						'enable_payment_warnings'
+					);
 					
+					$subscription_handler->push_to_queue( $to_process )->save();
+					$subscription_handler->dispatch();
+					
+					$payment_handler = new Large_Request_Handler(
+						$this->process_payments,
+						'enable_expiration_warnings'
+					);
+					
+					$payment_handler->push_to_queue( $to_process )->save();
+					$payment_handler->dispatch();
+					
+					$util->log( "Added data set # {$i} to request dispatcher" );
 				}
 				
-				// Only process if the admin wants to process expiration warning data _and_ the user doesn't already have subscrption data
-				if ( true == $main->load_options( 'enable_expiration_warnings' ) ) {
-
-					$utils->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
-					$this->process_payments->push_to_queue( $user_data );
+				
+				
+			} else {
+				
+				$util->log("No need to split the dataset to queue for processing!");
+				
+				foreach ( $this->active_members as $user_data ) {
 					
-					$utils->log( "Dispatch the background job for the payment data" );
-					$this->process_payments->save()->dispatch();
+					if ( true === $main->load_options( 'enable_payment_warnings' ) ) {
+						
+						$util->log( "Adding remote subscription data processing for " . $user_data->get_user_ID() );
+						$this->process_subscriptions->push_to_queue( $user_data );
+						
+						$util->log( "Dispatch the subscription fetch background job" );
+						$this->process_subscriptions->save()->dispatch();
+					}
 					
+					if (  true == $main->load_options( 'enable_expiration_warnings' ) ) {
+						
+						$util->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
+						$this->process_payments->push_to_queue( $user_data );
+						
+						$util->log( "Dispatch the background job for the payment data" );
+						$this->process_payments->save()->dispatch();
+					}
 				}
+				
 			}
-			
 		}
 		
 		/**
