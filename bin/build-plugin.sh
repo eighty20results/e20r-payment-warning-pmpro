@@ -1,10 +1,10 @@
 #!/bin/bash
 # Build script: Copyright 2016 Eighty/20 Results by Wicked Strong Chicks, LLC
-# Payment Warning for Paid Memberships Pro (with add-on support)
+# Payment Warning for Paid Memberships Pro (with add-on payment gateway support)
 #
 short_name="e20r-payment-warning-pmpro"
 server="eighty20results.com"
-include=(class css javascript languages LICENSE plugin-updates class.${short_name}.php readme.txt)
+include=(class css javascript languages LICENSE plugin-updates templates class.${short_name}.php readme.txt)
 exclude=(*.yml *.phar composer.* vendor)
 build=(plugin-updates/vendor/*.php)
 plugin_path="${short_name}"
