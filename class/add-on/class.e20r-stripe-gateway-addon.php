@@ -454,20 +454,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$user_data->set_payment_currency( $plan_currency );
 						
 						$utils->log( "Payments are made in: {$plan_currency}" );
-						$has_decimals = true;
 						
-						if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
-							
-							// Is this for a no-decimal currency?
-							if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
-								$utils->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
-								$has_decimals = false;
-							}
-						}
-						
-						// Get the amount & cast it to a floating point value
-						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
-						$user_data->set_next_payment_amount( $amount );
+						$amount = $utils->amount_by_currency( $subscription->plan->amount, $plan_currency );
+                        $user_data->set_next_payment_amount( $amount );
+                        
 						$utils->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
 						
 						$user_data->set_reminder_type( 'recurring' );
@@ -608,29 +598,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					return $user_data;
 				}
 				
+				$amount = $utils->amount_by_currency( $charge->amount, $charge->currency );
+				
 				$user_data->set_charge_info( $last_order_id );
-    
-				$currency = apply_filters('e20r_payment_warning_default_currency', 'USD' );
-				
-				if ( $currency !== $charge->currency ) {
-					$currency = strtoupper( $charge->currency );
-				}
-				
-				$decimals = 2;
-				global $pmpro_currencies;
-				
-				if ( isset( $pmpro_currencies[ $currency ]['decimals'] ) ) {
-					$decimals = intval( $pmpro_currencies[ $currency ]['decimals'] );
-				}
-				
-				
-				$divisor = intval( str_pad( '1', ( 1 + $decimals ),'0', STR_PAD_RIGHT ) );
-				$utils->log("Divisor for calculation: {$divisor}");
-				
-                $amount = number_format_i18n( ( $charge->amount / $divisor ), $decimals );
-				$utils->log("Using amount: {$amount} for {$currency} vs {$charge->amount}");
-				
-				$user_data->set_payment_amount( $amount, $currency );
+				$user_data->set_payment_amount( $amount, $charge->currency );
 				
 				$payment_status = ( 'paid' == $charge->paid ? true : false );
 				$user_data->is_payment_paid( $payment_status, $charge->failure_message );
