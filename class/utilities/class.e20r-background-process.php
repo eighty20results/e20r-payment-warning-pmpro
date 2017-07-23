@@ -376,7 +376,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 */
 		protected function time_exceeded() {
 			
-			$util               = Utilities::get_instance();
 			$current_timeout    = ini_get( 'max_execution_time' );
 			$default_time_limit = 20;
 			
@@ -389,8 +388,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 					$default_time_limit = 20;
 				}
 			}
-			
-			$util->log( "Timeout value during processing: {$default_time_limit}" );
 			
 			$finish = $this->start_time + apply_filters( $this->identifier . '_default_time_limit', $default_time_limit ); // 20 seconds
 			$return = false;
@@ -423,18 +420,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 */
 		public function schedule_cron_healthcheck( $schedules ) {
 			
-			$util            = Utilities::get_instance();
 			$current_timeout = ini_get( 'max_execution_time' );
 			
-			$util->log( "Fetched timeout value: {$current_timeout} seconds" );
 			$min_interval = 2;
 			
 			if ( ! empty( $current_timeout ) ) {
 				$max_in_mins  = ceil( $current_timeout / 60 );
 				$min_interval = $max_in_mins + 1;
 			}
-			
-			$util->log( "Setting timeout value for cron handler to {$min_interval}" );
 			
 			$interval = apply_filters( $this->identifier . '_cron_interval', $min_interval );
 			if ( property_exists( $this, 'cron_interval' ) ) {
