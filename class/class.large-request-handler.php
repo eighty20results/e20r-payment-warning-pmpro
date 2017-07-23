@@ -19,41 +19,27 @@
 
 namespace E20R\Payment_Warning;
 
-
-use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Payment_Warning\Utilities\E20R_Background_Process;
+use E20R\Payment_Warning\Utilities\Utilities;
 
 class Large_Request_Handler extends E20R_Background_Process {
 	
-	private $type = null;
-	
-	private $handler = null;
-	
-	private $request_list = null;
-	
-	private static $instance = null;
+	protected $action = null;
 	
 	/**
 	 * Large_Request_Handler constructor.
 	 *
-	 * @param Handle_Subscriptions|Handle_Payments $handler
-	 * @param string $type
+	 * @param int $cnt
 	 */
-	public function __construct( $handler, $type ) {
-		
-		$this->type = $type;
-		$this->handler = $handler;
+	public function __construct( $class ) {
 		
 		$util = Utilities::get_instance();
-		$util->log("Instantiated Large_Request_Handler class");
 		
-		self::$instance = $this;
-		
-		$av = get_class( $handler );
+		$av = get_class( $class );
 		$name = explode( '\\', $av );
-		$this->action = "lrh_" . strtolower( $name[(count( $name ) - 1 )] );
+		$this->action = "lhr_" . strtolower( $name[(count( $name ) - 1 )] );
 		
-		$util->log("Set Action variable to {$this->action} for this Large_Request_Handler");
+		$util->log( "Set Action variable to {$this->action} for this Large_Request_Handler" );
 		
 		parent::__construct();
 	}
@@ -61,37 +47,33 @@ class Large_Request_Handler extends E20R_Background_Process {
 	/**
 	 * Handler for the remote data processing task
 	 *
-	 * @param array $list
+	 * @param array $data
 	 *
 	 * @return bool
 	 */
-	protected function task( $list ) {
+	protected function task( $data ) {
 		
 		$util = Utilities::get_instance();
 		$main = Payment_Warning::get_instance();
 		
-		$util->log("Trigger processing for " . count( $list ) . " in the background..." );
+		$util->log( "Handler class: " . get_class( $data['handler'] ) );
+		$util->log( "Trigger processing for " . count( $data['dataset'] ) . " in the background..." );
 		
-		foreach ( $list as $user_data ) {
+		foreach ( $data['dataset'] as $user_data ) {
 			
-			if ( 'enable_payment_warnings' === $this->type && true === $main->load_options( $this->type ) ) {
-				
-				$util->log( "Adding remote subscription data processing for " . $user_data->get_user_ID() );
-				$this->handler->push_to_queue( $user_data );
-				
-				$util->log( "Dispatch the subscription fetch background job" );
-				$this->handler->save()->dispatch();
-			}
+			$util->log( "Check if we need to process for {$data['type']}" );
+			$is_active = $main->load_options( $data['type'] );
 			
-			if ( 'enable_expiration_warnings' === $this->type && true == $main->load_options( $this->type ) ) {
+			$util->log( "Is {$data['type']} enabled? " . ( $is_active ? 'Yes' : 'No' ) );
+			if ( true == $is_active ) {
 				
-				$util->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
-				$this->handler->push_to_queue( $user_data );
-				
-				$util->log( "Dispatch the background job for the payment data" );
-				$this->handler->save()->dispatch();
+				$util->log( "Adding remote data processing for " . $user_data->get_user_ID() );
+				$data['handler']->push_to_queue( $user_data );
 			}
 		}
+		
+		$util->log( "Dispatch the data processing background job" );
+		$data['handler']->save()->dispatch();
 		
 		return false;
 	}
@@ -101,7 +83,7 @@ class Large_Request_Handler extends E20R_Background_Process {
 		parent::complete();
 		
 		$util = Utilities::get_instance();
-		$util->log("Completed handling large request instance processing");
+		$util->log( "Completed handling large request instance processing" );
 		
 	}
 }
