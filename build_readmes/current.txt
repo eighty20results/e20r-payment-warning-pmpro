@@ -5,6 +5,8 @@ ENHANCEMENT: Only trigger processing for subscriptions (payment warning data) if
 ENHANCEMENT: Use passed background processing handler class from received data in task() method
 ENHANCEMENT: Removed unneeded debug logging from Background Processing class
 ENHANCEMENT: Disable debug/test actions
+ENHANCEMENT: Add readme.md documentation file for Github repo
+ENHANCEMENT: Include readme.md file in build
 BUG FIX: Would display incorrect debug message when plugin was licensed
 BUG FIX: Attempted to save and dispatch background job during data loop in task() method
 BUG FIX: Didn't dispatch large request handler properly (Now class is instantiated during/before `plugins_loaded` action hook to ensure proper execution)
