@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.6
+ * @version 1.7
  */
 
 namespace E20R\Payment_Warning\Utilities;
@@ -457,7 +457,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 		 * @param int $level_id
 		 *
 		 * @return int|bool - Returns the Timestamp (seconds) of when the trial ends, or false if no trial was found
-		 */
+         */
 		public function is_in_trial( $user_id, $level_id ) {
 			
 			global $wpdb;
@@ -527,6 +527,39 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 			}
 			
 			return false;
+		}
+		
+		/**
+		 * Return the correct Stripe amount formatting (based on currency setting)
+		 *
+		 * @param float|int $amount
+		 * @param string $currency
+		 *
+		 * @return float|string
+		 */
+		public function amount_by_currency( $amount, $currency ) {
+			
+			$def_currency = apply_filters('e20r_utilities_default_currency', 'USD' );
+			
+			if ( $def_currency !== $currency ) {
+				$def_currency = strtoupper( $currency );
+			}
+			
+			$decimals = 2;
+			global $pmpro_currencies;
+			
+			if ( isset( $pmpro_currencies[ $def_currency ]['decimals'] ) ) {
+				$decimals = intval( $pmpro_currencies[ $def_currency ]['decimals'] );
+			}
+			
+			
+			$divisor = intval( str_pad( '1', ( 1 + $decimals ),'0', STR_PAD_RIGHT ) );
+			$this->log("Divisor for calculation: {$divisor}");
+			
+			$amount = number_format_i18n( ( $amount / $divisor ), $decimals );
+			$this->log("Using amount: {$amount} for {$currency} vs {$amount}");
+			
+			return $amount;
 		}
 		
 		/**
