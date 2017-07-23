@@ -4,7 +4,7 @@
 #
 short_name="e20r-payment-warning-pmpro"
 server="eighty20results.com"
-include=(class css javascript languages LICENSE plugin-updates templates class.${short_name}.php readme.txt)
+include=(class css javascript languages LICENSE plugin-updates templates class.${short_name}.php README.md readme.txt)
 exclude=(*.yml *.phar composer.* vendor)
 build=(plugin-updates/vendor/*.php)
 plugin_path="${short_name}"

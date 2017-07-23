@@ -56,8 +56,8 @@ class Editor {
 		
 		if ( is_null( self::$instance ) ) {
 			
-			if ( Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
-				$util->log( "The Payment Warnings product isn't licensed, so exiting!" );
+			if ( true === Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
+				$util->log( "The Payment Warnings product is licensed so enabling editor." );
 				
 				self::$instance = new self;
 				self::$instance->load_hooks();
