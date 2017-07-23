@@ -48,6 +48,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		protected $process_subscriptions = null;
 		
 		/**
+		 * @var null|Large_Request_Handler
+		 */
+		protected $lhr_handler = null;
+		
+		private $per_request_count = null;
+		/**
 		 * Handler for remote data fetch operation for subscriptions (background operation)
 		 */
 		public function get_remote_subscription_data() {
@@ -55,6 +61,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
+			
+			if ( false == $main->load_options( 'enable_payment_warnings' ) ) {
+				
+				$util->log("User has not configured payment download to execute!");
+				return;
+			}
 			
 			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
@@ -66,63 +78,46 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$util->log( "Process subscription data for {$data_count} active members" );
 			
-			if ( $data_count >= 250 ) {
+			if ( $data_count > $this->per_request_count ) {
 				
-				$util->log("Using large request handler");
+				$util->log("Using large request handler for subscription requests");
 				
-				$no_chunks = ceil( $data_count / 250 );
+				$no_chunks = ceil( $data_count / $this->per_request_count );
 				$util->log( "Splitting data into {$no_chunks} chunks");
 				
 				for( $i = 1 ; $i <= $no_chunks ; $i++ ) {
 					
-					$to_process = array_chunk( $this->active_members, ( $i * 250 ) );
+					$offset = ( $i === 1 ? 0 : ( ($i-1) * $this->per_request_count ) );
+					$util->log( "Processing {$i} of {$no_chunks}: Offset: {$offset}");
 					
-					$subscription_handler = new Large_Request_Handler(
-						$this->process_subscriptions,
-						'enable_payment_warnings'
+					$to_process = array_slice( $this->active_members, $offset, $this->per_request_count );
+					
+					$util->log( "Asking to process subscription data for " . count( $to_process ) . " users" );
+					
+					$util->log("Adding subscription retrieval to own queue");
+					$data = array(
+						'dataset' => $to_process,
+						'handler' => $this->process_subscriptions,
+						'type' => 'enable_payment_warnings'
 					);
 					
-					$subscription_handler->push_to_queue( $to_process )->save();
-					$subscription_handler->dispatch();
-					
-					$payment_handler = new Large_Request_Handler(
-						$this->process_payments,
-						'enable_expiration_warnings'
-					);
-					
-					$payment_handler->push_to_queue( $to_process )->save();
-					$payment_handler->dispatch();
-					
-					$util->log( "Added data set # {$i} to request dispatcher" );
+					$this->lhr_handler->push_to_queue( $data );
+					$util->log( "Added data set # {$i} to subscription request dispatcher" );
 				}
 				
-				
+				$util->log("Save and dispatch the request handler for a large number of subscriptions");
+				$this->lhr_handler->save()->dispatch();
 				
 			} else {
 				
-				$util->log("No need to split the dataset to queue for processing!");
+				$util->log("No need to split the data set to queue for processing!");
 				
 				foreach ( $this->active_members as $user_data ) {
-					
-					if ( true === $main->load_options( 'enable_payment_warnings' ) ) {
 						
-						$util->log( "Adding remote subscription data processing for " . $user_data->get_user_ID() );
-						$this->process_subscriptions->push_to_queue( $user_data );
-						
-						$util->log( "Dispatch the subscription fetch background job" );
-						$this->process_subscriptions->save()->dispatch();
-					}
-					
-					if (  true == $main->load_options( 'enable_expiration_warnings' ) ) {
-						
-						$util->log( "Adding payment handling to queue for User ID: " . $user_data->get_user_ID() );
-						$this->process_payments->push_to_queue( $user_data );
-						
-						$util->log( "Dispatch the background job for the payment data" );
-						$this->process_payments->save()->dispatch();
-					}
+					$util->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
+					$this->process_subscriptions->push_to_queue( $user_data );
+					$this->process_subscriptions->save()->dispatch();
 				}
-				
 			}
 		}
 		
@@ -131,33 +126,68 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 */
 		public function get_remote_payment_data() {
 			
-			$utils = Utilities::get_instance();
+			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
 			if ( false == $main->load_options( 'enable_expiration_warnings' ) ) {
 				
-				$utils->log("User has not configured payment download to execute!");
+				$util->log("User has not configured payment download to execute!");
 				return;
 			}
 			
-			$utils->log( "Trigger load of the active add-on gateway(s)" );
+			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
-			$utils->log( "Grab all active PMPro Members" );
+			$util->log( "Grab all active PMPro Members" );
 			$this->get_active_non_subscription_members();
 			
-			$utils->log( "Process payment data for " . count( $this->active_members ) . " active members" );
+			$data_count = count( $this->active_members );
+			$util->log( "Process payment data for {$data_count} active members" );
 			
-			foreach ( $this->active_members as $user_data ) {
+			if ( $data_count > $this->per_request_count ) {
 				
-				$utils->log( "Adding payment/charge handling to queue for User ID: " . $user_data->get_user_ID() );
-				$this->process_payments->push_to_queue( $user_data );
+				$util->log("Using large request handler for payment request");
+				
+				$no_chunks = ceil( $data_count / $this->per_request_count );
+				$util->log( "Splitting data into {$no_chunks} chunks");
+				$handlers = array();
+				
+				for( $i = 1 ; $i <= $no_chunks ; $i++ ) {
+					
+					$offset = ( $i === 1 ? 0 : ( ($i-1) * $this->per_request_count ) );
+					$util->log( "Processing {$i} of {$no_chunks}: Offset: {$offset}");
+					
+					$to_process = array_slice( $this->active_members, $offset, $this->per_request_count );
+					
+					$util->log( "Asking to process payment retrieval (if needed)" );
+					
+					$data = array(
+						'dataset' => $to_process,
+						'handler' => $this->process_payments,
+						'type' => 'enable_expiration_warnings'
+					);
+					
+					$util->log("Adding payment retrieval to own queue");
+					$this->lhr_handler->push_to_queue( $data );
+					
+					$util->log( "Added data set # {$i} to payment request dispatcher" );
+				}
+				
+				$util->log("Saving and dispatching large number of payment workstreams in separate requests");
+				$this->lhr_handler->save()->dispatch();
+				
+			} else {
+				
+				foreach ( $this->active_members as $user_data ) {
+					
+					$util->log( "Adding payment/charge handling to queue for User ID: " . $user_data->get_user_ID() );
+					$this->process_payments->push_to_queue( $user_data );
+				}
+				
+				$util->log( "Dispatch the background job for the payment data" );
+				$this->process_payments->save()->dispatch();
+				
 			}
-			
-			$utils->log( "Dispatch the background job for the payment data" );
-			$this->process_payments->save()->dispatch();
-			
-			
 		}
 		
 		public function get_active_non_subscription_members() {
@@ -230,6 +260,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			}
 			return $this->active_members;
 		}
+		
 		/**
 		 * Fetch all active members with recurring payment subscriptions and their last order info from local DB (or cache)
 		 *
@@ -471,8 +502,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				add_action( 'pmpro_membership_post_membership_expiry', array( $this, 'clear_member_cache', 99 ) );
 			}
 			
+			$this->per_request_count     = apply_filters( 'e20r_pw_max_records_per_request', 250 );
 			$this->process_payments      = new Handle_Payments( $this );
 			$this->process_subscriptions = new Handle_Subscriptions( $this );
+			$this->lhr_handler           = new Large_Request_Handler( $this );
 		}
 	}
 }
