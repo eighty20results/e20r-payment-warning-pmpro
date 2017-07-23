@@ -1,17 +1,17 @@
 {
   "name" : "E20R Payment Warnings for Paid Memberships Pro",
   "slug" : "e20r-payment-warning-pmpro",
-  "download_url" : "https://eighty20results.com/protected-content/e20r-payment-warning-pmpro/e20r-payment-warning-pmpro-1.0.zip",
-  "version" : "1.0",
+  "download_url" : "https://eighty20results.com/protected-content/e20r-payment-warning-pmpro/e20r-payment-warning-pmpro-1.1.zip",
+  "version" : "1.1",
   "tested": "4.8",
   "requires": "4.8",
   "author" : "Thomas Sjolshagen @ Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>",
   "author_homepage": "https://eighty20results.com/thomas-sjolshagen",
-  "last_updated": "2017-07-22 17:15:00",
+  "last_updated": "2017-07-23 15:00:00",
   "homepage": "https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro/",
   "sections" : {
     "description" : "Payment Warning Messages for Paid Memberships Pro.",
-    "changelog": "<h3>1.0</h3><ol><li>Initial Release (v1.0)</li></ol>",
+    "changelog": "<h3>1.1</h3><ol><li>ENHANCEMENT: Add ability to process large number of users across multiple requests</li><li>ENHANCEMENT: Process at most 250 user data records at a time</li><li>ENHANCEMENT: Add filter to let admin set # of requests to process per dispatch (TODO: Make this a global setting)</li><li>ENHANCEMENT: Only trigger processing for subscriptions (payment warning data) if enabled</li><li>ENHANCEMENT: Use passed background processing handler class from received data in task() method</li><li>ENHANCEMENT: Removed unneeded debug logging from Background Processing class</li><li>ENHANCEMENT: Disable debug/test actions</li><li>BUG FIX: Would display incorrect debug message when plugin was licensed</li><li>BUG FIX: Attempted to save and dispatch background job during data loop in task() method</li><li>BUG FIX: Didn't dispatch large request handler properly (Now class is instantiated during/before `plugins_loaded` action hook to ensure proper execution)</li><li>BUG FIX: Attempted to save and dispatch large request handler data during loop</li><li>BUG FIX: Only process subscription data in get_remote_subscription_data() method</li><li>BUG FIX: Only process payment data in get_remote_payment_data() method</li><li>BUG FIX: Didn't include the amount_from_currency() method for Stripe specific amount formatting</li></ol><h3>1.0</h3><ol><li>Initial Release (v1.0)</li></ol>",
     "faq": "<h3>I found a bug in the plugin.</h3>Please report your issue to us by using the <a href='https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-warning-pmpro/' target='_blank'>E20R Payment Warning for Paid Memberships Pro</a> Support Forum on The Eighty / 20 Website, and we'll try to respond within 1 business day."
     }
 }
