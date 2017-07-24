@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8
-    Stable tag: 1.1
+    Stable tag: 1.2
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,11 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.2
+
+* BUG FIX: Didn't disable the default PMPro actions for expiration warnings, credit card expiration warnings and recurring payment notices if the equivalent functionality is active in this plugin
+* ENHANCEMENT: Add placeholder to allow adding PMPro Template Editor messages if present
 
 ###v1.1
 
