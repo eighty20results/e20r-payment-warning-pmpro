@@ -131,11 +131,49 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				add_action( 'e20r_send_payment_warning_emails', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
 				add_action( 'e20r_send_expiration_warning_emails', array( Cron_Handler::get_instance(), 'send_expiration_messages' ) );
 				add_action( 'e20r_send_creditcard_warning_emails', array( Cron_Handler::get_instance(), 'send_cc_warning_messages' ) );
+				
+				add_action( 'init', array( self::get_instance(), 'disable_pmpro_actions' ), 999 );
 			}
 			
 			return self::$instance;
 		}
 		
+		/**
+		 * Disable actions/jobs for PMPro if equivalent service is enabled in this plugin
+		 */
+		public function disable_pmpro_actions() {
+		    
+		    $util = Utilities::get_instance();
+		    
+		    // Disable Recurring payment warnings if enabled in plugin
+		    if ( true == $this->load_options( 'enable_payment_warnings' ) ) {
+			
+			    // Disable default PMPro (addon) recurring payment notice;
+		        $util->log("Disable recurring payment emails action if present");
+		        add_filter( 'pmprorm_send_reminder_to_user', '__return_false', 999 );
+		        remove_action( "pmpro_cron_expiration_warnings", "pmpror_recurring_emails", 30 );
+            }
+			
+            // Disable expiration warnings if enabled in plugin
+			if ( true == $this->load_options( 'enable_expiration_warnings' ) ) {
+				
+				// Disable default PMPro expiration warnings;
+				$util->log("Disable membership expiration warning emails, if present");
+		  
+				add_filter( "pmpro_send_expiration_warning_email", "__return_false", 999 );
+				remove_action( "pmpro_cron_expiration_warnings", "pmproeewe_extra_emails", 30 );
+			}
+			
+			// Disable Credit Card Expiration warnings if enabled in plugin
+			if ( true == $this->load_options( 'enable_cc_expiration_warnings' ) ) {
+				
+				// Disable PMPro Credit Card Expiration warning messages
+				$util->log("Disable credit card expiration warning emails action if present");
+		        
+		        remove_action('pmpro_cron_credit_card_expiring_warnings', 'pmpro_cron_credit_card_expiring_warnings', 10 );
+			}
+		}
+  
 		/**
 		 * Configure actions & filters for this plugin
 		 *
