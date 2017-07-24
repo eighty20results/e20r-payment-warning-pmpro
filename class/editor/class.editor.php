@@ -180,8 +180,7 @@ class Editor {
 			case 'recurring':
 				
 				$schedule = array_keys( apply_filters( 'pmpro_upcoming_recurring_payment_reminder', array(
-					7  => 'membership_recurring',
-					30 => 'membership_recurring',
+					7  => 'membership_recurring'
 				) ) );
 				$schedule = apply_filters( 'e20r-payment-warning-recurring-reminder-schedule', $schedule );
 				break;
@@ -217,6 +216,9 @@ class Editor {
 		$util = Utilities::get_instance();
 		
 		$util->log( "Loading Message templates for {$template_name}:" );
+		
+		// TODO: Load existing PMPro templates that apply for this editor
+		$pmpro_email_templates = apply_filters( 'pmproet_templates', array() );
 		
 		$template_info = get_option( $this->option_name, $this->default_templates() );
 		
