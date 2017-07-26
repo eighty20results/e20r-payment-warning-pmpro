@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.2
+Version: 1.3
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.2' );
+	define( 'E20R_PW_VERSION', '1.3' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -93,8 +93,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
   
 		protected $process_subscriptions = null;
 		
-		protected $process_charges = null;
+		protected $process_payments = null;
 		
+		protected $large_requests = null;
+  
 		/**
 		 * Payment_Warning constructor.
 		 *
@@ -105,7 +107,41 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			global $e20rpw_db_version;
 			$e20rpw_db_version = E20R_PW_VERSION;
+			
+			$this->large_requests = new Large_Request_Handler( $this );
+			$this->process_subscriptions = new Handle_Subscriptions( $this );
+			$this->process_payments = new Handle_Payments( $this );
+			$this->process_emails = new Handle_Messages( $this );
 		}
+		
+		/**
+         * Returns the handler for the request type
+         *
+		 * @param string $type
+		 *
+		 * @return Handle_Messages|Handle_Payments|Handle_Subscriptions|Large_Request_Handler|null
+		 */
+		public function get_handler( $type ) {
+		    
+		    $handler = null;
+		    
+		    switch ( $type ) {
+                case 'large_requests':
+                    $handler = $this->large_requests;
+                    break;
+                case 'subscriptions':
+                    $handler = $this->process_subscriptions;
+                    break;
+                case 'payments':
+	                $handler = $this->process_payments;
+	                break;
+                case 'messages':
+	                $handler = $this->process_emails;
+	                break;
+		    }
+		    
+		    return $handler;
+        }
 		
 		/**
 		 * Returns the instance of this class (singleton pattern)
