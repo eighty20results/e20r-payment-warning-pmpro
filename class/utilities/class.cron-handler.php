@@ -190,25 +190,26 @@ class Cron_Handler {
 	 */
 	public function send_cc_warning_messages() {
 		
-		$util      = Utilities::get_instance();
+		$util = Utilities::get_instance();
+		$main = Payment_Warning::get_instance();
+		
 		$first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
 		
 		if ( true == $first_run ) {
-			$util->log("Not running on startup!");
+			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_cc_msg', true, false );
 			
 			return;
 		}
 		
-		$util->log( "Running send email handler (cron job) for credit card expiration warnings" );
-		
-		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
-		$util->log( "Email schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
-		
-		$reminders = Payment_Reminder::get_instance();
-		$reminders->process_reminders( 'ccexpiration' );
-		
-		$util->log( "Triggered sending of Credit Card expiring type email messages" );
+		if ( true == $main->load_options( 'enable_cc_expiration_warnings' ) ) {
+			$util->log( "Running send email handler (cron job) for credit card expiration warnings" );
+			
+			$reminders = Payment_Reminder::get_instance();
+			$reminders->process_reminders( 'ccexpiration' );
+			
+			$util->log( "Triggered sending of Credit Card expiring type email messages" );
+		}
 		
 	}
 	
@@ -218,25 +219,24 @@ class Cron_Handler {
 	public function send_expiration_messages() {
 		
 		$util      = Utilities::get_instance();
+		$main      = Payment_Warning::get_instance();
 		$first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
 		
 		if ( true == $first_run ) {
-			$util->log("Not running on startup!");
+			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_exp_msg', true, false );
 			
 			return;
 		}
 		
-		$util->log( "Running send email handler (cron job) for expiration warnings" );
-		
-		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
-		$util->log( "Email schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
-		
-		$reminders = Payment_Reminder::get_instance();
-		$reminders->process_reminders( 'expiration' );
-		
-		$util->log( "Triggered sending of expiration type email messages" );
-		
+		if ( true == $main->load_options( 'enable_expiration_warnings' ) ) {
+			$util->log( "Running send email handler (cron job) for expiration warnings" );
+			
+			$reminders = Payment_Reminder::get_instance();
+			$reminders->process_reminders( 'expiration' );
+			
+			$util->log( "Triggered sending of expiration type email messages" );
+		}
 	}
 	
 	/**
@@ -245,24 +245,25 @@ class Cron_Handler {
 	public function send_reminder_messages() {
 		
 		$util      = Utilities::get_instance();
+		$main      = Payment_Warning::get_instance();
 		$first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
 		
 		if ( true == $first_run ) {
-			$util->log("Not running on startup!");
+			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_reminder_msg', true, false );
 			
 			return;
 		}
 		
-		$util->log( "Running send email handler (cron job)" );
-		
-		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', true );
-		$util->log( "Email schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
-		
-		$reminders = Payment_Reminder::get_instance();
-		$reminders->process_reminders( 'recurring' );
-		
-		$util->log( "Triggered sending of reminder type email messages" );
+		if ( true == $main->load_options( 'enable_payment_warnings' ) ) {
+			
+			$util->log( "Running send email handler (cron job) for recurring payment reminders" );
+			
+			$reminders = Payment_Reminder::get_instance();
+			$reminders->process_reminders( 'recurring' );
+			
+			$util->log( "Triggered sending of reminder type email messages" );
+		}
 	}
 	
 	/**
@@ -270,15 +271,8 @@ class Cron_Handler {
 	 */
 	public function fetch_gateway_payment_info() {
 		
-		$util      = Utilities::get_instance();
-		$first_run = get_option( 'e20r_pw_firstrun_fetch_data', false );
+		$util = Utilities::get_instance();
 		
-		if ( true == $first_run ) {
-			$util->log("Not running on startup!");
-			update_option( 'e20r_pw_firstrun_fetch_data', true, false );
-			
-			return;
-		}
 		$util->log( "Running remote data update handler (cron job)" );
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
@@ -289,20 +283,21 @@ class Cron_Handler {
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
 		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', false );
+		$admin_triggered_cron = $util->get_variable( 'id', null );
 		
-		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
+		$util->log( "Schedule override is: " . ( $override_schedule || $admin_triggered_cron ? 'True' : 'False' ) );
 		
 		// After the required amount of time has passed?
-		if ( current_time( 'timestamp' ) >= $next_run || true === $override_schedule ) {
+		if ( current_time( 'timestamp' ) <= $next_run || true === $override_schedule || 'e20r_run_remote_data_update' == $admin_triggered_cron ) {
 			
-			$util->log( "Cron job running to trigger update of existing Payment Gateway data" );
+			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
 			$fetch_data->get_remote_subscription_data();
 			$fetch_data->get_remote_payment_data();
-			$util->log( "Triggered remote data fetch configuration" );
+			$util->log( "Triggered remote subscription fetch configuration" );
 		} else {
-			$util->log( "Not after the scheduled next-run time/date of {$next_run}" );
+			$util->log( "Not running. Cause: Not after the scheduled next-run time/date of {$next_run}" );
 		}
 	}
 	
