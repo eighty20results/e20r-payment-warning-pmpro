@@ -421,7 +421,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		public function schedule_cron_healthcheck( $schedules ) {
 			
 			$current_timeout = ini_get( 'max_execution_time' );
-			
 			$min_interval = 2;
 			
 			if ( ! empty( $current_timeout ) ) {
@@ -466,7 +465,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 * Schedule event
 		 */
 		protected function schedule_event() {
-			if ( ! wp_next_scheduled( $this->cron_hook_identifier ) ) {
+			if ( false !== wp_next_scheduled( $this->cron_hook_identifier ) ) {
 				wp_schedule_event( current_time( 'timestamp' ), $this->cron_interval_identifier, $this->cron_hook_identifier );
 			}
 		}
@@ -476,7 +475,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 */
 		protected function clear_scheduled_event() {
 			$timestamp = wp_next_scheduled( $this->cron_hook_identifier );
-			if ( $timestamp ) {
+			if ( !empty( $timestamp ) ) {
 				wp_unschedule_event( $timestamp, $this->cron_hook_identifier );
 			}
 		}
