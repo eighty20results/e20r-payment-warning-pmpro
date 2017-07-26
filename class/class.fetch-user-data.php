@@ -69,7 +69,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$data_count = count( $this->active_members );
 			
 			$util->log( "Process subscription data for {$data_count} active members" );
-			$handler = $main->get_handler( 'large_requests' );
+			$handler = $main->get_handler( 'lhr_subscriptions' );
 			
 			if ( $data_count > $this->per_request_count ) {
 				
@@ -139,7 +139,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$data_count = count( $this->active_members );
 			$util->log( "Process payment data for {$data_count} active members" );
 			
-			$handler   = $main->get_handler( 'large_requests' );
+			$handler   = $main->get_handler( 'lhr_payments' );
 			$p_handler = $main->get_handler( 'payments' );
 			
 			if ( $data_count > $this->per_request_count ) {
