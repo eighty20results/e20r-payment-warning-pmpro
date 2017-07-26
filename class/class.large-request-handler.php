@@ -31,15 +31,17 @@ class Large_Request_Handler extends E20R_Background_Process {
 	 *
 	 * @param object $calling_class
 	 */
-	public function __construct( $calling_class ) {
+	public function __construct( $identifier ) {
 		
 		$util = Utilities::get_instance();
 		
+		/**
 		$av = get_class( $calling_class );
 		$name = explode( '\\', $av );
 		$this->action = "lhr_" . strtolower( $name[(count( $name ) - 1 )] );
-		
-		$util->log( "Set Action variable to {$this->action} for this Large_Request_Handler" );
+		*/
+		$this->action = "lhr_{$identifier}";
+		$util->log( "Set Action variable to {$this->action} for the Large_Request_Handler" );
 		
 		parent::__construct();
 	}
