@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -244,10 +244,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						$this->active_members[] = $record;
 						$record                 = null;
 						$last_order             = null;
-					} else {
+					} else if ( empty( $cust_id ) ) {
 						
-						$utils->log( "Isn't on a recurring membership or couldn't locate the upstream customer ID for the '{$last_order->gateway}' gateway ({$member->user_id})" );
+						$utils->log( "Couldn't locate the upstream customer ID for the '{$last_order->gateway}' gateway ({$member->user_id})" );
 						// $utils->add_message( sprintf( __( "No Gateway Customer ID found for user with WordPress ID %d", Payment_Warning::plugin_slug ), $member->user_id ), 'error', 'backend' );
+						continue;
+					} else {
+						$utils->log( "Isn't on a recurring membership for the '{$last_order->gateway}' gateway ({$member->user_id})" );
 						continue;
 					}
 				}
