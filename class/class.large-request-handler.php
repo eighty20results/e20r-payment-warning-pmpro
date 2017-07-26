@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,13 +29,13 @@ class Large_Request_Handler extends E20R_Background_Process {
 	/**
 	 * Large_Request_Handler constructor.
 	 *
-	 * @param int $cnt
+	 * @param object $calling_class
 	 */
-	public function __construct( $class ) {
+	public function __construct( $calling_class ) {
 		
 		$util = Utilities::get_instance();
 		
-		$av = get_class( $class );
+		$av = get_class( $calling_class );
 		$name = explode( '\\', $av );
 		$this->action = "lhr_" . strtolower( $name[(count( $name ) - 1 )] );
 		
