@@ -95,8 +95,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		
 		protected $process_payments = null;
 		
-		protected $large_requests = null;
+		protected $lsubscription_requests = null;
   
+		protected $lpayment_requests = null;
 		/**
 		 * Payment_Warning constructor.
 		 *
@@ -108,7 +109,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			global $e20rpw_db_version;
 			$e20rpw_db_version = E20R_PW_VERSION;
 			
-			$this->large_requests = new Large_Request_Handler( $this );
+			$this->lsubscription_requests = new Large_Request_Handler( 'subscriptions' );
+			$this->lpayment_requests = new Large_Request_Handler( 'payments' );
 			$this->process_subscriptions = new Handle_Subscriptions( $this );
 			$this->process_payments = new Handle_Payments( $this );
 			$this->process_emails = new Handle_Messages( $this );
@@ -126,10 +128,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    $handler = null;
 		    
 		    switch ( $type ) {
-                case 'large_requests':
-                    $handler = $this->large_requests;
+                case 'lhr_subscriptions':
+                    $handler = $this->lsubscription_requests;
                     break;
-                case 'subscriptions':
+			
+			    case 'lhr_payments':
+				    $handler = $this->lpayment_requests;
+				    break;
+			
+			    case 'subscriptions':
                     $handler = $this->process_subscriptions;
                     break;
                 case 'payments':
