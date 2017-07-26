@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8
-Stable tag: 1.2
+Stable tag: 1.3
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -41,12 +41,27 @@ If you sponsor the development of gateway support you will receive forum support
 
 = Changelog =
 
-== 1.2 ==
+== v1.3 ==
+
+* ENHANCEMENT: Update copyright notice (year)
+* ENHANCEMENT: Improved granularity for error/debug logging
+* ENHANCEMENT: Fetch background process handler(s) with Payment_Warnings::get_handler() method
+* ENHANCEMENT: Add get_handler() method to return the specified request handler
+* ENHANCEMENT: Add private variables for the request handlers to Payment_Warnings class
+* ENHANCEMENT: Use Payment_Warnings::get_handler() to fetch message handler
+* ENHANCEMENT: More descriptive variable name in constructor for Large_Request_Handler class
+* ENHANCEMENT/FIX: Move the required handler instantiations to the main Payment_Warnings class
+* ENHANCEMENT/FIX: Move all request based processing (background processing) to main Payment_Warnings class
+* BUG FIX: Didn't always handle message sending correctly
+* BUG FIX: Clean up schedule handling in E20R_Background_Process class
+* BUG FIX: Didn't always dispatch large requests
+
+== v1.2 ==
 
 * BUG FIX: Didn't disable the default PMPro actions for expiration warnings, credit card expiration warnings and recurring payment notices if the equivalent functionality is active in this plugin
 * ENHANCEMENT: Add placeholder to allow adding PMPro Template Editor messages if present
 
-== 1.1 ==
+== v1.1 ==
 
 * ENHANCEMENT: Add ability to process large number of users across multiple requests
 * ENHANCEMENT: Process at most 250 user data records at a time
@@ -65,7 +80,7 @@ If you sponsor the development of gateway support you will receive forum support
 * BUG FIX: Only process payment data in get_remote_payment_data() method
 * BUG FIX: Didn't include the amount_from_currency() method for Stripe specific amount formatting
 
-== 1.0 ==
+== v1.0 ==
 
 * Initial Release (v1.0)
 * ENHANCEMENT: Prevent Cron jobs from running immediately
