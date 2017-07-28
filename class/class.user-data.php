@@ -125,8 +125,6 @@ class User_Data {
 			$this->user_gateway_type = $order->gateway_environment;
 			
 			$util->log( "Saved gateway info: {$this->user_gateway} in a {$this->user_gateway_type} environment" );
-			
-			$this->maybe_load_from_db();
 		}
 		
 		global $wpdb;
@@ -152,13 +150,19 @@ class User_Data {
 	 * @param null $user_id
 	 * @param null $order_id
 	 * @param null $level_id
+	 * @param bool $skip
 	 */
-	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null ) {
+	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null, $skip = false ) {
 		
 		global $wpdb;
 		
 		$util = Utilities::get_instance();
 		$util->log( "Looking for preexisting data from local DB: {$user_id}" );
+		
+		if ( true === $skip ) {
+			$util->log("Won't load the DB record for this user record...");
+			return;
+		}
 		
 		if ( is_null( $user_id ) ) {
 			$user_id = isset( $this->user->ID ) ? $this->user->ID : null;
@@ -1018,10 +1022,15 @@ class User_Data {
 	
 	/**
 	 * Set (local) recurring membership status based on user's membership level
+	 * @param bool $is_recurring
 	 */
-	public function set_recurring_membership_status() {
+	public function set_recurring_membership_status( $is_recurring = false ) {
 		
-		$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		if ( true === $is_recurring ) {
+			$this->has_local_recurring_membership = $is_recurring;
+		} else {
+			$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		}
 	}
 	
 	/**
