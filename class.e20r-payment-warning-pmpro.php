@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.3
+Version: 1.4
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.3' );
+	define( 'E20R_PW_VERSION', '1.4' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -109,11 +109,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			global $e20rpw_db_version;
 			$e20rpw_db_version = E20R_PW_VERSION;
 			
+			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ) );
+			
 			$this->lsubscription_requests = new Large_Request_Handler( 'subscriptions' );
 			$this->lpayment_requests = new Large_Request_Handler( 'payments' );
 			$this->process_subscriptions = new Handle_Subscriptions( $this );
 			$this->process_payments = new Handle_Payments( $this );
 			$this->process_emails = new Handle_Messages( $this );
+   
 		}
 		
 		/**
@@ -161,7 +164,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		static public function get_instance() {
 			
 			if ( is_null( self::$instance ) ) {
-				self::$instance = new self;
+       
+			    self::$instance = new self;
 				
 				// First thing to do on activation (Required for this plugin)
 				add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\User_Data::create_db_tables', -1 );
@@ -876,6 +880,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    $clean_up = $this->load_options('deactivation_reset' );
 		    $utils = Utilities::get_instance();
 		    
+		    $utils->log("Deleting all first-run trigger options");
+		    delete_option( 'e20r_pw_firstrun_cc_msg' );
+	        delete_option( 'e20r_pw_firstrun_exp_msg' );
+	        delete_option( 'e20r_pw_firstrun_reminder_msg' );
+	        delete_option( 'e20r_pw_firstrun_gateway_check' );
+		    
 		    $utils->log("Trigger deactivation action for add-ons");
 		    do_action( 'e20r_pw_addon_deactivating_core', $clean_up );
         }
@@ -893,8 +903,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			if ( false === strpos( $class_name, 'E20R' ) ) {
 				return;
 			}
-			
-			error_log( "Payment_Warning is loading: {$class_name}" );
+   
 			$parts = explode( '\\', $class_name );
 			$name  = strtolower( preg_replace( '/_/', '-', $parts[ ( count( $parts ) - 1 ) ] ) );
 			
