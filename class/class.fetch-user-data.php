@@ -52,7 +52,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
-			
 			if ( false == $main->load_options( 'enable_payment_warnings' ) ) {
 				
 				$util->log( "User has not configured payment download to execute!" );
@@ -64,12 +63,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
 			$util->log( "Grab all active PMPro Members" );
-			$this->get_active_subscription_members();
+			$this->active_members = null;
+			$this->set_active_subscription_members();
 			
 			$data_count = count( $this->active_members );
 			
 			$util->log( "Process subscription data for {$data_count} active members" );
+			
 			$handler = $main->get_handler( 'lhr_subscriptions' );
+			// $handler->set_task_handler( $main->get_handler( 'subscriptions' ) );
 			
 			if ( $data_count > $this->per_request_count ) {
 				
@@ -86,16 +88,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$to_process = array_slice( $this->active_members, $offset, $this->per_request_count );
 					
 					$util->log( "Asking to process subscription data for " . count( $to_process ) . " users" );
-					
 					$util->log( "Adding subscription retrieval to own queue" );
+					
 					$data = array(
-						'dataset' => $to_process,
-						'handler' => $main->get_handler( 'subscriptions' ),
-						'type'    => 'enable_payment_warnings',
+						'dataset'      => $to_process,
+						'task_handler' => $main->get_handler( 'subscriptions' ),
+						'type'         => 'enable_payment_warnings',
 					);
 					
 					$handler->push_to_queue( $data );
-					$util->log( "Added data set # {$i} to subscription request dispatcher" );
+					$util->log( "Added data set # {$i} to subscription request dispatcher: " . $data['task_handler']->get_action()  );
 				}
 				
 				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
@@ -133,14 +135,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
-			$util->log( "Grab all active PMPro Members" );
-			$this->get_active_non_subscription_members();
+			$util->log( "Grab all active PMPro Members without subscription plans" );
+			$this->active_members = null;
+			$this->set_active_non_subscription_members();
 			
 			$data_count = count( $this->active_members );
 			$util->log( "Process payment data for {$data_count} active members" );
 			
-			$handler   = $main->get_handler( 'lhr_payments' );
-			$p_handler = $main->get_handler( 'payments' );
+			$handler = $main->get_handler( 'lhr_payments' );
+			// $handler->set_task_handler( $main->get_handler( 'payments' ) );
 			
 			if ( $data_count > $this->per_request_count ) {
 				
@@ -159,21 +162,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$util->log( "Asking to process payment retrieval (if needed)" );
 					
 					$data = array(
-						'dataset' => $to_process,
-						'handler' => $p_handler,
-						'type'    => 'enable_expiration_warnings',
+						'dataset'      => $to_process,
+						'task_handler' => $main->get_handler( 'payments' ),
+						'type'         => 'enable_expiration_warnings',
 					);
 					
-					$util->log( "Adding payment retrieval to own queue" );
 					$handler->push_to_queue( $data );
 					
-					$util->log( "Added data set # {$i} to payment request dispatcher" );
+					$util->log( "Added data set # {$i} to payment request dispatcher: " . $data['task_handler']->get_action() );
 				}
 				
 				$util->log( "Saving and dispatching large number of payment workstreams in separate requests" );
 				$handler->save()->dispatch();
 				
 			} else {
+				
+				$p_handler = $main->get_handler( 'payments' );
 				
 				foreach ( $this->active_members as $user_data ) {
 					
@@ -187,7 +191,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			}
 		}
 		
-		public function get_active_non_subscription_members() {
+		/**
+		 * Fetch all active members with non-recurring membership plans, plus their last order from the local DB (or cache)
+		 *
+		 * @return User_Data[]|bool
+		 */
+		public function set_active_non_subscription_members() {
 			
 			$this->active_members = array();
 			$utils                = Utilities::get_instance();
@@ -200,15 +209,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
+				// Locate active member records without recurring payment configured (cycle_number is 0 or NULL).
 				$active_sql = "
 						SELECT DISTINCT *
 						FROM {$wpdb->pmpro_memberships_users} AS mu
 						WHERE mu.status = 'active'
+						AND ( mu.cycle_number = 0 OR mu.cycle_number IS NULL )
 						ORDER BY mu.user_id ASC";
 				
 				$member_list = $wpdb->get_results( $active_sql );
+				$environment = pmpro_getOption( 'gateway_environment' );
 				
-				$utils->log( "Found " . count( $member_list ) . " active member records" );
+				$utils->log( "Found " . count( $member_list ) . "active member records" );
 				
 				foreach ( $member_list as $member ) {
 					
@@ -218,10 +230,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$last_order->getLastMemberOrder( $member->user_id, 'success', $member->membership_id );
 					
+					if ( empty( $last_order->gateway_environment ) || ( isset( $last_order->gateway_environment ) && $environment !== $last_order->gateway_environment ) ) {
+						$utils->log( "Last order found used a different environment from the currently configured payment gateway environment ({$environment})" );
+						continue;
+					}
+					
 					if ( ! empty( $last_order->code ) ) {
+						
 						$record = new User_Data( $user, $last_order );
-						$record->set_recurring_membership_status();
-						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}" );
+						$record->set_recurring_membership_status( false );
+						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( false === $record->get_recurring_membership_status() ? 'No' : 'Yes' ) );
 					} else {
 						$record = new User_Data( $user, null );
 						$utils->log( "No pre-existing active order for {$user->ID}" );
@@ -229,18 +247,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$utils->log( "Setting member status: {$member->status}" );
 					
-					$record->set_membership_status( ( $member->status == 'active' ? true : false ) );
+					if ( 'active' === $member->status ) {
+						$record->set_membership_status( true );
+					} else {
+						$record->set_membership_status( false );
+					}
 					
 					$cust_id = apply_filters( 'e20r_pw_addon_get_user_customer_id', null, $last_order->gateway, $record );
 					
-					$utils->log( "Got User ID for {$last_order->gateway}: {$cust_id}/" . $record->get_user_ID() );
-					if ( ! empty( $cust_id ) && true === $record->get_recurring_membership_status() ) {
+					$utils->log( "User ID for {$last_order->gateway} ({$last_order->gateway_environment}): {$cust_id}/" . $record->get_user_ID() );
+					
+					if ( ! empty( $cust_id ) && false === $record->get_recurring_membership_status() ) {
 						
 						$record->set_gateway_customer_id( $cust_id );
 						
 						$this->active_members[] = $record;
-						$record                 = null;
-						$last_order             = null;
 					} else if ( empty( $cust_id ) ) {
 						
 						$utils->log( "Couldn't locate the upstream customer ID for the '{$last_order->gateway}' gateway ({$member->user_id})" );
@@ -248,7 +269,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						
 					} else {
 						
-						$utils->log( "Isn't on a recurring membership for the '{$last_order->gateway}' gateway ({$member->user_id})" );
+						$utils->log( "Is using a recurring payment for the '{$last_order->gateway}' gateway ({$member->user_id})" );
 						continue;
 					}
 				}
@@ -260,18 +281,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				}
 			}
 			
+			$record     = null;
+			$last_order = null;
+			
 			return $this->active_members;
 		}
 		
 		/**
 		 * Fetch all active members with recurring payment subscriptions and their last order info from local DB (or cache)
 		 *
-		 * @return User_Data[]
 		 */
-		public function get_active_subscription_members() {
+		public function set_active_subscription_members() {
 			
 			$this->active_members = array();
 			$utils                = Utilities::get_instance();
+			$environment          = pmpro_getOption( 'gateway_environment' );
 			
 			$utils->log( "Attempting to load active members from cache" );
 			
@@ -281,10 +305,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
+				// Only load records where the user's cycle_number is greater or equal to 1 (has a recurring payment membership)
 				$active_sql = "
 						SELECT DISTINCT *
 						FROM {$wpdb->pmpro_memberships_users} AS mu
 						WHERE mu.status = 'active'
+						AND mu.cycle_number >= 1
 						ORDER BY mu.user_id ASC";
 				
 				$member_list = $wpdb->get_results( $active_sql );
@@ -299,22 +325,34 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$last_order->getLastMemberOrder( $member->user_id, 'success', $member->membership_id );
 					
+					if ( empty( $last_order->gateway_environment ) || ( isset( $last_order->gateway_environment ) && $environment !== $last_order->gateway_environment ) ) {
+						$utils->log( "Last order found used a different environment from the currently configured payment gateway environment ({$environment})" );
+						continue;
+					}
+					
 					if ( ! empty( $last_order->code ) ) {
 						$record = new User_Data( $user, $last_order );
 						$record->set_recurring_membership_status();
-						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}" );
+						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
+						
 					} else {
 						$record = new User_Data( $user, null );
+						$record->set_recurring_membership_status();
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					}
 					
 					$utils->log( "Setting member status: {$member->status}" );
 					
-					$record->set_membership_status( ( $member->status == 'active' ? true : false ) );
+					if ( $member->status == 'active' ) {
+						$record->set_membership_status( true );
+					} else {
+						$record->set_membership_status( false );
+					}
 					
 					$cust_id = apply_filters( 'e20r_pw_addon_get_user_customer_id', null, $last_order->gateway, $record );
 					
 					$utils->log( "Got User ID for {$last_order->gateway}: {$cust_id}/" . $record->get_user_ID() );
+					
 					if ( ! empty( $cust_id ) && true === $record->get_recurring_membership_status() ) {
 						
 						$record->set_gateway_customer_id( $cust_id );
@@ -337,7 +375,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				}
 			}
 			
-			return $this->active_members;
+			$record     = null;
+			$last_order = null;
 		}
 		
 		/**
@@ -404,22 +443,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$util = Utilities::get_instance();
 			
-			if ( null === ( $records = Cache::get( "current_{$type}", Payment_Warning::cache_group ) ) ) {
+			if ( null === ( $this->active_members = Cache::get( "current_{$type}", Payment_Warning::cache_group ) ) ) {
 				
 				$util->log( "Loading {$type} records from DB" );
 				
-				$records = array();
-				$class   = self::get_instance();
+				$class = self::get_instance();
 				
 				if ( 'recurring' === $type ) {
-					$active = $class->get_active_subscription_members();
+					$class->set_active_subscription_members();
 				} else {
-					$active = $class->get_active_non_subscription_members();
+					$class->set_active_non_subscription_members();
 				}
 				
-				if ( ! empty( $active ) ) {
+				$records              = $this->active_members;
+				$this->active_members = array();
+				
+				if ( ! empty( $records ) ) {
 					
-					foreach ( $active as $key => $user_data ) {
+					foreach ( $records as $key => $user_data ) {
 						
 						$user_data->set_reminder_type( $type );
 						$order = $user_data->get_last_pmpro_order();
@@ -437,7 +478,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 							if ( ! empty( $next_payment ) || false !== $user_data->get_end_of_subscr_status() ) {
 								
 								$util->log( "Including record for " . $user_data->get_user_ID() );
-								$records[] = $user_data;
+								$this->active_members[] = $user_data;
 							}
 							
 						}
@@ -445,12 +486,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					}
 				}
 				
-				if ( ! empty( $records ) ) {
-					Cache::set( "current_{$type}", $records, 5 * MINUTE_IN_SECONDS, Payment_Warning::cache_group );
+				if ( ! empty( $this->active_members ) ) {
+					Cache::set( "current_{$type}", $this->active_members, 5 * MINUTE_IN_SECONDS, Payment_Warning::cache_group );
 				}
 			}
 			
-			return $records;
+			return $this->active_members;
 		}
 		
 		/**
@@ -504,7 +545,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				add_action( 'pmpro_membership_post_membership_expiry', array( $this, 'clear_member_cache', 99 ) );
 			}
 			
-			$this->per_request_count     = apply_filters( 'e20r_pw_max_records_per_request', 250 );
+			$this->per_request_count = apply_filters( 'e20r_pw_max_records_per_request', 250 );
 		}
 	}
 }
