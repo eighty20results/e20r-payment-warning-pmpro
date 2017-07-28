@@ -193,9 +193,9 @@ class Cron_Handler {
 		$util = Utilities::get_instance();
 		$main = Payment_Warning::get_instance();
 		
-		$first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
+		$not_first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
 		
-		if ( true == $first_run ) {
+		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_cc_msg', true, false );
 			
@@ -220,9 +220,9 @@ class Cron_Handler {
 		
 		$util      = Utilities::get_instance();
 		$main      = Payment_Warning::get_instance();
-		$first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
+		$not_first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
 		
-		if ( true == $first_run ) {
+		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_exp_msg', true, false );
 			
@@ -246,9 +246,9 @@ class Cron_Handler {
 		
 		$util      = Utilities::get_instance();
 		$main      = Payment_Warning::get_instance();
-		$first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
+		$not_first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
 		
-		if ( true == $first_run ) {
+		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_reminder_msg', true, false );
 			
@@ -273,6 +273,14 @@ class Cron_Handler {
 		
 		$util = Utilities::get_instance();
 		
+		$not_first_run = get_option( 'e20r_pw_firstrun_gateway_check', false );
+		
+		if ( false == $not_first_run ) {
+			$util->log( "Not running on startup!" );
+			update_option( 'e20r_pw_firstrun_gateway_check', true, false );
+			return;
+		}
+		
 		$util->log( "Running remote data update handler (cron job)" );
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
@@ -283,9 +291,9 @@ class Cron_Handler {
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
 		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', false );
-		$admin_triggered_cron = $util->get_variable( 'id', null );
+		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
-		$util->log( "Schedule override is: " . ( $override_schedule || $admin_triggered_cron ? 'True' : 'False' ) );
+		$util->log( "Schedule override ({$admin_triggered_cron}) is: " . ( $override_schedule || $admin_triggered_cron ? 'True' : 'False' ) );
 		
 		// After the required amount of time has passed?
 		if ( current_time( 'timestamp' ) <= $next_run || true === $override_schedule || 'e20r_run_remote_data_update' == $admin_triggered_cron ) {
