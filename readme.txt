@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8
-Stable tag: 1.3
+Stable tag: 1.4
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -40,6 +40,42 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.4 ==
+
+* BUG FIX: Didn't set translation/language domain on init/startup of plugin
+* BUG FIX: Didn't always apply first-run logic on activation of plugin
+* BUG FIX: Attempted to run email notice cron jobs on activation
+* BUG FIX: Didn't schedule the background cron actions
+* BUG FIX: Clear all existing user entries in active_members member variable
+* BUG FIX: Would include too many users when loading active non_subscription based members/users
+* BUG FIX: Would include too many users when loading active subscription based members/users
+* BUG FIX: Didn't dispatch request handler for large number(s) of records to process
+* ENHANCEMENT: Reduce memory footprint during load of User_Data class
+* ENHANCEMENT: Allow coder to specify whether to load data or not in maybe_load_from_db() method
+* ENHANCEMENT: Allow override of recurring membership status (via variable - boolean)
+* ENHANCEMENT: Reduced memory footprint in initial load of user records (deferred data load to task hander).
+* ENHANCEMENT: Added get_action() method to Handle_Payments and Handle_Subscriptions classes
+* ENHANCEMENT: Don't run gateway check immediately on plugin activation
+* ENHANCEMENT: Allow override from manual initiation of plugin CRON job(s)
+* ENHANCEMENT: Removed unneeded logging
+* ENHANCEMENT: Rename get_active_*_members() methods to set_active_*_members()
+* ENHANCEMENT: Ignore orders that are made with a different gateway environment (live|sandbox) than the currently configured PMPro Payment Gateway key(s)/settings
+* ENHANCEMENT: Setting membership status manually
+* ENHANCEMENT: Clean up memory
+* ENHANCEMENT: Assign all active user records to active_members variable (avoid duplication)
+* ENHANCEMENT: Renamed handler array variable to task_handler
+* ENHANCEMENT: Improved debug logging for Subscription handler task() method
+* ENHANCEMENT: Added get_action() method
+
+== v1.3.1 ==
+
+* BUG FIX: Would sometimes ignore settings for emailing warnings during scheduled events
+* BUG FIX: Wouldn't honor the delay frequency (reduce load on server
+* BUG FIX: Would stomp it's own large request handling for payments & subscriptions
+* ENHANCEMENT: Allow WP Crontrol plugin to manually override data fetch
+* ENHANCEMENT: Use different instances of the large request handler for subscriptions and payments
+* ENHANCEMENT: Use string identifier for the action name in Large_Request_Handler
 
 == v1.3 ==
 
