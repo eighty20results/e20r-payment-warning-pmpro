@@ -290,7 +290,7 @@ class Cron_Handler {
 		}
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
-		$override_schedule = apply_filters( 'e20r_payment_warming_schedule_override', false );
+		$override_schedule = apply_filters( 'e20r_payment_warning_schedule_override', false );
 		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
 		$util->log( "Schedule override ({$admin_triggered_cron}) is: " . ( $override_schedule || $admin_triggered_cron ? 'True' : 'False' ) );
