@@ -293,10 +293,10 @@ class Cron_Handler {
 		$override_schedule = apply_filters( 'e20r_payment_warning_schedule_override', false );
 		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
-		$util->log( "Schedule override ({$admin_triggered_cron}) is: " . ( $override_schedule || $admin_triggered_cron ? 'True' : 'False' ) );
+		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
 		// After the required amount of time has passed?
-		if ( current_time( 'timestamp' ) <= $next_run || true === $override_schedule || 'e20r_run_remote_data_update' == $admin_triggered_cron ) {
+		if ( $next_run <= current_time( 'timestamp' ) || true === $override_schedule ) {
 			
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
