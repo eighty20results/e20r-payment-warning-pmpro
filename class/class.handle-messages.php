@@ -172,7 +172,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		if ( ! empty( $users[ $today ] ) ) {
 			
-			$user_list .= implode( '<br/>', $users );
+			$user_list .= implode( '<br/>', $users[$today] );
 			
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
