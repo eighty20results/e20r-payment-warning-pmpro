@@ -1,1 +1,1 @@
-BUG FIX: Didn't always allow cron job(s) to execute
+BUG FIX: Didn't expand the user list properly for the notification message(s)
