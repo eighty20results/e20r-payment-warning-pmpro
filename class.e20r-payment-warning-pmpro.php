@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.4.3
+Version: 1.4.4
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.4.3' );
+	define( 'E20R_PW_VERSION', '1.4.4' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {

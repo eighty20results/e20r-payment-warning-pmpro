@@ -1,1 +1,1 @@
-BUG FIX: Didn't expand the user list properly for the notification message(s)
+BUG FIX: Didn't always identify the right user list for the Subject field
