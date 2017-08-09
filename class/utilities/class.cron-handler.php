@@ -83,6 +83,47 @@ class Cron_Handler {
 	}
 	
 	/**
+	 * Calculate and return the next scheduled time (timestamp) for a Cron action
+	 *
+	 * @param string     $default_time
+	 * @param bool $instant
+	 *
+	 * @return int
+	 *
+	 * @access private
+	 */
+	private function next_scheduled( $default_time, $instant = false ) {
+		
+		$util = Utilities::get_instance();
+		
+		$shortest_delay        = $this->find_shortest_recurring_period();
+		$timezone              = get_option( 'timezone_string' );
+		$default_delay_divisor = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
+		$next_scheduled_run    = "{$default_time} {$timezone}";
+		$delay_config          = ! empty( $shortest_delay ) ? array_shift( $shortest_delay ) : 9999;
+		$delay_config          = ( ! empty( $delay_config ) ? $delay_config : "1" );
+		$days                  = ceil( ( $delay_config / $default_delay_divisor ) );
+		
+		while ( $days > 7 ) {
+			// Increment the divisor and retry the calculation (should minimally check the payment gateway once per week)
+			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
+		}
+		
+		// Calculate when the next interval is to happen
+		if ( false === $instant ) {
+			$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+			$interval = new \DateInterval( "P{$days}D" );
+			$time->add( $interval );
+		} else {
+			$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+		}
+		
+		$util->log( "Next scheduled (based on {$default_time} and whether or not to run without delay (" . ( $instant ? 'yes' : 'no' ) . "): " . $time->getTimestamp() );
+		
+		return $time->getTimestamp();
+	}
+	
+	/**
 	 * Configure the cron schedule for the remote data fetch (by gateway)
 	 *
 	 * @return false|int
@@ -113,27 +154,18 @@ class Cron_Handler {
 		$cc_scheduled      = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
 		$payment_scheduled = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
 		$exp_scheduled     = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
-		$days              = ceil( ( $delay_config / $default_delay_divisor ) );
-		
-		while ( $days > 7 ) {
-			// Increment the divisor and retry the calculation (should minimally check the payment gateway once per week)
-			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
-		}
-		
-		$next_collect = new \DateTime( $next_scheduled_collect_run, new \DateTimeZone( $timezone ) );
+		$collect_when      = $this->next_scheduled( $default_data_collect_start_time, true );
 		
 		// No previously scheduled job for the payment gateway
 		if ( false == $is_scheduled ) {
 			
 			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
+			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}/{$collect_when}" );
 			
-			$util->log( "Using day value of {$days} after a start of {$todays_date} {$default_data_collect_start_time}" );
-			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}" );
+			wp_schedule_event( $collect_when, 'daily', 'e20r_run_remote_data_update' );
 			
-			wp_schedule_event( $next_collect->getTimestamp(), 'daily', 'e20r_run_remote_data_update' );
-			
-			$util->log( "Configure next (allowed) run time for the cron job to be at " . $next_collect->getTimestamp() );
-			add_option( 'e20r_pw_next_gateway_check', $next_collect->getTimestamp() );
+			$util->log( "Configure next (allowed) run time for the cron job to be at {$collect_when}" );
+			update_option( 'e20r_pw_next_gateway_check', $collect_when );
 			
 		} else {
 			$next_run = $is_scheduled;
@@ -141,8 +173,8 @@ class Cron_Handler {
 		}
 		
 		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
-		$next_message = new \DateTime( $next_scheduled_message_run, new \DateTimeZone( $timezone ) );
-		$message_when = $next_message->getTimestamp();
+		
+		$message_when = $this->next_scheduled( $default_send_message_start_time, true );
 		
 		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
 		
@@ -161,7 +193,7 @@ class Cron_Handler {
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_expiration_warning_emails' );
 		}
 		
-		return $next_collect->getTimestamp();
+		return $collect_when;
 	}
 	
 	/**
@@ -218,8 +250,8 @@ class Cron_Handler {
 	 */
 	public function send_expiration_messages() {
 		
-		$util      = Utilities::get_instance();
-		$main      = Payment_Warning::get_instance();
+		$util          = Utilities::get_instance();
+		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -244,8 +276,8 @@ class Cron_Handler {
 	 */
 	public function send_reminder_messages() {
 		
-		$util      = Utilities::get_instance();
-		$main      = Payment_Warning::get_instance();
+		$util          = Utilities::get_instance();
+		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -278,6 +310,7 @@ class Cron_Handler {
 		if ( false == $not_first_run ) {
 			$util->log( "Not running on startup!" );
 			update_option( 'e20r_pw_firstrun_gateway_check', true, false );
+			
 			return;
 		}
 		
@@ -290,7 +323,7 @@ class Cron_Handler {
 		}
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
-		$override_schedule = apply_filters( 'e20r_payment_warning_schedule_override', false );
+		$override_schedule    = apply_filters( 'e20r_payment_warning_schedule_override', false );
 		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
@@ -304,6 +337,12 @@ class Cron_Handler {
 			$fetch_data->get_remote_subscription_data();
 			$fetch_data->get_remote_payment_data();
 			$util->log( "Triggered remote subscription fetch configuration" );
+			
+			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
+			$next_ts = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
+			$util->log("Calculating when to next run the gateway data fetch operation: {$next_ts}");
+			update_option( 'e20r_pw_next_gateway_check', $next_ts, false );
+			
 		} else {
 			$util->log( "Not running. Cause: Not after the scheduled next-run time/date of {$next_run}" );
 		}
