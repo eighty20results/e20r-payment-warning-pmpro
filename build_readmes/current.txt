@@ -1,1 +1,9 @@
-BUG FIX: Didn't always identify the right user list for the Subject field
+ENHANCEMENT: Add private next_scheduled() method to calculate the next timestamp for a Cron job in Cron_Handler
+ENHANCEMENT: Use next_scheduled() method to provide timestamp for when Cron jobs start in Cron_Handler
+ENHANCEMENT: Added updated_membership_level() method to Payment_Warning Class
+ENHANCEMENT: Added update_discount_codes() method to Payment_Warning Class
+ENHANCEMENT: Added get_util_cache_key() method to Utilities class
+ENHANCEMENT/FIX: Dropping cache values for Cron schedules after discount code or level updates
+BUG FIX: Displayed extra slash characters in message body
+BUG FIX: Displayed extra slash charaters in message title/subject
+BUG FIX: Didn't update the next scheduled option for the upstream gateway data collection operation

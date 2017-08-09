@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8
-    Stable tag: 1.4.4
+    Stable tag: 1.5
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,18 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.5
+
+* ENHANCEMENT: Add private next_scheduled() method to calculate the next timestamp for a Cron job in Cron_Handler
+* ENHANCEMENT: Use next_scheduled() method to provide timestamp for when Cron jobs start in Cron_Handler
+* ENHANCEMENT: Added updated_membership_level() method to Payment_Warning Class
+* ENHANCEMENT: Added update_discount_codes() method to Payment_Warning Class
+* ENHANCEMENT: Added get_util_cache_key() method to Utilities class
+* ENHANCEMENT/FIX: Dropping cache values for Cron schedules after discount code or level updates
+* BUG FIX: Displayed extra slash characters in message body
+* BUG FIX: Displayed extra slash charaters in message title/subject
+* BUG FIX: Didn't update the next scheduled option for the upstream gateway data collection operation
 
 ###v1.4.4
 
