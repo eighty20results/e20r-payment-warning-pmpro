@@ -264,6 +264,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
    
+			add_action( 'pmpro_save_discount_code_level', array( $this, 'updated_discount_codes'), 10, 2 );
+			add_action( 'pmpro_save_membership_level', array( $this, 'updated_membership_level', 10, 1 ) );
+			
 			// Last thing to do on deactivation (Required for this plugin)
 			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array( Editor::get_instance(), 'deactivate_plugin' ), 10, 1 );
@@ -276,7 +279,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$utils->log("Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons");
 			/** Add all module remote AJAX call actions */
 			do_action( 'e20r_pw_addon_add_remote_call_handler' );
-			
+   
 			// TODO: Testing actions (uncomment to include)
             if ( defined('WP_DEBUG') && true === WP_DEBUG ) {
 	         
@@ -292,6 +295,41 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
             }
 		}
 		
+		/**
+         * Clear the level delay cache info on membership level save operation(s)
+         *
+		 * @param $level_id
+		 */
+		public function updated_membership_level( $level_id ) {
+			
+			$util = Utilities::get_instance();
+			
+			// Clear cached values when discount code(s) get updated
+			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
+			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
+			update_option( 'e20r_pw_next_gateway_check', null );
+			
+			$util->log("Dropping the cache for delay & cron schedules due to a membership level being updated");
+		}
+  
+		/**
+         * Force calculation of next cron scheduled run whenever saving/updating a Discount Code
+         *
+		 * @param int $discount_code_id
+		 * @param int $level_id
+		 */
+		public function updated_discount_codes( $discount_code_id, $level_id ) {
+		    
+		    $util = Utilities::get_instance();
+		    
+		    // Clear cached values when discount code(s) get updated
+		    Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
+		    Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
+		    update_option( 'e20r_pw_next_gateway_check', null );
+		    
+		    $util->log("Dropping the cache for delay & cron schedules due to Discount Code being updated");
+		}
+        
 		/**
          * Validate that we're on the plugin specific screen/page for this add-on
          *
