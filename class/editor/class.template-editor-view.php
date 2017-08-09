@@ -186,7 +186,7 @@ class Template_Editor_View {
             <td class="e20r-message-template-col">
                 <input id="e20r-message-template-subject_<?php esc_attr_e( $template_name ); ?>"
                        name="e20r_message_template-subject"
-                       type="text" size="100" value="<?php echo esc_html( $template['subject'] ); ?>"/>
+                       type="text" size="100" value="<?php echo esc_html( wp_unslash( $template['subject'] ) ); ?>"/>
             </td>
         </tr>
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>">
@@ -199,7 +199,7 @@ class Template_Editor_View {
                 <div class="template_editor_container">
 					<?php
 					if ( false === $return && 'new' !== $template_name ) {
-						wp_editor( ( ! empty( $template['body'] ) ? $template['body'] : null ), "e20r-message-body_{$template_name}", array( 'editor_height' => 350 ) );
+						wp_editor( ( ! empty( $template['body'] ) ? wp_unslash( $template['body'] ) : null ), "e20r-message-body_{$template_name}", array( 'editor_height' => 350 ) );
 					} else {
 						?>
                         <!-- <div id="wp-e20r-message-body_new-media-buttons" class="wp-media-buttons"> -->
