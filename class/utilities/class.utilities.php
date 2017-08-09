@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.7
+ * @version 1.8
  */
 
 namespace E20R\Payment_Warning\Utilities;
@@ -298,6 +298,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 			return $trace;
 		}
 		
+		/**
+         * Return the cache key for the Utilities class
+		 * @return string
+		 */
+		public static function get_util_cache_key() {
+		    
+		    return self::$cache_key;
+        }
+        
 		/**
 		 * Return all delay values for a membership payment start
 		 *
