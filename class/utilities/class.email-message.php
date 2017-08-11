@@ -311,7 +311,7 @@ class Email_Message {
 		$to            = $this->user_info->get_user_email();
 		
 		$util->log( "Sending message to {$to} -> " . $this->subject );
-		$status = wp_mail( $to, $this->subject, $this->template_settings['body'], $this->headers );
+		$status = wp_mail( $to, $this->subject, wp_unslash( $this->template_settings['body'] ), $this->headers );
 		
 		if ( true == $status ) {
 			
