@@ -386,7 +386,7 @@ class Editor {
 			'ccexpiring_default' => array(
 				'subject'        => sprintf( __( "Credit Card on file at %s expiring soon", Payment_Warning::plugin_slug ), get_option( "blogname" ) ),
 				'active'         => true,
-				'type'           => 'expiration',
+				'type'           => 'ccexpiration',
 				'body'           => null,
 				'data_variables' => array(),
 				'schedule'       => $this->default_schedule( 'expiration' ),
