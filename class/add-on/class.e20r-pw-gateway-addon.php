@@ -99,26 +99,83 @@ abstract class E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Save info about mismatched gateway customer ID and email record(s).
+	 * Save error info about mismatched gateway customer ID and email record(s).
+	 *
+	 * @action e20r_pw_addon_save_email_error_data - Action hook to save data mis-match between payment gateway & local email address on file
 	 *
 	 * @param string $gateway_name
 	 * @param string $gateway_cust_id
 	 * @param string $gateway_email_addr
 	 * @param string $local_email_addr
 	 */
-	abstract public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr );
+	public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr ) {
+		
+		$metadata = array(
+			'gateway_name'        => $gateway_name,
+			'local_email_addr'    => $local_email_addr,
+			'gateway_email_addr'  => $gateway_email_addr,
+			'gateway_customer_id' => $gateway_cust_id,
+		);
+		
+		$user_data        = get_user_by( 'email', $local_email_addr );
+		$email_error_data = get_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', false );
+		
+		if ( false === $email_error_data ) {
+			add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+		} else {
+			foreach ( $email_error_data as $current ) {
+				
+				if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
+					update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+				} else if ( ! isset( $current['gateway_name'] ) || $this->gateway_name === $current['gateway_name'] ) {
+					add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+				}
+			}
+		}
+	}
 	
 	/**
-	 * Save info about extra/mismatched payment gateway and email record data
+	 * Save error info about unexpected subscription entries on upstream gateway
 	 *
-	 * @param string       $gateway_name              The Payment Gateway name
-	 * @param User_Data    $user_data                 The local user data object
-	 * @param \MemberOrder $member_order              The local MemberOrder object
-	 * @param mixed        $gateway_subscription_data The Subscription object / data at the payment gateway
+	 * @action e20r_pw_addon_save_subscription_mismatch - Action hook to save subscription mis-match between payment gateway & local data
+	 *
+	 * @param string       $gateway_name
+	 * @param User_Data    $user_data
+	 * @param \MemberOrder $member_order
+	 * @param string $gateway_subscription_id
 	 *
 	 * @return mixed
 	 */
-	abstract public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_data );
+	public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_id ) {
+		
+		$util = Utilities::get_instance();
+		
+		$metadata = array(
+			'gateway_name'     => $gateway_name,
+			'local_subscr_id'  => $member_order->subscription_transaction_id,
+			'remote_subscr_id' => $gateway_subscription_id,
+		);
+		
+		$util->log( "Expected Subscription ID from upstream: {$member_order->subscription_transaction_id}, got something different ({$gateway_subscription_id})!" );
+		
+		$subscr_error_data = get_user_meta( $user_data->get_user_ID(), 'e20rpw_gateway_subscription_mismatched', false );
+		$user_id           = $user_data->get_user_ID();
+		
+		if ( ! empty( $user_id ) && false === $subscr_error_data ) {
+			add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+		} else {
+			foreach ( $subscr_error_data as $current ) {
+				
+				if ( ! empty( $user_id ) && false !== $current && ! empty( $current['gateway_name'] ) && $gateway_name === $current['gateway_name'] ) {
+					$util->log( "Updating existing subscription mismatch record for {$gateway_name}/{$user_id}" );
+					update_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata, $current );
+				} else if ( $gateway_name === $current['gateway_name'] ) {
+					$util->log( "Adding subscription mismatch record for {$gateway_name}/{$user_id}" );
+					add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+				}
+			}
+		}
+	}
 	
 	/**
 	 * Core function: Verify that the user data has valid/expected gateway settings
@@ -436,6 +493,22 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @return mixed $validated
 	 */
 	abstract public function validate_settings( $input );
+	
+	/**
+	 * Loading add-on specific webhook handler for Stripe.com (late handling to stay out of the way of PMpro itself)
+	 */
+	abstract public function load_webhook_handler();
+	
+	/**
+	 * Fetch the (current) Payment Gateway specific customer ID from the local Database
+	 *
+	 * @param string    $gateway_customer_id
+	 * @param string    $gateway_name
+	 * @param User_Data $user_info
+	 *
+	 * @return mixed
+	 */
+	abstract public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info );
 	
 	/**
 	 * Required Add-on class method: configure_menu();
