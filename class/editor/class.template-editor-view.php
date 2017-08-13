@@ -135,11 +135,15 @@ class Template_Editor_View {
 						<?php _e( 'Header/Footer', Payment_Warning::plugin_slug ); ?>
                     </option>
                     <option value="expiration" <?php selected( $template['type'], 'expiration' ); ?>>
-						<?php _e( 'Warning', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Expiration Message', Payment_Warning::plugin_slug ); ?>
                     </option>
                     <option value="recurring" <?php selected( $template['type'], 'recurring' ); ?>>
-						<?php _e( 'Reminder', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Recurring Payment', Payment_Warning::plugin_slug ); ?>
                     </option>
+                    <option value="ccexpiration" <?php selected( $template['type'], 'recurring' ); ?>>
+		                <?php _e( 'Credit Card Expiration', Payment_Warning::plugin_slug ); ?>
+                    </option>
+
                 </select>
             </td>
         </tr>
