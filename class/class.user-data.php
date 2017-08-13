@@ -328,7 +328,7 @@ class User_Data {
 				'gateway_subscr_id'              => $this->gateway_subscr_id,
 				'gateway_payment_id'             => $this->gateway_payment_id,
 				'is_delinquent'                  => $this->is_delinquent,
-				'has_active_subscription'        => ( ! empty( $this->user_subscriptions ) ? true : false ),
+				'has_active_subscription'        => $this->has_active_subscription,
 				'has_local_recurring_membership' => $this->is_local_membership_recurring( $this->user->current_membership_level ),
 				'payment_currency'               => $this->payment_currency,
 				'payment_amount'                 => $this->payment_amount,
@@ -342,8 +342,8 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
-				'user_subscriptions'             => ( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
-				'user_charges'                   => ( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
+				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
+				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
 				'modified'                       => current_time( 'timestamp' ),
 			);
 			
@@ -378,8 +378,8 @@ class User_Data {
 				'last_order_id' => $this->last_order->id,
 			);
 			
-			$util->log( "Record: " . print_r( $user_data, true ) );
-			$util->log( "Where: " . print_r( $where, true ) );
+			// $util->log( "Record: " . print_r( $user_data, true ) );
+			// $util->log( "Where: " . print_r( $where, true ) );
 			
 			// No valid membership level defined!
 			if ( empty( $user_data['level_id'] ) ) {
