@@ -57,13 +57,14 @@ class Email_Message {
 	 *
 	 * @param User_Data $user_info
 	 * @param string    $template_name
+	 * @param string    $type
 	 */
-	public function __construct( $user_info, $template_name ) {
+	public function __construct( $user_info, $template_name, $type = 'recurring' ) {
 		
 		$util = Utilities::get_instance();
 		
 		// Default email subject text (translatable)
-		$this->subject = sprintf( __( 'Payment reminder for your %s membership', Payment_Warning::plugin_slug ), '!!sitename!!' );
+		$this->subject = sprintf( __( 'Reminder for your %s membership', Payment_Warning::plugin_slug ), '!!sitename!!' );
 		
 		$this->user_info     = $user_info;
 		$this->template_name = $template_name;
@@ -156,6 +157,25 @@ class Email_Message {
 				$enddate = $this->user_info->get_end_of_membership_date();
 				$util->log( "Using {$enddate} as membership end date" );
 				$data['membership_ends'] = ! empty( $enddate ) ? $enddate : 'Not recorded';
+				
+				break;
+			
+			case 'ccexpiration':
+				$data = array(
+					'name'                  => $this->user_info->get_user_name(),
+					'user_login'            => $this->user_info->get_user_login(),
+					'sitename'              => $this->site_name,
+					'membership_id'         => ! empty( $level->id ) ? $level->id : 'Unknown',
+					'membership_level_name' => ! empty( $level->name ) ? $level->name : 'Unknown',
+					'siteemail'             => $this->site_email,
+					'login_link'            => $this->login_link,
+					'display_name'          => $this->user_info->get_user_name(),
+					'user_email'            => $this->user_info->get_user_email(),
+					'currency'              => $pmpro_currency_symbol,
+				);
+				
+				$data['billing_info']  = $this->format_billing_address();
+				$data['saved_cc_info'] = $this->get_html_payment_info();
 				
 				break;
 		}
@@ -300,43 +320,51 @@ class Email_Message {
 		$util = Utilities::get_instance();
 		
 		$util->log( "Preparing email type: {$type}" );
-		$variables = $this->configure_default_data( $type );
-		
-		$this->set_variable_pairs( $variables, $type );
-		$util->log( "Using variables: " . print_r( $this->variables, true ) );
-		$this->replace_variable_text();
-		$this->prepare_headers();
-		
-		$this->subject = apply_filters( 'e20r-payment-warning-email-subject', $this->template_settings['subject'], $type );
 		$to            = $this->user_info->get_user_email();
 		
-		$util->log( "Sending message to {$to} -> " . $this->subject );
-		$status = wp_mail( $to, $this->subject, wp_unslash( $this->template_settings['body'] ), $this->headers );
+		$who    = get_option( "e20r_pw_sent_{$type}", array() );
+		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+		$status = false;
 		
-		if ( true == $status ) {
+		if ( ! isset( $who[ $today ][ $to ] ) ) {
 			
-			$util->log( "Recording that we attempted to send a {$type} message to: {$to}" );
-			$today = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
-			$who   = get_option( "e20r_pw_sent_{$type}", array() );
+			$variables = $this->configure_default_data( $type );
 			
-			if ( ! isset ( $who[ $today ] ) ) {
+			$this->set_variable_pairs( $variables, $type );
+			$util->log( "Using variables: " . print_r( $this->variables, true ) );
+			$this->replace_variable_text();
+			$this->prepare_headers();
+			
+			$this->subject = apply_filters( 'e20r-payment-warning-email-subject', $this->template_settings['subject'], $type );
+			
+			$util->log( "Sending message to {$to} -> " . $this->subject );
+			$status = wp_mail( $to, $this->subject, wp_unslash( $this->template_settings['body'] ), $this->headers );
+			
+			if ( true == $status ) {
 				
-				$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
+				$util->log( "Recording that we attempted to send a {$type} message to: {$to}" );
 				
-				$who[ $today ] = array();
-				
-				if ( count( $who ) > 1 ) {
+				if ( ! isset ( $who[ $today ] ) ) {
 					
-					$util->log( "Cleaning up the array of users" );
-					$new = array( $today => array() );
-					$who = array_intersect_key( $who, $new );
+					$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
+					
+					$who[ $today ] = array();
+					
+					if ( count( $who ) > 1 ) {
+						
+						$util->log( "Cleaning up the array of users" );
+						$new = array( $today => array() );
+						$who = array_intersect_key( $who, $new );
+					}
 				}
+				
+				$who[ $today ][] = $to;
+				update_option( "e20r_pw_sent_{$type}", $who, false );
+			} else {
+				$util->log( "Error sending {$type} message to {$to}" );
 			}
-			
-			$who[ $today ][] = $to;
-			update_option( "e20r_pw_sent_{$type}", $who, false );
 		} else {
-			$util->log( "Error sending {$type} message to {$to}" );
+			$util->log( "Already sent message on {$today} to {$to}" );
 		}
 		
 		return $status;
