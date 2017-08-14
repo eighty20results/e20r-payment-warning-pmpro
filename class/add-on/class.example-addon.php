@@ -42,47 +42,61 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		 * @var Example_Addon
 		 */
 		private static $instance;
-  
+		
+		/**
+         * Name of the gateway this add-on handles
+		 * @var null
+		 */
+		protected $gateway_name = null;
 		
 		/**
 		 * Name of the WordPress option key
 		 *
 		 * @var string $option_name
 		 */
-		private $option_name = 'e20r_egwao_example';
+		protected $option_name = 'e20r_egwao_example';
 		
 		/**
 		 *  Example_Addon constructor.
 		 */
 		public function __construct() {
-			
+		 
 			parent::__construct();
+			
+			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_stub_name' ) );
 			
 			if ( is_null( self::$instance ) ) {
 				self::$instance = $this;
 			}
-			$this->class_name = $this->maybe_extract_class_name( get_class( $this ) );
+			
+			$this->class_name   = $this->maybe_extract_class_name( get_class( $this ) );
+			$this->gateway_name = 'stripe';
+			
+			if ( function_exists( 'pmpro_getOption' ) ) {
+				$this->current_gateway_type = pmpro_getOption( "gateway_environment" );
+			}
+			
 			$this->define_settings();
 		}
-		
-		public function load_gateway() {
-			// TODO: Implement load_gateway() method.
-		}
-		
+  
 		public function set_stub_name( $name = null ) {
 			
 		    $name = strtolower( $this->get_class_name() );
 			return $name;
 		}
 		
-		public function save_email_error( $customer_id, $gateway_email_addr, $local_email_addr ) {
-		    
-        }
+		public function load_gateway() {
+			// TODO: Implement load_gateway() method.
+		}
         
-        public function save_subscription_mismatch( $user_data, $local_order, $gateway_subscription_data ) {
-		    
+        public function load_webhook_handler() {
+	        // TODO: Implement load_webhook_handler() method.
         }
-        
+		
+        public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
+	        // TODO: Implement get_local_user_customer_id() method.
+        }
+		
 		public function get_class_name() {
 			
 			if ( empty( $this->class_name ) ) {
