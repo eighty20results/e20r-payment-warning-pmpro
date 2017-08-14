@@ -109,12 +109,16 @@ class Cron_Handler {
 			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
 		}
 		
+		$util->log( "Delay config: {$days}" );
+		
 		// Calculate when the next interval is to happen
 		if ( false === $instant ) {
+			$util->log("Configure next interval based on configured days: {$days}");
 			$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
 			$interval = new \DateInterval( "P{$days}D" );
 			$time->add( $interval );
 		} else {
+			$util->log("Using next scheduled run value: {$next_scheduled_run}");
 			$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
 		}
 		
@@ -136,15 +140,11 @@ class Cron_Handler {
 		
 		$shortest                        = $this->find_shortest_recurring_period();
 		$delay_config                    = ! empty( $shortest ) ? array_shift( $shortest ) : 9999;
-		$default_delay_divisor           = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
 		$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
 		$default_send_message_start_time = apply_filters( 'e20r_payment_warning_send_message_time', '05:30:00' );
-		$todays_date                     = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$timezone                        = get_option( 'timezone_string' );
 		$next_scheduled_collect_run      = "{$default_data_collect_start_time} {$timezone}";
 		$next_scheduled_message_run      = "{$default_send_message_start_time} {$timezone}";
-		
-		$util->log( "Delay config: {$delay_config}" );
 		
 		// Make sure the trigger time is minimally daily
 		$delay_config = ( ! empty( $delay_config ) ? $delay_config : "1" );
@@ -154,10 +154,10 @@ class Cron_Handler {
 		$cc_scheduled      = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
 		$payment_scheduled = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
 		$exp_scheduled     = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
-		$collect_when      = $this->next_scheduled( $default_data_collect_start_time, true );
+		$collect_when      = $this->next_scheduled( $default_data_collect_start_time, false );
 		
 		// No previously scheduled job for the payment gateway
-		if ( false == $is_scheduled ) {
+		if ( false === $is_scheduled ) {
 			
 			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
 			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}/{$collect_when}" );
@@ -174,21 +174,21 @@ class Cron_Handler {
 		
 		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
 		
-		$message_when = $this->next_scheduled( $default_send_message_start_time, true );
+		$message_when = $this->next_scheduled( $default_send_message_start_time, false );
 		
 		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
 		
-		if ( false == $cc_scheduled ) {
+		if ( false === $cc_scheduled ) {
 			$util->log( "Cron job for Credit Card Warning isn't scheduled yet. Will use {$message_when}" );
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_creditcard_warning_emails' );
 		}
 		
-		if ( false == $payment_scheduled ) {
+		if ( false === $payment_scheduled ) {
 			$util->log( "Cron job for Next Payment Warning isn't scheduled yet. Will use {$message_when}" );
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_payment_warning_emails' );
 		}
 		
-		if ( false == $exp_scheduled ) {
+		if ( false === $exp_scheduled ) {
 			$util->log( "Cron job for Membership Expiration Warning isn't scheduled yet. Will use {$message_when}" );
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_expiration_warning_emails' );
 		}
