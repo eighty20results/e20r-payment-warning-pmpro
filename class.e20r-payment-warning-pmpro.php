@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.5.1
+Version: 1.5.2
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.5.1' );
+	define( 'E20R_PW_VERSION', '1.5.2' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -897,7 +897,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		/**
 		 * Plugin activation
 		 */
-		public function activate() {
+		public static function activate() {
 		    
 		    $util = Utilities::get_instance();
 		    
@@ -917,9 +917,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		/**
 		 * Plugin deactivation
 		 */
-        public function deactivate() {
+        public static function deactivate() {
 		    
-		    $clean_up = $this->load_options('deactivation_reset' );
+            $class = self::$instance;
+		    $clean_up = $class->load_options('deactivation_reset' );
 		    $utils = Utilities::get_instance();
 		    
 		    $utils->log("Deleting all first-run trigger options");
@@ -1024,8 +1025,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
  */
 spl_autoload_register( 'E20R\Payment_Warning\Payment_Warning::auto_loader' );
 
-register_activation_hook( __FILE__, array( Payment_Warning::get_instance(), 'activate' ) );
-register_deactivation_hook( __FILE__, array( Payment_Warning::get_instance(), 'deactivate' ) );
+register_activation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warning', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warning', 'deactivate' ) );
 
 // Load this plugin
 add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'plugins_loaded' ), 10 );
