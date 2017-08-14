@@ -108,7 +108,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 			$util->log( "Site has the expected action: " . (
 				has_action(
 					'wp_ajax_ipnhandler',
-					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
+					array( self::get_instance(), 'webhook_handler' ) ) ? 'Yes' : 'No' )
 			);
 		}
 		
@@ -161,7 +161,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		public function update_credit_card_info( User_Data $user_data, $card_data, $gateway_name ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( 'e20r_pw_addon_e20r_paypalexpress_gateway_addon_name', null );
+			$stub  = apply_filters( 'e20r_pw_addon_paypal_express_gateway_addon_name', null );
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
@@ -188,7 +188,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		public function get_gateway_subscriptions( User_Data $user_data ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( "e20r_pw_addon_e20r_paypalexpress_gateway_addon_name", null );
+			$stub  = apply_filters( "e20r_pw_addon_paypal_express_gateway_addon_name", null );
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
@@ -273,7 +273,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
 			
 			$util = Utilities::get_instance();
-			$stub = apply_filters( 'e20r_pw_addon_e20r_paypalexpress_gateway_addon_name', null );
+			$stub = apply_filters( 'e20r_pw_addon_paypal_express_gateway_addon_name', null );
 			
 			if ( false === $this->verify_gateway_processor( $user_info, $stub, $this->gateway_name ) ) {
 				$util->log( "Failed check of gateway / gateway addon licence for the add-on" );
@@ -543,13 +543,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 			if ( true === parent::is_enabled( $stub ) ) {
 				
 				$utils->log( "Loading other actions/filters for {$e20r_pw_addons[$stub]['label']}" );
-				
+				/*
 				add_action( 'e20r_pw_addon_save_email_error_data', array(
 					self::get_instance(),
 					'save_email_error',
 				), 10, 3 );
 				add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch' ), 10, 3 );
-				
+				*/
 				/**
 				 * Membership related settings for role(s) add-on
 				 */
@@ -557,7 +557,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 //				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
 //				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
 				
-				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
+                // TODO: Load these actions
+                /**
+				 add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
 				add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
 				add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
 				add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 0 );
@@ -567,6 +569,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 				
 				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );
 				add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info' ), 10, 3 );
+                 */
 			}
 		}
 		
@@ -725,16 +728,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 	}
 }
 
-add_filter( "e20r_pw_addon_e20r_paypalexpress_gateway_addon_name", array( PayPal_Express_Gateway_Addon::get_instance(), 'set_stub_name' ) );
+add_filter( "e20r_pw_addon_paypal_express_gateway_addon_name", array( PayPal_Express_Gateway_Addon::get_instance(), 'set_stub_name' ) );
 
 // Configure the add-on (global settings array)
 global $e20r_pw_addons;
-$stub = apply_filters( "e20r_pw_addon_e20r_paypalexpress_gateway_addon_name", null );
+$stub = apply_filters( "e20r_pw_addon_paypal_express_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'PayPal_Express_Gateway_Addon',
-	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
-	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
+	'is_active'             => false, //( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
+	'active_license'        => false, // ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
 	'status'                => 'deactivated',
 	'label'                 => 'PayPal Express Gateway',
 	'admin_role'            => 'manage_options',
