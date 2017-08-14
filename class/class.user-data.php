@@ -68,9 +68,9 @@ class User_Data {
 	
 	private $gateway_customer_id = null;
 	
-	private $user_subscriptions = null;
+	// private $user_subscriptions = null;
 	
-	private $user_charges = null;
+	// private $user_charges = null;
 	
 	private $user_payment_status = 'stopped';
 	
@@ -342,8 +342,8 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
-				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
-				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
+				// 'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
+				// 'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
 				'modified'                       => current_time( 'timestamp' ),
 			);
 			
@@ -367,8 +367,8 @@ class User_Data {
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
-				'%s', // user_subscriptions
-				'%s', // user_charges
+				// '%s', // user_subscriptions
+				// '%s', // user_charges
 				'%s', // modified
 			);
 			
@@ -1465,9 +1465,7 @@ class User_Data {
 					next_payment_date datetime NULL,
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
-					reminder_type enum('recurring', 'expiration') NOT NULL DEFAULT 'recurring',
-					user_subscriptions mediumtext NULL,
-					user_charges mediumtext NULL,
+					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
 					modified timestamp NOT NULL ON UPDATE now(),
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
