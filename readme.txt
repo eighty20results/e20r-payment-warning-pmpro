@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.5
+Stable tag: 1.5.3
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -40,6 +40,46 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.5.3 ==
+
+* BUG FIX: Deactivate PayPal Express completely
+
+== v1.5.2 ==
+
+* BUG FIX: Didn't always confirm that jobs were scheduled
+* ENHANCEMENT/FIX: Make plugin activation/deactivation functions static
+
+== v1.5.1 ==
+
+* BUG FIX: Included escaped text in email body
+* BUG FIX: Would sometimes send multiple instances of same message to same user on same day
+* BUG FIX: Didn't correctly handle expiration and credit card expiration messages
+* BUG FIX: Uses has_active_subscription variable to determine staus for user record
+* BUG FIX: Didn't always send reminder message for non-recurring message types
+* BUG FIX: Set correct access for class parameters
+* BUG FIX: Update action hook handler for e20r_pw_addon_gateway_subscr_statuses filter in stripe gateway class
+* ENHANCEMENT/FIX: Incorrect template type for Credit Card Expiration message
+* ENHANCEMENT/FIX: Use dedicated template type setting for Credit Card expiration notice
+* ENHANCEMENT/FIX: Moved subscription mismatch handler to core gateway handler class
+* ENHANCEMENT/FIX: Moved email address mismatch handler to core gateway handler class
+* ENHANCEMENT/FIX: Add abstract load_webhook_handler() method to core gateway handler class
+* ENHANCEMENT/FIX: Add abstract get_local_customer_id() method to core gateway handler class
+* ENHANCEMENT: Load all active members to active_members variable (set_all_active_members() method)
+* ENHANCEMENT: Added cache clear for new all_active_members cache
+* ENHANCEMENT: No longer stores subscription or charge data in local db tables
+* ENHANCEMENT: Remove debug info from logs
+* ENHANCEMENT: Renamed should_send_payment_reminder() method to should_send_reminder_message()
+* ENHANCEMENT: Move save_subscription_mismatch action handler to core class
+* ENHANCEMENT: Rename valid_stripe_subscription_statuses() to valid_gateway_subscription_statuses()
+* ENHANCEMENT: Stop saving transaction data to local DB (subscriptions and charges)
+* ENHANCEMENT: Only used the subscription ID in the e20r_pw_addon_save_subscription_mismatch action hooks
+* ENHANCEMENT: Add initial framework for PayPal Express payment gateway add-on
+* ENHANCEMENT: Remove subscription list and charge list from local DB storage
+* ENHANCEMENT: Add ccexpiration as a valid reminder type
+* ENHANCEMENT: Add libraries directory to build script
+* ENHANCEMENT: Minor updates to Example add-on class stub
+* ENHANCEMENT: Add REST API library for PayPal/PayPal Express
 
 == v1.5 ==
 
