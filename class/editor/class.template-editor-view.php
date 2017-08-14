@@ -140,7 +140,7 @@ class Template_Editor_View {
                     <option value="recurring" <?php selected( $template['type'], 'recurring' ); ?>>
 						<?php _e( 'Recurring Payment', Payment_Warning::plugin_slug ); ?>
                     </option>
-                    <option value="ccexpiration" <?php selected( $template['type'], 'recurring' ); ?>>
+                    <option value="ccexpiration" <?php selected( $template['type'], 'ccexpiration' ); ?>>
 		                <?php _e( 'Credit Card Expiration', Payment_Warning::plugin_slug ); ?>
                     </option>
 
