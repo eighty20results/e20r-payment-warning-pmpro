@@ -537,8 +537,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
    
 			$class_name = self::get_instance()->get_class_name();
 			
+			// TODO: Reqactivate required actions/filters for PayPal Express gateway support
 			$utils->log("Running register settings for {$class_name}");
-			add_filter( "e20r_pw_addon_options_{$class_name}", array( self::get_instance(), 'register_settings', ), 10, 1 );
+			// add_filter( "e20r_pw_addon_options_{$class_name}", array( self::get_instance(), 'register_settings', ), 10, 1 );
 			
 			if ( true === parent::is_enabled( $stub ) ) {
 				
@@ -556,8 +557,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 //				add_action( 'e20r_pw_level_settings', array( self::get_instance(), 'load_level_settings' ), 10, 2 );
 //				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
 //				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
-				
-                // TODO: Load these actions
+                
                 /**
 				 add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
 				add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
