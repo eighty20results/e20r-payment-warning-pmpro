@@ -42,9 +42,12 @@ abstract class E20R_PW_Gateway_Addon {
 	 *      \PMProGateway_stripe|
 	 *      \PMProGateway_Twocheckout
 	 */
-	private $gateway_class = array();
+	protected $gateway_class = array();
 	
-	protected $gateway_loaded = false;
+	/**
+	 * @var mixed
+	 */
+	protected $gateway = null;
 	
 	/**
 	 * @var E20R_PW_Gateway_Addon
@@ -56,7 +59,7 @@ abstract class E20R_PW_Gateway_Addon {
 	 *
 	 * @var string $option_name
 	 */
-	private $option_name = 'e20r_pwgw_default';
+	protected $option_name = 'e20r_pwgw_default';
 	
 	/**
 	 * @var null|string Timezone string for payment gateway config
@@ -64,6 +67,22 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @access protected
 	 */
 	protected $gateway_timezone;
+	
+	/**
+	 * @var null|string
+	 */
+	protected $gateway_name = null;
+	
+	/**
+	 * @var bool
+	 */
+	protected $gateway_loaded = false;
+	
+	/**
+	 * @var null|string $current_gateway_type Can be set to 'live' or 'sandbox' or null
+	 */
+	protected $current_gateway_type = null;
+	
 	/**
 	 * Local settings array
 	 *
