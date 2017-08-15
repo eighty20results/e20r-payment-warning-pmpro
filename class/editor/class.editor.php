@@ -43,6 +43,8 @@ class Editor {
 	public function __construct() {
 		
 		$util = Utilities::get_instance();
+		$util->log("Loading editor hooks in constructor");
+		$this->load_hooks();
 	}
 	
 	/**
@@ -56,13 +58,7 @@ class Editor {
 		
 		if ( is_null( self::$instance ) ) {
 			
-			if ( true === Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
-				$util->log( "The Payment Warnings product is licensed so enabling editor." );
-				
-				self::$instance = new self;
-				self::$instance->load_hooks();
-				
-			}
+			self::$instance = new self;
 		}
 		
 		return self::$instance;
@@ -290,12 +286,16 @@ class Editor {
 	 */
 	public static function get_templates_of_type( $type ) {
 		
-		$class = self::get_instance();
 		$util  = Utilities::get_instance();
 		$util->log( "Loading templates for type: {$type}" );
 		
+		if ( empty( self::$instance ) ) {
+			$util->log("Error attempting to load myself!");
+			return array();
+		}
+		
 		$template_keys = array();
-		$templates     = $class->load_template_settings( 'all', false );
+		$templates     = self::$instance->load_template_settings( 'all', false );
 		
 		foreach ( $templates as $template_name => $template ) {
 			
