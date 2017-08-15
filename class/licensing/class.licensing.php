@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.2
+ * @version 1.4
  *
  */
 
@@ -72,7 +72,7 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 			
 			$utils->log( "Checking license for {$product_stub}" );
 			
-			if ( WP_DEBUG && true === $force ) {
+			if ( true === $force ) {
 				$utils->log("Clearing license cache");
 				Cache::delete( self::CACHE_KEY, self::CACHE_GROUP );
 			}
@@ -329,14 +329,20 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 		}
 		
 		/**
-		 * @param $product
+		 * @param string $product
 		 *
 		 * @return array
 		 */
-		private static function get_license_settings( $product = 'e20r_default_license' ) {
+		private static function get_license_settings( $product = null ) {
+			
+			$utils = Utilities::get_instance();
+			
+			if ( is_null( $product ) ) {
+				$utils->log("No product key provided. Using default key (e20r_default_license)!");
+			    $product = 'e20r_default_license';
+			}
 			
 			$settings = get_option( 'e20r_license_settings', self::default_settings( $product ) );
-			$utils = Utilities::get_instance();
 			
 			if ( 'e20r_default_license' == $product || empty( $product ) ) {
 				
@@ -464,7 +470,7 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 			$utils = Utilities::get_instance();
 			
 			$utils->log("Attmpting remote connection to " . self::E20R_LICENSE_SERVER_URL );
-			
+   
 			// Send query to the license manager server
 			$response = wp_remote_get(
 				add_query_arg( $api_params, self::E20R_LICENSE_SERVER_URL ),
@@ -557,7 +563,7 @@ if ( ! class_exists( 'E20R\Licensing\Licensing' ) ) {
 				__( "E20R Licenses", self::$text_domain ),
 				'manage_options',
 				'e20r-licensing',
-				array( self::get_instance() , 'licensing_page' )
+				array( $this , 'licensing_page' )
 			);
 		}
 		
