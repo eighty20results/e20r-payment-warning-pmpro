@@ -274,31 +274,25 @@ abstract class E20R_PW_Gateway_Addon {
 		}
 		
 		$enabled = false;
+		$screen = null;
 		
 		global $e20r_pw_addons;
 		
-		$e20r_pw_addons[ $stub ]['is_active']      = ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false );
-		$e20r_pw_addons[ $stub ]['active_license'] = ( true == get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false );
+		$e20r_pw_addons[ $stub ]['is_active']      = ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false );
+		$e20r_pw_addons[ $stub ]['active_license'] = ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false );
 		
-		$utils->log( "is_active setting: " . $e20r_pw_addons[ $stub ]['is_active'] );
+		$utils->log( "is_active setting for {$stub}: " . ( $e20r_pw_addons[ $stub ]['is_active'] ? 'True' : 'False' ) );
+		$utils->log("The {$stub} add-on is licensed? " . ( $e20r_pw_addons[$stub]['active_license'] ? 'Yes' : 'No') );
 		
-		if ( true == $e20r_pw_addons[ $stub ]['is_active'] ) {
-			$enabled = true;
+		if ( false === $e20r_pw_addons[ $stub ]['active_license'] || ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) ) ) {
+			
+			$utils->log("Checking license server (forced)");
+			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
+			update_option( "e20r_pw_addon_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], false );
 		}
-		
 		$utils->log( "The {$stub} add-on is enabled? {$enabled}" );
 		
-		if ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) ) {
-			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
-		}
-		
-		if ( false === $e20r_pw_addons[$stub]['active_license'] ) {
-			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub );
-		}
-		
-		$utils->log( "The {$stub} add-on is licensed? {$e20r_pw_addons[ $stub ]['active_license']}" );
-		
-		$e20r_pw_addons[ $stub ]['is_active'] = ( $enabled && $e20r_pw_addons[ $stub ]['active_license'] );
+		$e20r_pw_addons[ $stub ]['is_active'] = ( $e20r_pw_addons[$stub]['is_active'] && $e20r_pw_addons[$stub]['active_license'] );
 		
 		if ( $e20r_pw_addons[ $stub ]['is_active'] ) {
 			$e20r_pw_addons[ $stub ]['status'] = 'active';
