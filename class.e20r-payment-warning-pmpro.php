@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.5.3
+Version: 1.6
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.5.3' );
+	define( 'E20R_PW_VERSION', '1.6' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -231,8 +231,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$utils = Utilities::get_instance();
 			
-			if ( false !== $utils->get_variable( 'slm_action', false ) && false == preg_match( "/eighty20results.com/", Licensing::E20R_LICENSE_SERVER_URL ) ) {
-				$utils->log( "Processing license server operation (self referential check???)" );
+			$utils->log( "Checking that we're not working on a license check (loopback): " . print_r( $_REQUEST, true ));
+			 preg_match( "/eighty20results\.com/i", Licensing::E20R_LICENSE_SERVER_URL, $is_licensing_server );
+			
+			if ( 'slm_check' == $utils->get_variable( 'slm_action', false ) && ! empty( $is_licensing_server ) ) {
+				$utils->log( "Processing license server operation (self referential check). Bailing!" );
 				
 				return;
 			}
@@ -399,7 +402,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			foreach ( $e20r_pw_addons as $addon_name => $settings ) {
 				
-				$utils->log( "Trigger local toggle_addon action for {$addon_name}" );
+				$utils->log("Trigger local toggle_addon action for {$addon_name}: is_active = " . ( isset( $input["is_{$addon_name}_active"] ) ? 'Yes' : 'No') );
 				
 				do_action( 'e20r_pw_addon_toggle_addon', $addon_name, isset( $input["is_{$addon_name}_active"] ) );
 			}
@@ -713,7 +716,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$addon_name = strtolower( $config['class_name'] );
 				?>
                 <input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
-                       name="<?php echo $this->settings_name; ?>[<?php echo "is_{$addon_name}_active"; ?>]"
+                       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_attr_e( "is_{$addon_name}_active" ); ?>]"
                        value="1" <?php checked( $is_active, true ); ?> />
 				<?php
 			}
