@@ -39,7 +39,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		define( 'DEBUG_STRIPE_KEY', null );
 	}
 	
-	class E20R_Stripe_Gateway_Addon extends E20R_PW_Gateway_Addon {
+	class Stripe_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		
 		const CACHE_GROUP = 'e20r_stripe_addon';
 		
@@ -51,7 +51,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		protected $class_name;
 		
 		/**
-		 * @var E20R_Stripe_Gateway_Addon
+		 * @var Stripe_Gateway_Addon
 		 */
 		private static $instance;
 		
@@ -140,7 +140,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
 			
 			$util = Utilities::get_instance();
-			$stub = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			$stub = apply_filters( 'e20r_pw_addon_stripe_gateway_addon_name', null );
 			
 			if ( false === $this->verify_gateway_processor( $user_info, $stub, $this->gateway_name ) ) {
 				$util->log( "Failed check of gateway / gateway addon licence for the add-on" );
@@ -256,7 +256,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function get_gateway_subscriptions( User_Data $user_data ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
+			$stub  = apply_filters( "e20r_pw_addon_stripe_gateway_addon_name", null );
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
@@ -421,7 +421,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function get_gateway_payments( User_Data $user_data ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			$stub  = apply_filters( 'e20r_pw_addon_stripe_gateway_addon_name', null );
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
@@ -551,7 +551,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function update_credit_card_info( User_Data $user_data, $card_data, $gateway_name ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			$stub  = apply_filters( 'e20r_pw_addon_stripe_gateway_addon_name', null );
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
@@ -607,7 +607,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		}
 		
 		/**
-		 *  E20R_Stripe_Gateway_Addon constructor.
+		 *  Stripe_Gateway_Addon constructor.
 		 */
 		public function __construct() {
 			
@@ -826,8 +826,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
-			$utils->log( "Setting the {$addon} option to {$is_active}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $is_active, true );
+			$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['is_active']}" );
+			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], false );
 		}
 		
 		/**
@@ -1709,7 +1709,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		/**
 		 * Fetch the properties for the Stripe Gateway add-on class
 		 *
-		 * @return E20R_Stripe_Gateway_Addon
+		 * @return Stripe_Gateway_Addon
 		 *
 		 * @since  1.0
 		 * @access public
@@ -1726,20 +1726,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 	}
 }
 
-add_filter( "e20r_pw_addon_e20r_stripe_gateway_addon_name", array(
-	E20R_Stripe_Gateway_Addon::get_instance(),
+add_filter( "e20r_pw_addon_stripe_gateway_addon_name", array(
+	Stripe_Gateway_Addon::get_instance(),
 	'set_stub_name',
 ) );
 
 // Configure the add-on (global settings array)
 global $e20r_pw_addons;
-$stub = apply_filters( "e20r_pw_addon_e20r_stripe_gateway_addon_name", null );
+$stub = apply_filters( "e20r_pw_addon_stripe_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
-	'class_name'            => 'E20R_Stripe_Gateway_Addon',
-	'is_active'             => ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false ),
-	'active_license'        => ( true == get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false ),
-	'status'                => ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'inactive' ),
+	'class_name'            => 'Stripe_Gateway_Addon',
+	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
+	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
+	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'Stripe Gateway',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
