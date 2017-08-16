@@ -621,7 +621,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$utils->log("Added Add-on Settings for Payment Warnings");
 			add_settings_section(
 				'e20r_pw_addons',
-				__( 'Add-ons', Payment_Warning::plugin_slug ),
+				__( 'Gateways', Payment_Warning::plugin_slug ),
 				array( $this, 'render_addon_header' ),
 				'e20r-payment-warning-settings'
 			);
@@ -700,7 +700,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function render_addon_header() {
 			?>
             <p class="e20r-pw-addon-header-text">
-			<?php _e( "Use checkbox to enable/disable the included add-ons", Payment_Warning::plugin_slug ); ?>
+			<?php _e( "Use checkbox to enable/disable any licensed gateways", Payment_Warning::plugin_slug ); ?>
             </p><?php
 		}
 		
