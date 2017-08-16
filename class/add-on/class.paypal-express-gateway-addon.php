@@ -739,7 +739,7 @@ $e20r_pw_addons[ $stub ] = array(
 	'is_active'             => false, //( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => false, // ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
 	'status'                => 'deactivated',
-	'label'                 => 'PayPal Express Gateway',
+	'label'                 => 'PayPal Express',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
 		'paid-memberships-pro/paid-memberships-pro.php' => array(

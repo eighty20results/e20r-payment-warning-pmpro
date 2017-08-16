@@ -1740,7 +1740,7 @@ $e20r_pw_addons[ $stub ] = array(
 	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
 	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
-	'label'                 => 'Stripe Gateway',
+	'label'                 => 'Stripe',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
 		'paid-memberships-pro/paid-memberships-pro.php' => array(
