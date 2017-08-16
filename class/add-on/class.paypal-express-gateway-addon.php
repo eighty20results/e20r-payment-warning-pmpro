@@ -220,7 +220,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		public function get_gateway_payments( User_Data $user_data ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( 'e20r_pw_addon_e20r_stripe_gateway_addon_name', null );
+			$stub  = apply_filters( 'e20r_pw_addon_paypal_express_gateway_addon_name', null );
 			$data  = null;
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
@@ -230,7 +230,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 			}
 			
 			if ( false === $this->gateway_loaded ) {
-				$utils->log( "Loading the PMPro Stripe Gateway instance" );
+				$utils->log( "Loading the PMPro PayPal Express Gateway instance" );
 				$this->load_paypalexpress_libs();
 			}
 			
