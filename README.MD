@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8.1
-    Stable tag: 1.5.3
+    Stable tag: 1.6.1
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,35 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.6.1
+
+* ENHANCEMENT/FIX: load_webhook_handler() checks that add-on is active before loading the AJAX handler(s)
+* ENHANCEMENT: Moved logic for load_webhook_handler() to E20R_PW_Gateway_Addon class
+* ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (Stripe.com add-on)
+* ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (PayPal Express add-on)
+* ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for PayPal Express addon
+* ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for Stripe.com addon
+* ENHANCEMENT: Added new API version to version array for Stripe.com
+
+###v1.6
+
+* BUG FIX: Would sometimes timeout during add-on/gateway activation
+* BUG FIX: Didn't consistently save the license status for the add-on being processed
+* BUG FIX: Used the wrong stub filter for the PayPal Express Gateway class
+* ENHANCEMENT/FIX: An add-on is only active if it's both licenseed and the is_active status (checkbox) is checked
+* ENHANCEMENT/FIX: Update licensing class to v1.4 - Includes fixes for invalid product key provided, etc
+* ENHANCEMENT/FIX: No longer checking license to enable the Template editor
+* ENHANCEMENT/FIX: Renamed the E20R_Stripe_Gateway_Addon class to Stripe_Gateway_Addon
+* ENHANCEMENT: Fix filter name: e20r_pw_addon_stripe_gateway_addon_name
+* ENHANCEMENT: Use the global settings when checking the status for the Stripe_Gateway_Addon activation logic
+* ENHANCEMENT: Simplify restoring values for is_active and active_license in the Stripe_Gateway_Addon config array
+* ENHANCEMENT: Rename 'add-ons' to the more descriptive 'Gateways' and fix the descriptive text for the options
+* ENHANCEMENT: Remove redundant 'Gateway' from label
+
+###v1.5.4
+
+* BUG FIX: DeBUG FIX: Selected the wrong template type for Recurring Payment warning (and credit card expiration warning)
 
 ###v1.5.3
 

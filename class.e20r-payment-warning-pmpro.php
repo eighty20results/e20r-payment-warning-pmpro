@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.6
+Version: 1.6.1
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.6' );
+	define( 'E20R_PW_VERSION', '1.6.1' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -232,7 +232,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$utils = Utilities::get_instance();
 			
 			$utils->log( "Checking that we're not working on a license check (loopback): " . print_r( $_REQUEST, true ));
-			 preg_match( "/eighty20results\.com/i", Licensing::E20R_LICENSE_SERVER_URL, $is_licensing_server );
+            preg_match( "/eighty20results\.com/i", Licensing::E20R_LICENSE_SERVER_URL, $is_licensing_server );
 			
 			if ( 'slm_check' == $utils->get_variable( 'slm_action', false ) && ! empty( $is_licensing_server ) ) {
 				$utils->log( "Processing license server operation (self referential check). Bailing!" );

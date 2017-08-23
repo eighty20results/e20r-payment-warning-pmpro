@@ -1,1 +1,7 @@
-BUG FIX: Deactivate PayPal Express completely
+ENHANCEMENT/FIX: load_webhook_handler() checks that add-on is active before loading the AJAX handler(s)
+ENHANCEMENT: Moved logic for load_webhook_handler() to E20R_PW_Gateway_Addon class
+ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (Stripe.com add-on)
+ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (PayPal Express add-on)
+ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for PayPal Express addon
+ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for Stripe.com addon
+ENHANCEMENT: Added new API version to version array for Stripe.com
