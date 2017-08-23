@@ -306,6 +306,22 @@ abstract class E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * Loading add-on specific handler for the Gateway Notifications (early handling to stay out of the way of PMPro itself)
+	 */
+	public function load_webhook_handler( $stub = null ) {
+		
+		global $e20r_pw_addons;
+		
+		if ( true === $this->is_active( $stub )) {
+			
+			$util = Utilities::get_instance();
+			$util->log( "Loading {$stub} Webhook handler functions..." );
+			add_action( "wp_ajax_nopriv_{$e20r_pw_addons[$stub]['handler_name']}", array( self::get_instance(), 'webhook_handler' ), 5 );
+			add_action( "wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}", array( self::get_instance(), 'webhook_handler' ), 5 );
+		}
+	}
+	
+	/**
 	 * Action Hook: Enable/disable this add-on. Will clean up if we're being deactivated & configured to do so
 	 *
 	 * @action e20r_roles_addon_toggle_addon
@@ -506,11 +522,6 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @return mixed $validated
 	 */
 	abstract public function validate_settings( $input );
-	
-	/**
-	 * Loading add-on specific webhook handler for Stripe.com (late handling to stay out of the way of PMpro itself)
-	 */
-	abstract public function load_webhook_handler();
 	
 	/**
 	 * Fetch the (current) Payment Gateway specific customer ID from the local Database
