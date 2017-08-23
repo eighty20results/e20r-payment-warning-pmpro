@@ -96,20 +96,25 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		protected $option_name = 'e20r_egwao_ppexpress';
 		
 		/**
-		 * Loading add-on specific webhook handler for PayPal Express (late handling to stay out of the way of PMPro itself)
+		 * Loading add-on specific webhook handler for PayPal (late handling to stay out of the way of PMPro itself)
+         *
+         * @param string|null $stub
 		 */
-		public function load_webhook_handler() {
+		public function load_webhook_handler( $stub = null ) {
+   
+			global $e20r_pw_addons;
 			
+			$stub = strtolower( $this->get_class_name() );;
 			$util = Utilities::get_instance();
-			$util->log( "Loading PayPal Express IPN handler functions..." );
-			add_action( 'wp_ajax_nopriv_ipnhandler', array( self::get_instance(), 'webhook_handler' ), 5 );
-			add_action( 'wp_ajax_ipnhandler', array( self::get_instance(), 'webhook_handler' ), 5 );
 			
-			$util->log( "Site has the expected action: " . (
+			parent::load_webhook_handler( $stub );
+			
+			$util->log( "Site has the expected PayPal IPN Handler action: " . (
 				has_action(
-					'wp_ajax_ipnhandler',
-					array( self::get_instance(), 'webhook_handler' ) ) ? 'Yes' : 'No' )
+					"wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
+					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
 			);
+			
 		}
 		
 		/**
@@ -736,6 +741,7 @@ $stub = apply_filters( "e20r_pw_addon_paypal_express_gateway_addon_name", null )
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'PayPal_Express_Gateway_Addon',
+	'handler_name'          => 'ipnhandler',
 	'is_active'             => false, //( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => false, // ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
 	'status'                => 'deactivated',
