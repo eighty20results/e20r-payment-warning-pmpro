@@ -591,6 +591,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function fetch_stripe_api_versions() {
 			
 			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
+                '2017-08-15',
 				'2017-06-05',
 				'2017-05-25',
 				'2017-04-06',
@@ -933,20 +934,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		}
 		
 		/**
-		 * Loading add-on specific webhook handler for Stripe.com (late handling to stay out of the way of PMpro itself)
+		 * Loading add-on specific handler for Stripe (use early handling to stay out of the way of PMPro itself)
+         *
+         * @param string|null $stub
 		 */
-		public function load_webhook_handler() {
+		public function load_webhook_handler( $stub = null ) {
 			
-			$util = Utilities::get_instance();
-			$util->log( "Loading stripe.com Webhook handler functions..." );
-			add_action( 'wp_ajax_nopriv_stripe_webhook', array( self::get_instance(), 'webhook_handler' ), 5 );
-			add_action( 'wp_ajax_stripe_webhook', array( self::get_instance(), 'webhook_handler' ), 5 );
+		    global $e20r_pw_addons;
+		    
+		    $stub = strtolower( $this->get_class_name() );;
+		    $util = Utilities::get_instance();
+		    
+			parent::load_webhook_handler( $stub );
 			
-			$util->log( "Site has the expected action: " . (
-				has_action(
-					'wp_ajax_stripe_webhook',
-					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
-			);
+            $util->log( "Site has the expected Stripe Webhook action: " . (
+                    has_action(
+                    "wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
+                    array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
+            );
 		}
 		
 		public function webhook_handler() {
@@ -1737,6 +1742,7 @@ $stub = apply_filters( "e20r_pw_addon_stripe_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'Stripe_Gateway_Addon',
+	'handler_name'          => 'stripe_webhook',
 	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
 	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
