@@ -118,6 +118,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		}
 		
 		/**
+		 * Handler for PayPal IPN messages
+         *
+         * @return bool
+		 */
+		public function webhook_handler() {
+		    // TODO: Implement PayPal Express specific webhook (IPN) handler
+        }
+        
+		/**
 		 * Load the payment gateway specific class/code/settings from PMPro
 		 */
 		public function load_gateway() {
