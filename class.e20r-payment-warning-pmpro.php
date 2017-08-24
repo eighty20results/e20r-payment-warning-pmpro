@@ -244,8 +244,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ), 10, 1 );
 			
-			add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
-			add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
+			// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
+			// add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
 			
 			add_action( 'e20r_pw_cron_trigger_capture_data', array( self::$instance, 'load_active_subscriptions', ), 10, 2 );
 			add_action( 'e20r_pw_cron_trigger_send_messages', array( self::$instance, 'send_recurring_payment_warnings', ), 10 );
@@ -876,8 +876,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				return;
 			}
 			
-			wp_enqueue_style( self::plugin_slug . '-admin', plugins_url( 'css/e20r-roles-for-pmpro-admin.css', __FILE__ ) );
-			wp_register_script( self::plugin_slug . '-admin', plugins_url( 'javascript/e20r-roles-for-pmpro-admin.js', __FILE__ ) );
+			wp_enqueue_style( Payment_Warning::plugin_slug . '-admin', plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', __FILE__ ) );
+			wp_register_script( Payment_Warning::plugin_slug . '-admin', plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', __FILE__ ) );
 			
 			$vars = array(
 				'desc'    => __( 'Levels not matching up, or missing?', Payment_Warning::plugin_slug ),
@@ -892,9 +892,26 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				// 'nonce'      => wp_create_nonce( Payment_Warning::ajax_fix_action ),
 			);
 			
-			$key = self::plugin_prefix . 'vars';
+			$key = Payment_Warning::plugin_prefix . 'vars';
 			
-			wp_localize_script( self::plugin_slug . '-admin', $key, $vars );
+			wp_localize_script( Payment_Warning::plugin_slug . '-admin', $key, $vars );
+		}
+		
+		/**
+		 * Delayed enqueue of wp-admin JavasScript (allow unhook)
+		 *
+		 * @param $hook
+		 *
+		 * @since  1.0
+		 * @access public
+		 */
+		public function admin_enqueue_scripts( $hook ) {
+			
+			if ( 'toplevel_page_pmpro-membershiplevels' != $hook ) {
+				return;
+			}
+			
+			wp_enqueue_script( self::plugin_slug . '-admin' );
 		}
 		
 		/**
@@ -981,24 +998,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				require_once( "{$base_path}/licensing/{$filename}" );
 			}
 		}
-		
-		/**
-		 * Delayed enqueue of wp-admin JavasScript (allow unhook)
-		 *
-		 * @param $hook
-		 *
-		 * @since  1.0
-		 * @access public
-		 */
-		public function admin_enqueue_scripts( $hook ) {
-			
-			if ( 'toplevel_page_pmpro-membershiplevels' != $hook ) {
-				return;
-			}
-			
-			wp_enqueue_script( self::plugin_slug . '-admin' );
-		}
-		
+  
 		/**
 		 * Load language/translation file(s)
 		 */
