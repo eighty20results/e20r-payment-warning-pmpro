@@ -954,6 +954,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
             );
 		}
 		
+		/**
+         * IPN handler for Stripe. Ensures that the PMPro Webhook will run too.
+         *
+		 * @return bool
+		 */
 		public function webhook_handler() {
 			
 			global $pmpro_stripe_event;
