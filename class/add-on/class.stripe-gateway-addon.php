@@ -1048,6 +1048,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 							
 							return false;
 						}
+						
+						if ( !empty( $event_id ) && !isset( $_REQUEST['event_id']) ) {
+						    
+						    $util->log("Re-adding the event ID for stripe's webhook to the REQUEST array");
+						    $_REQUEST['event_id'] = $event_id;
+                        }
+                        
 					} else {
 						
 						$util->log( "Body/Event Parsed." );
