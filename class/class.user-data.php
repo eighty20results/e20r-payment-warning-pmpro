@@ -342,9 +342,9 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
-				// 'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
-				// 'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
-				'modified'                       => current_time( 'timestamp' ),
+				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
+				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
+				'modified'                       => current_time( 'mysql' ),
 			);
 			
 			$data_format = array(
@@ -367,16 +367,23 @@ class User_Data {
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
-				// '%s', // user_subscriptions
-				// '%s', // user_charges
+				'%s', // user_subscriptions
+				'%s', // user_charges
 				'%s', // modified
 			);
 			
 			$where = array(
 				'user_id'       => $this->user->ID,
 				'level_id'      => $this->last_order->membership_id,
-				'last_order_id' => $this->last_order->id,
 			);
+			
+			if ( !empty( $this->gateway_subscr_id ) ) {
+				$where['gateway_subscr_id'] = $this->gateway_subscr_id;
+			} else {
+				if ( !empty( $this->gateway_payment_id ) ) {
+					$where['gateway_payment_id'] = $this->gateway_payment_id;
+				}
+			}
 			
 			// $util->log( "Record: " . print_r( $user_data, true ) );
 			// $util->log( "Where: " . print_r( $where, true ) );
@@ -388,7 +395,7 @@ class User_Data {
 				return false;
 			}
 			
-			$where_format = array( '%d', '%d', '%d' );
+			$where_format = array( '%d', '%d', '%s' );
 			
 			$check_sql = $wpdb->prepare(
 				"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d",
