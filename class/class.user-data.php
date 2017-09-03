@@ -344,7 +344,7 @@ class User_Data {
 				'reminder_type'                  => $this->reminder_type,
 				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
 				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
-				'modified'                       => current_time( 'mysql' ),
+//				'modified'                       => current_time( 'mysql' ),
 			);
 			
 			$data_format = array(
@@ -369,7 +369,7 @@ class User_Data {
 				'%s', // reminder_type
 				'%s', // user_subscriptions
 				'%s', // user_charges
-				'%s', // modified
+//				'%s', // modified
 			);
 			
 			$where = array(
@@ -397,12 +397,24 @@ class User_Data {
 			
 			$where_format = array( '%d', '%d', '%s' );
 			
-			$check_sql = $wpdb->prepare(
-				"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d",
-				$this->user->ID,
-				$this->last_order->membership_id,
-				$this->last_order->id
-			);
+			if ( !empty( $this->gateway_subscr_id ) ) {
+				$check_sql = $wpdb->prepare(
+					"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_subscr_id = %s",
+					$this->user->ID,
+					$this->last_order->membership_id,
+					$this->gateway_subscr_id
+				);
+				
+			} else {
+				if ( !empty( $this->gateway_payment_id ) ) {
+					$check_sql = $wpdb->prepare(
+						"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_payment_id = %s",
+						$this->user->ID,
+						$this->last_order->membership_id,
+						$this->gateway_payment_id
+					);
+				}
+			}
 			
 			$exists = $wpdb->get_var( $check_sql );
 			
@@ -1473,7 +1485,7 @@ class User_Data {
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
 					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
-					modified timestamp NOT NULL ON UPDATE now(),
+					modified TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
 					INDEX end_of_period USING BTREE (end_of_payment_period),
