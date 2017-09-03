@@ -448,6 +448,49 @@ class Email_Message {
 		$this->variables = apply_filters( 'e20r_pw_handler_substitution_variables', $variables, $type );
 	}
 	
+	public static function default_variable_pairs( $variables, $type ) {
+		
+		$variables = array(
+			'name'                  => __( 'Display Name (User Profile setting) for the user receiving the message', Payment_Warning::plugin_slug ),
+			'user_login'            => __( 'Login / username for the user receiving the message', Payment_Warning::plugin_slug ),
+			'sitename'              => __( 'The blog name (see General Settings)', Payment_Warning::plugin_slug ),
+			'membership_id'         => __( 'The ID of the membership level for the user receiving the message', Payment_Warning::plugin_slug ),
+			'membership_level_name' => __( "The active Membership Level name for the user receiving the message  (from the Membership Level settings page)" , Payment_Warning::plugin_slug ),
+			'siteemail'             => __( "The email address used as the 'From' email when sending this message to the user", Payment_Warning::plugin_slug ),
+			'login_link'            => __( "A link to the login page for this site", Payment_Warning::plugin_slug ),
+			'display_name'          => __( 'The Display Name for the user receiving the message', Payment_Warning::plugin_slug ),
+			'user_email'            => __( 'The email address of the user receiving the message', Payment_Warning::plugin_slug ),
+			'currency'              => __( 'The configured currency symbol. (Default: &dollar;)', Payment_Warning::plugin_slug ),
+		);
+		
+		switch( $type ) {
+			case 'recurring':
+				
+				$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
+				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
+				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (only last 4 digits of card, type of card, and its expiration date", Payment_Warning::plugin_slug );
+				$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
+				$variables['payment_date'] = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
+				$variables['membership_ends'] = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
+				
+				break;
+			
+			case 'expiration':
+				$variables['membership_ends'] = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
+				
+				break;
+			
+			case 'ccexpiration':
+				
+				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
+				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (only last 4 digits of card, type of card, and its expiration date", Payment_Warning::plugin_slug );
+				
+				break;
+		}
+		
+		return $variables;
+	}
+	
 	/**
 	 * The !!VARIABLE!! substitutions for the current template body message
 	 */
@@ -478,5 +521,19 @@ class Email_Message {
 	
 	public function get_user() {
 		return $this->user_info;
+	}
+	
+	/**
+	 * Return or instantiate and return the Email_Message class
+	 *
+	 * @return Email_Message|null
+	 */
+	public static function get_instance() {
+		
+		if ( is_null( self::$instance ) ) {
+			self::$instance = new self;
+		}
+		
+		return self::$instance;
 	}
 }
