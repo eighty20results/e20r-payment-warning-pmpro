@@ -139,21 +139,24 @@ class Handle_Messages extends E20R_Background_Process {
 			case 'recurring':
 				$users     = get_option( 'e20r_pw_sent_recurring', array() );
 				$type_text = __( "upcoming recurring payment", Payment_Warning::plugin_slug );
-				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), count( $users[$today] ), $today );
+				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
 			
 			case 'expiration':
 				$users     = get_option( 'e20r_pw_sent_expiration', array() );
 				$type_text = __( "pending membership expiration", Payment_Warning::plugin_slug );
-				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), count( $users[$today] ), $today );
+				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
 			
 			case 'creditcard':
 				$users     = get_option( 'e20r_pw_sent_creditcard', array() );
 				$type_text = __( "credit card expiration", Payment_Warning::plugin_slug );
-				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), count( $users[$today] ), $today );
+				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
 			
