@@ -102,7 +102,10 @@ class Editor {
 			global $post;
 			
 			wp_enqueue_editor();
-			wp_enqueue_media( $post->ID );
+			
+			if ( !empty( $post->ID ) ) {
+				wp_enqueue_media( $post->ID );
+			}
 			
 			$util->log("Loading style(s) for Payment Warning plugin");
 			
@@ -223,6 +226,11 @@ class Editor {
 			if ( true === $load_body ) {
 				
 				foreach ( $template_info as $name => $settings ) {
+					
+					if ( empty( $name ) ) {
+						unset( $template_info[$name] );
+						continue;
+					}
 					
 					$util->log( "Loading body for {$name}" );
 					
