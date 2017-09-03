@@ -330,7 +330,7 @@ class Email_Message {
 		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$status = false;
 		
-		if ( ! empty( $who[ $today ][ $to ] ) ) {
+		if ( empty( $who[ $today ][ $to ] ) ) {
 			
 			$variables = $this->configure_default_data( $type );
 			
