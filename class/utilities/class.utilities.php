@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.8
+ * @version 1.9
  */
 
 namespace E20R\Payment_Warning\Utilities;
@@ -213,23 +213,43 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 			
 			// Grab from the cache (if it exists)
 			if ( null !== ( $tmp = Cache::get( 'err_info', self::$cache_key ) ) ) {
-				
+				$this->log("Loading cached messages (" . count( $tmp['msg'] ) . ")");
 				$this->msg        = $tmp['msg'];
 				$this->msgt       = $tmp['msgt'];
 				$this->msg_source = $tmp['msg_source'];
 			}
 			
-			if ( is_array( $this->msg ) && ! in_array( $message, $this->msg ) ) {
+			$msg_found = array();
+			
+			// Look for duplicate messages
+			foreach( $this->msg as $key => $msg ) {
 				
-				if ( WP_DEBUG ) {
-					error_log( "Adding a message to the admin errors: {$message}" );
+				if ( false !== strpos( $message, $msg ) ) {
+					$msg_found[] = $key;
 				}
+			}
+			
+			// No duplicates found, so add the new one
+			if ( empty( $msg_found ) ) {
+				// Save new message
+				$this->log( "Adding a message to the admin errors: {$message}" );
 				
-				// Save the new message
-				$this->msg[]        = $message;
-				$this->msgt[]       = $type;
+				$this->msg[] = $message;
+				$this->msgt[] = $type;
 				$this->msg_source[] = $msg_source;
+			} else {
 				
+				// Potentially clean up duplicate messages
+				$total = count($msg_found);
+				
+				// Remove extra instances of the message
+				for( $i = 1 ; ( $total - 1 ) >= $i ; $i++ ) {
+					$this->log("Removing duplicate message");
+					unset( $this->msg[ $i ] );
+				}
+			}
+			
+			if ( !empty ($this->msg) ) {
 				$values = array(
 					'msg'        => $this->msg,
 					'msgt'       => $this->msgt,
@@ -716,6 +736,137 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\Utilities' ) ) {
 			}
 			
 			return is_float( $val + 0 );
+		}
+		
+		/**
+		 * Decode the JSON object we received
+		 *
+		 * @param $response
+		 *
+		 * @return array|mixed|object
+		 *
+		 * @since 2.0.0
+		 * @since 2.1 - Updated to handle UTF-8 BOM character
+		 */
+		public function decode_response( $response ) {
+			
+			// UTF-8 BOM handling
+			$bom  = pack( 'H*', 'EFBBBF' );
+			$json = preg_replace( "/^$bom/", '', $response );
+			
+			if ( null !== ( $obj = json_decode( $json ) ) ) {
+				return $obj;
+			}
+			
+			return false;
+		}
+		
+		/**
+		 * Encode data to JSON
+		 *
+		 * @param mixed $data
+		 *
+		 * @return bool|string
+		 *
+		 * @since 2.0.0
+		 */
+		public function encode( $data ) {
+			if ( false !== ( $json = json_encode( $data ) ) ) {
+				return $json;
+			}
+			
+			return false;
+		}
+		
+		/**
+		 * Clear the Output (browser) buffers (for erroneous error messages, etc)
+		 *
+		 * @return string
+		 */
+		public function clear_buffers() {
+			
+			ob_start();
+			
+			$buffers = ob_get_clean();
+			
+			return $buffers;
+			
+		}
+		
+		/**
+		 * Return or print checked field for HTML Checkbox INPUT
+		 *
+		 * @param mixed $needle
+		 * @param array $haystack
+		 * @param bool  $echo
+		 *
+		 * @return null|string
+		 */
+		public function checked( $needle, $haystack, $echo = false ) {
+			
+			$text = null;
+			
+			if ( is_array( $haystack ) ) {
+				if ( in_array( $needle, $haystack ) ) {
+					$text = ' checked="checked" ';
+				}
+			}
+			
+			if ( is_object( $haystack) && in_array( $needle, (array) $haystack )) {
+				$text = ' checked="checked" ';
+			}
+			
+			if ( !is_array( $haystack ) && !is_object( $haystack )) {
+				if ( $needle === $haystack ) {
+					$text = ' checked="checked" ';
+				}
+			}
+			
+			if ( true === $echo ) {
+				esc_attr_e( $text );
+				
+				return null;
+			}
+			
+			return $text;
+		}
+		
+		/**
+		 * Return or print selected field for HTML Select input
+		 *
+		 * @param mixed $needle
+		 * @param mixed $haystack
+		 * @param bool  $echo
+		 *
+		 * @return null|string
+		 */
+		public function selected( $needle, $haystack, $echo = false ) {
+			
+			$text = null;
+			
+			if ( is_array( $haystack ) ) {
+				if ( in_array( $needle, $haystack ) ) {
+					$text = ' selected="selected" ';
+				}
+			}
+			
+			if ( is_object( $haystack) && in_array( $needle, (array) $haystack )) {
+				$text = ' selected="selected" ';
+			}
+			
+			if ( !is_array( $haystack ) && !is_object( $haystack )) {
+				if ( $needle === $haystack ) {
+					$text = ' selected="selected" ';
+				}
+			}
+			
+			if ( true === $echo ) {
+				esc_attr_e( $text );
+				
+				return null;
+			}
+			
+			return $text;
 		}
 		
 		/**
