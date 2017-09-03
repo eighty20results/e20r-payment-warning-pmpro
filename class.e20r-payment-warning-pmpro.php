@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.6.3
+Version: 1.7.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -38,6 +38,7 @@ use E20R\Payment_Warning\Utilities\Cache;
 use E20R\Payment_Warning\Utilities\Cron_Handler;
 use E20R\Payment_Warning\Utilities\E20R_Async_Request;
 use E20R\Payment_Warning\Utilities\E20R_Background_Process;
+use E20R\Payment_Warning\Utilities\Email_Message;
 use E20R\Payment_Warning\Utilities\Utilities;
 use E20R\Licensing\Licensing;
 
@@ -46,7 +47,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.6.3' );
+	define( 'E20R_PW_VERSION', '1.7.0' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -278,6 +279,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
    
 			add_action( 'wp_ajax_e20rpw_save_template', array( Editor::get_instance(), 'save_template' ) );
 			add_action( 'wp_ajax_e20rpw_reset_template', array( Editor::get_instance(), 'reset_template' ) );
+			
+			add_filter( 'e20r_pw_handler_substitution_variables', 'E20R\Payment_Warning\Utilities\Email_Message::default_variable_pairs', 10, 2);
 			
 			$utils->log("Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons");
 			/** Add all module remote AJAX call actions */

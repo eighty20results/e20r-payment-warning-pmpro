@@ -1,7 +1,4 @@
-BUG FIX: Cleaned up CSS file for plugin (not used)
-BUG FIX: Didn't let PMPro Webhook actions to trigger for Stripe.com
-BUG FIX: Empty Javascript & Style load caused 404 error in wp-admin backend
-ENHANCEMENT/FIX: Use static constant (plugin_slug)
-ENHANCEMENT: Refactored admin_enqueue_script()
-ENHANCEMENT: Added webhook_handler() method to PayPal Express gateway add-on (stub)
-ENHANCEMENT: Added PHPDoc for webhook_hander method()
+BUG FIX: Don't exit if there's no current post ID when loading media
+ENHANCEMENT/FIX: Clean up any weird template settings
+ENHANCEMENT: Added default substitution variables w/help info
+ENHANCEMENT: Add substitution variable help on Template Editor page
