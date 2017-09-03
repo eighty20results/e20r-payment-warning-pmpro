@@ -228,6 +228,17 @@ class Template_Editor_View {
                 </p>
             </td>
         </tr>
+        <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>" valign="top" scope="row">
+            <th class="e20r-message-template-col">
+                <label for="variable_references"><?php _e('Placeholder Reference', Payment_Warning::plugin_slug ); ?>:</label>
+            </th>
+            <td>
+                <div class="template_reference" style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
+                    <p><em><?php _e('Insert these variables in editor window above.', Payment_Warning::plugin_slug ); ?></em></p>
+			        <?php self::add_placeholder_variables( $template['type'] ); ?>
+                </div>
+            </td>
+        </tr>
         <tr class="e20r-message-template-name_<?php esc_attr_e( $template_name ); ?> e20r-start-hidden">
             <td colspan="2" class="e20r-message-template-col">
                 <hr/>
@@ -239,4 +250,21 @@ class Template_Editor_View {
 			return ob_get_clean();
 		}
 	}
+	
+	public static function add_placeholder_variables( $type ) {
+	    ?>
+        <style>
+            .template_reference dt {display: block;float: left;font-weight: bold; min-width: 200px;margin-right: 10px;}
+            .template_reference dd {display: block;margin-left: 210px; }
+        </style>
+        <dl>
+            <?php
+            $variable_settings = apply_filters( 'e20r_pw_handler_substitution_variables', array(), $type );
+            foreach( $variable_settings as $name => $description ) {
+                ?><dt>!!<?php esc_attr_e( $name ); ?>!!</dt>
+                <dd><?php esc_attr_e( $description ); ?></dd>
+            <?php } ?>
+        </dl>
+        <?php
+    }
 }
