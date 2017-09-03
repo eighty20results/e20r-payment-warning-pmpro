@@ -478,8 +478,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) 
 		 * Clear scheduled event
 		 */
 		protected function clear_scheduled_event() {
+			$utils = Utilities::get_instance();
+			
 			$timestamp = wp_next_scheduled( $this->cron_hook_identifier );
-			if ( $timestamp ) {
+			$utils->log("Found scheduled event for {$this->cron_hook_identifier}? {$timestamp}" );
+			
+			if ( !empty( $timestamp ) ) {
 				wp_unschedule_event( $timestamp, $this->cron_hook_identifier );
 			}
 		}
