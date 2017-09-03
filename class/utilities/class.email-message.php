@@ -330,7 +330,7 @@ class Email_Message {
 		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$status = false;
 		
-		if ( empty( $who[ $today ][ $to ] ) ) {
+		if ( isset( $who[ $today ][ $to ] ) && false == $who[$today][$to] ) {
 			
 			$variables = $this->configure_default_data( $type );
 			
@@ -362,7 +362,7 @@ class Email_Message {
 					}
 				}
 				
-				$who[ $today ][] = $to;
+				$who[ $today ][$to] = true;
 				update_option( "e20r_pw_sent_{$type}", $who, false );
 			} else {
 				$util->log( "Error sending {$type} message to {$to}" );
