@@ -99,6 +99,8 @@ class Email_Message {
 		
 		$util = Utilities::get_instance();
 		$data = array();
+		$level = null;
+		
 		global $pmpro_currency_symbol;
 		
 		$util->log( "Processing for {$template_type}" );
@@ -106,6 +108,8 @@ class Email_Message {
 		if ( function_exists( 'pmpro_getLevel' ) ) {
 			$level = pmpro_getMembershipLevelForUser( $this->user_info->get_user_ID() );
 		}
+		
+		$level = apply_filters( 'e20r_pw_get_user_level', $level, $this->user_info );
 		
 		switch ( $template_type ) {
 			
@@ -115,8 +119,8 @@ class Email_Message {
 					'name'                  => $this->user_info->get_user_name(),
 					'user_login'            => $this->user_info->get_user_login(),
 					'sitename'              => $this->site_name,
-					'membership_id'         => ! empty( $level->id ) ? $level->id : 'Unknown',
-					'membership_level_name' => ! empty( $level->name ) ? $level->name : 'Unknown',
+					'membership_id'         => $this->user_info->get_membership_level_ID(),
+					'membership_level_name' => $this->user_info->get_level_name(),
 					'siteemail'             => $this->site_email,
 					'login_link'            => $this->login_link,
 					'display_name'          => $this->user_info->get_user_name(),
@@ -165,8 +169,8 @@ class Email_Message {
 					'name'                  => $this->user_info->get_user_name(),
 					'user_login'            => $this->user_info->get_user_login(),
 					'sitename'              => $this->site_name,
-					'membership_id'         => ! empty( $level->id ) ? $level->id : 'Unknown',
-					'membership_level_name' => ! empty( $level->name ) ? $level->name : 'Unknown',
+					'membership_id'         => $this->user_info->get_membership_level_ID(),
+					'membership_level_name' => $this->user_info->get_level_name(),
 					'siteemail'             => $this->site_email,
 					'login_link'            => $this->login_link,
 					'display_name'          => $this->user_info->get_user_name(),
@@ -326,7 +330,7 @@ class Email_Message {
 		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$status = false;
 		
-		if ( ! isset( $who[ $today ][ $to ] ) ) {
+		if ( ! empty( $who[ $today ][ $to ] ) ) {
 			
 			$variables = $this->configure_default_data( $type );
 			
