@@ -1501,7 +1501,8 @@ class User_Data {
 					INDEX level_ids (level_id),
 					INDEX types( reminder_type ),
 					INDEX user_levels (user_id, level_id),
-					INDEX end_of_payments (user_id, has_active_subscription, end_of_payment_period)
+					INDEX end_of_payments (user_id, has_active_subscription, end_of_payment_period),
+					INDEX modified ( modified )
 				) {$charset_collate};";
 		
 		$cc_table_sql = "
@@ -1517,8 +1518,7 @@ class User_Data {
 					INDEX month_year USING BTREE ( exp_month, exp_year ),
 					INDEX user_month ( user_id, last4, exp_month ),
 					INDEX user_year ( user_id, last4, exp_year ),
-					INDEX cc_brands ( brand ),
-					INDEX modified ( modified )
+					INDEX cc_brands ( brand )
 				) {$charset_collate};";
 		
 		/*
