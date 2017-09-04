@@ -31,18 +31,19 @@ class Handle_Messages extends E20R_Background_Process {
 	/**
 	 * Constructor for Handle_Messages class
 	 *
-	 * @param object $calling_class
+	 * @param string $handle
 	 */
-	public function __construct( $calling_class ) {
+	public function __construct( $handle ) {
 		
 		$util = Utilities::get_instance();
 		$util->log( "Instantiated Handle_Messages class" );
 		
 		self::$instance = $this;
-		
+		/*
 		$av           = get_class( $calling_class );
 		$name         = explode( '\\', $av );
-		$this->action = "hm_" . strtolower( $name[ ( count( $name ) - 1 ) ] );
+		*/
+		$this->action = "hm_" . strtolower( $handle );
 		
 		$util->log( "Set Action variable to {$this->action} for Handle_Messages" );
 		
