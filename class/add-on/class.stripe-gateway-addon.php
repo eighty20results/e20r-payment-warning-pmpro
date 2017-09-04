@@ -326,12 +326,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Using {$payment_next} for payment_next and saved_next: {$saved_next}" );
 				$utils->log( "Stored subscription ID? " . ( $already_saved ? 'Yes' : 'No' ) );
 				
-				if ( true === $already_saved && $payment_next == $saved_next ) {
+				/*if ( true === $already_saved && $payment_next == $saved_next ) {
 					
 					$utils->log( "Have a current version of the upstream subscription record. No need to process!" );
 					continue;
 				}
-				
+				*/
 				$user_data->set_gw_subscription_id( $subscription->id );
 				$user_data->set_active_subscription( true );
 				
