@@ -349,7 +349,7 @@ class User_Data {
 				'reminder_type'                  => $this->reminder_type,
 				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
 				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
-//				'modified'                       => current_time( 'mysql' ),
+				'modified'                       => current_time('mysql'),
 			);
 			
 			$data_format = array(
@@ -357,6 +357,7 @@ class User_Data {
 				'%d', // level_id
 				'%d', // last_order_id
 				'%s', // gateway_subscr_id
+				'%s', // gateway_payment_id
 				'%d', // is_delinquent
 				'%d', // has_active_subscription
 				'%d', // has_local_recurring_membership
@@ -374,7 +375,7 @@ class User_Data {
 				'%s', // reminder_type
 				'%s', // user_subscriptions
 				'%s', // user_charges
-//				'%s', // modified
+				'%s', // modified
 			);
 			
 			$where = array(
@@ -1424,7 +1425,7 @@ class User_Data {
 			
 			if ( ! empty( $level->cycle_number ) ) {
 				
-				$interval   = "+ {$level->cycle_number} {$level->cycle_period}";
+				$interval   = "+{$level->cycle_number} {$level->cycle_period}";
 				$timestring = "{$this->payment_date} {$timezone} {$interval}";
 				
 				$util->log( "Using interval setting: {$interval} and date string: {$timestring}" );
@@ -1434,7 +1435,7 @@ class User_Data {
 				
 				$util->log( "Using a calculated enddate for this member..." );
 			} else {
-			
+				$util->log("Membership level for {$this->user->ID} is not recurring!");
 			}
 			
 		} else {
@@ -1492,7 +1493,7 @@ class User_Data {
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
 					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
-					modified TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+					modified DATETIME  NOT NULL,
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
 					INDEX end_of_period USING BTREE (end_of_payment_period),
@@ -1516,7 +1517,8 @@ class User_Data {
 					INDEX month_year USING BTREE ( exp_month, exp_year ),
 					INDEX user_month ( user_id, last4, exp_month ),
 					INDEX user_year ( user_id, last4, exp_year ),
-					INDEX cc_brands ( brand )
+					INDEX cc_brands ( brand ),
+					INDEX modified ( modified )
 				) {$charset_collate};";
 		
 		/*
