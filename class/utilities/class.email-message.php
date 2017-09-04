@@ -468,7 +468,7 @@ class Email_Message {
 				
 				$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
 				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
-				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (only last 4 digits of card, type of card, and its expiration date", Payment_Warning::plugin_slug );
+				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
 				$variables['payment_date'] = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
 				$variables['membership_ends'] = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
@@ -483,7 +483,7 @@ class Email_Message {
 			case 'ccexpiration':
 				
 				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
-				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (only last 4 digits of card, type of card, and its expiration date", Payment_Warning::plugin_slug );
+				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				
 				break;
 		}
