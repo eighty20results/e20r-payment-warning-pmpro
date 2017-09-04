@@ -36,18 +36,19 @@ class Handle_Payments extends E20R_Background_Process {
 	/**
 	 * Handle_Payments constructor.
 	 *
-	 * @param mixed $calling_class
+	 * @param string $handle
 	 */
-	public function __construct( $calling_class ) {
+	public function __construct( $handle ) {
 		
 		$util = Utilities::get_instance();
 		$util->log("Instantiated Handle_Payments class");
 		
 		self::$instance = $this;
+		/*
 		$av = get_class( $calling_class );
 		$name = explode( '\\', $av );
-		
-		$this->action = "hp_" . strtolower( $name[(count( $name ) - 1 )] );
+		*/
+		$this->action = "hp_" . strtolower( $handle );
 		$util->log("Set Action variable to {$this->action} for Handle_Payments");
 		
 		parent::__construct();
