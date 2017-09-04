@@ -220,6 +220,11 @@ class User_Data {
 		
 		$this->credit_card = $wpdb->get_results( $cc_sql, ARRAY_A );
 		$util->log( "Loaded " . count( $this->credit_card ) . " credit card(s) for {$user_id}" );
+		
+		if (isset( $this->modified ) ) {
+			$util->log( "Removing unused/unneeded `modified` column data");
+			unset( $this->modified );
+		}
 	}
 	
 	/**
@@ -385,8 +390,8 @@ class User_Data {
 				}
 			}
 			
-			// $util->log( "Record: " . print_r( $user_data, true ) );
-			// $util->log( "Where: " . print_r( $where, true ) );
+//			$util->log( "Record: " . print_r( $user_data, true ) );
+//			$util->log( "Where: " . print_r( $where, true ) );
 			
 			// No valid membership level defined!
 			if ( empty( $user_data['level_id'] ) ) {
@@ -434,6 +439,8 @@ class User_Data {
 			// $util->add_message( sprintf( __( "Error inserting/updating data for %s", Payment_Warning::plugin_slug ), $this->user->user_email ), 'error', 'backend' );
 			
 			return false;
+		} else {
+			$util->log("We " . ( empty( $exists ) ? 'inserted' : 'updated' ) . " the record for {$this->user->ID}." );
 		}
 		
 		$util->log( "Attempt to save payment info for {$this->user->ID}" );
