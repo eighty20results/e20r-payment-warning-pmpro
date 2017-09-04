@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.7.0
+Stable tag: 1.8.6
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -40,6 +40,54 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.8.6 ==
+
+* BUG FIX: Didn't check if admin had enabled payment & subscription data download
+
+== v1.8.5 ==
+
+* BUG FIX: Didn't run email notice transmission within the first day of activation
+
+== v1.8.4 ==
+
+* BUG FIX: Didn't run data collection within the first day of activation
+
+== v1.8.3 ==
+
+* BUG FIX: Database table creation failure
+
+== v1.8.2 ==
+
+* BUG FIX: Invalid format array caused save errors for user data
+* BUG FIX: Didn't save the correct modified timestamp
+* BUG FIX: Incorrect column definition for e20rpw_user_info.modified
+* BUG FIX: Removed credit card admin notice (for now)
+* ENHANCEMENT: Added index for modified timestamp
+
+== v1.8.1 ==
+
+* BUG FIX: Didn't render the Fetch from remote Payment Gateways setting
+
+== v1.8.0 ==
+
+* BUG FIX: Would trigger upstream gateway data fetch for any message cron job
+* ENHANCEMENT/FIX: Synchronize name of Background Processing class constructor variables ($handle)
+* ENHANCEMENT/FIX: Only process Payment & Subscription data from remote payment gateways when explicitly permitted
+* ENHANCEMENT: Explicit control over background processing handles
+* ENHANCEMENT: Remove modified column data (want to use trigger to update timestamp)
+* ENHANCEMENT: Added debug to validate type of user record operation (insert or update)
+* ENHANCEMENT: Added E20R_DEBUG_OVERRIDE constant to force the gateway download delays in the schedule to be overridden when in WP_DEBUG (define())
+
+== v1.7.2 ==
+
+* BUG FIX: Didn't update subscription info in local DB
+
+== v1.7.1 ==
+
+* BUG FIX: Didn't save the current timestamp when modifying user's record
+* BUG FIX: Didn't use the subscription of charge ID to identify current/pre-exisiting record in DB
+* BUG FIX: Use default & ON UPDATE trigger value in DB for modified column
 
 == v1.7.0 ==
 

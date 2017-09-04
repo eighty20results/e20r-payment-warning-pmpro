@@ -1,4 +1,1 @@
-BUG FIX: Don't exit if there's no current post ID when loading media
-ENHANCEMENT/FIX: Clean up any weird template settings
-ENHANCEMENT: Added default substitution variables w/help info
-ENHANCEMENT: Add substitution variable help on Template Editor page
+BUG FIX: Didn't check if admin had enabled payment & subscription data download
