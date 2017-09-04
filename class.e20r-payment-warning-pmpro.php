@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.7.0
+Version: 1.7.2
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -47,7 +47,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.7.0' );
+	define( 'E20R_PW_VERSION', '1.7.2' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -114,9 +114,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$this->lsubscription_requests = new Large_Request_Handler( 'subscriptions' );
 			$this->lpayment_requests = new Large_Request_Handler( 'payments' );
-			$this->process_subscriptions = new Handle_Subscriptions( $this );
-			$this->process_payments = new Handle_Payments( $this );
-			$this->process_emails = new Handle_Messages( $this );
+			$this->process_subscriptions = new Handle_Subscriptions( 'process_subscr' );
+			$this->process_payments = new Handle_Payments( 'process_payments' );
+			$this->process_emails = new Handle_Messages( 'process_email' );
    
 		}
 		
@@ -297,7 +297,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				add_action( 'wp_ajax_test_update_period', array( Cron_Handler::get_instance(), 'find_shortest_recurring_period' ) );
 				add_action( 'wp_ajax_test_send_reminder', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
     
-				add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
+				// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
+				if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {
+				    $utils->log("Admin requested that we ignore the schedule delays/settings for testing purposes");
+				    add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
+                }
             }
 		}
 		
@@ -371,6 +375,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			return array(
 				'deactivation_reset' => false,
+                'enable_gateway_fetch' => false,
                 'enable_expiration_warnings' => false,
                 'enable_payment_warnings' => false,
 				'enable_cc_expiration_warnings' => false,
@@ -595,6 +600,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			 
 			 */
 			add_settings_field(
+				'e20r_pw_global_payment_warnings',
+				__( "Fetch data from Payment Gateways", Payment_Warning::plugin_slug ),
+				array( $this, 'render_checkbox' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'enable_gateway_fetch' )
+			);
+   
+			add_settings_field(
 				'e20r_pw_global_expiration_warning',
 				__( "Membership Expiration", Payment_Warning::plugin_slug ),
 				array( $this, 'render_checkbox' ),
@@ -602,7 +616,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				'e20r_pw_global',
 				array( 'option_name' => 'enable_expiration_warnings' )
 			);
-			
+   
 			add_settings_field(
 				'e20r_pw_global_payment_warnings',
 				__( "Recurring Payment", Payment_Warning::plugin_slug ),
