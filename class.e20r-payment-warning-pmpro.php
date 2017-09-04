@@ -5,7 +5,7 @@ Description: Send Email warnings to members (Credit Card & Membership Expiration
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Thomas Sjolshagen <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.7.2
+Version: 1.8.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -47,7 +47,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.7.2' );
+	define( 'E20R_PW_VERSION', '1.8.0' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -600,8 +600,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			 
 			 */
 			add_settings_field(
-				'e20r_pw_global_payment_warnings',
-				__( "Fetch data from Payment Gateways", Payment_Warning::plugin_slug ),
+				'e20r_pw_global_gateway_fetch',
+				__( "Fetch data: Payment Gateways", Payment_Warning::plugin_slug ),
 				array( $this, 'render_checkbox' ),
 				'e20r-payment-warning-settings',
 				'e20r_pw_global',
@@ -768,11 +768,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 */
 		public function render_checkbox( $settings ) {
 			
-			$role_reset = $this->load_options( $settings['option_name'] );
+			$value = $this->load_options( $settings['option_name'] );
 			?>
             <input type="checkbox"
                    name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
-                   value="1" <?php checked( 1, $role_reset ); ?> />
+                   value="1" <?php checked( 1, $value ); ?> />
 			<?php
 		}
   
