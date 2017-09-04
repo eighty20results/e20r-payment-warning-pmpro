@@ -176,11 +176,12 @@ class Cron_Handler {
 		
 		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
 		
-		$message_when = $this->next_scheduled( $default_send_message_start_time, false );
+		$message_when = $this->next_scheduled( $default_send_message_start_time, true);
 		
 		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
 		
 		if ( false === $cc_scheduled ) {
+			
 			$util->log( "Cron job for Credit Card Warning isn't scheduled yet. Will use {$message_when}" );
 			wp_schedule_event( $message_when, 'daily', 'e20r_send_creditcard_warning_emails' );
 		}
