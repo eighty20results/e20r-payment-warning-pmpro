@@ -92,7 +92,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$data = array(
 						'dataset'      => $to_process,
 						'task_handler' => $main->get_handler( 'subscriptions' ),
-						'type'         => 'enable_payment_warnings',
+						'type'         => 'enable_gateway_fetch',
 					);
 					
 					$handler->push_to_queue( $data );
@@ -104,16 +104,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 			} else {
 				
-				$util->log( "No need to split the data set to queue for processing!" );
-				$sub_handler = $main->get_handler( 'subscriptions' );
+				$run_gateway_fetch = $main->load_options( 'enable_gateway_fetch' );
 				
-				foreach ( $this->active_members as $user_data ) {
+				$run_gateway_fetch = ( !empty( $run_gateway_fetch ) ? true : false );
+				$util->log( "Is enable_gateway_fetch enabled for subscription data download? " . ( $run_gateway_fetch ? 'Yes' : 'No' ) );
+
+				if ( true === $run_gateway_fetch ) {
 					
-					$util->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
-					$sub_handler->push_to_queue( $user_data );
+					$util->log( "No need to split the data set to queue for processing!" );
+					$sub_handler = $main->get_handler( 'subscriptions' );
+					
+					foreach ( $this->active_members as $user_data ) {
+						
+						$util->log( "Adding subscription handling to queue for User ID: " . $user_data->get_user_ID() );
+						$sub_handler->push_to_queue( $user_data );
+					}
+					$util->log( "Saved the data to process to the subscription handler & dispatching it" );
+					$sub_handler->save()->dispatch();
 				}
-				$util->log( "Saved the data to process to the subscription handler & dispatching it" );
-				$sub_handler->save()->dispatch();
 			}
 		}
 		
@@ -164,7 +172,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$data = array(
 						'dataset'      => $to_process,
 						'task_handler' => $main->get_handler( 'payments' ),
-						'type'         => 'enable_expiration_warnings',
+						'type'         => 'enable_gateway_fetch',
 					);
 					
 					$handler->push_to_queue( $data );
@@ -177,17 +185,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 			} else {
 				
-				$p_handler = $main->get_handler( 'payments' );
+				$run_gateway_fetch = $main->load_options( 'enable_gateway_fetch' );
 				
-				foreach ( $this->active_members as $user_data ) {
+				$run_gateway_fetch = ( !empty( $run_gateway_fetch ) ? true : false );
+				$util->log( "Is enable_gateway_fetch enabled for payment info download? " . ( $run_gateway_fetch ? 'Yes' : 'No' ) );
+				
+				if ( true === $run_gateway_fetch ) {
 					
-					$util->log( "Adding payment/charge handling to queue for User ID: " . $user_data->get_user_ID() );
-					$p_handler->push_to_queue( $user_data );
+					$p_handler = $main->get_handler( 'payments' );
+					
+					foreach ( $this->active_members as $user_data ) {
+						
+						$util->log( "Adding payment/charge handling to queue for User ID: " . $user_data->get_user_ID() );
+						$p_handler->push_to_queue( $user_data );
+					}
+					
+					$util->log( "Dispatch the background job for the payment data" );
+					$p_handler->save()->dispatch();
 				}
-				
-				$util->log( "Dispatch the background job for the payment data" );
-				$p_handler->save()->dispatch();
-				
 			}
 		}
 		
