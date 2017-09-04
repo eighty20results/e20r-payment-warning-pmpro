@@ -52,9 +52,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
-			if ( false == $main->load_options( 'enable_payment_warnings' ) ) {
+			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
 				
-				$util->log( "User has not configured payment download to execute!" );
+				$util->log( "User has not enabled subscription download!" );
 				
 				return;
 			}
@@ -133,9 +133,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
-			if ( false == $main->load_options( 'enable_expiration_warnings' ) ) {
+			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
 				
-				$util->log( "User has not configured payment download to execute!" );
+				$util->log( "User has not enabled payment download!" );
 				
 				return;
 			}
