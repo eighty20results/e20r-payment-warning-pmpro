@@ -30,18 +30,18 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	/**
 	 * Constructor for Handle_Subscriptions class
 	 *
-	 * @param object $calling_class
+	 * @param string $handle
 	 */
-	public function __construct( $calling_class ) {
+	public function __construct( $handle ) {
 		
 		$util = Utilities::get_instance();
 		$util->log("Instantiated Handle_Subscriptions class");
 		
 		self::$instance = $this;
-		
+		/*
 		$av = get_class( $calling_class );
-		$name = explode( '\\', $av );
-		$this->action = "hs_" . strtolower( $name[(count( $name ) - 1 )] );
+		$name = explode( '\\', $av );*/
+		$this->action = "hs_" . strtolower( $handle );
 		
 		$util->log("Set Action variable to {$this->action} for Handle_Subscriptions");
 		
