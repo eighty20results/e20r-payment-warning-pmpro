@@ -85,8 +85,8 @@ class Cron_Handler {
 	/**
 	 * Calculate and return the next scheduled time (timestamp) for a Cron action
 	 *
-	 * @param string     $default_time
-	 * @param bool $instant
+	 * @param string $default_time
+	 * @param bool   $instant
 	 *
 	 * @return int
 	 *
@@ -113,12 +113,12 @@ class Cron_Handler {
 		
 		// Calculate when the next interval is to happen
 		if ( false === $instant ) {
-			$util->log("Configure next interval based on configured days: {$days}");
+			$util->log( "Configure next interval based on configured days: {$days}" );
 			$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
 			$interval = new \DateInterval( "P{$days}D" );
 			$time->add( $interval );
 		} else {
-			$util->log("Using next scheduled run value: {$next_scheduled_run}");
+			$util->log( "Using next scheduled run value: {$next_scheduled_run}" );
 			$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
 		}
 		
@@ -149,17 +149,19 @@ class Cron_Handler {
 		// Make sure the trigger time is minimally daily
 		$delay_config = ( ! empty( $delay_config ) ? $delay_config : "1" );
 		
-		$now               = current_time( 'timestamp' ) + 5;
-		$is_scheduled      = wp_next_scheduled( 'e20r_run_remote_data_update' );
-		$cc_scheduled      = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
-		$payment_scheduled = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
-		$exp_scheduled     = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
-		$collect_when      = $this->next_scheduled( $default_data_collect_start_time, false );
+		$now                  = current_time( 'timestamp' ) + 5;
+		$collection_scheduled = wp_next_scheduled( 'e20r_run_remote_data_update' );
+		$cc_scheduled         = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
+		$payment_scheduled    = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
+		$exp_scheduled        = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
+		$collect_when         = $this->next_scheduled( $default_data_collect_start_time, false );
 		
 		// No previously scheduled job for the payment gateway
-		if ( false === $is_scheduled ) {
+		if ( false === $collection_scheduled ) {
 			
 			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
+			
+			$collect_when = $this->next_scheduled( $default_data_collect_start_time, true );
 			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}/{$collect_when}" );
 			
 			wp_schedule_event( $collect_when, 'daily', 'e20r_run_remote_data_update' );
@@ -168,7 +170,7 @@ class Cron_Handler {
 			update_option( 'e20r_pw_next_gateway_check', $collect_when );
 			
 		} else {
-			$next_run = $is_scheduled;
+			$next_run = $collection_scheduled;
 			$util->log( "The cron job exists and is scheduled to run at: {$next_run}" );
 		}
 		
@@ -339,8 +341,8 @@ class Cron_Handler {
 			$util->log( "Triggered remote subscription fetch configuration" );
 			
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
-			$next_ts = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
-			$util->log("Calculating when to next run the gateway data fetch operation: {$next_ts}");
+			$next_ts                         = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
+			$util->log( "Calculating when to next run the gateway data fetch operation: {$next_ts}" );
 			update_option( 'e20r_pw_next_gateway_check', $next_ts, false );
 			
 		} else {
