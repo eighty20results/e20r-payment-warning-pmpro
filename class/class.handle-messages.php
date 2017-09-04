@@ -113,7 +113,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		$this->send_admin_notice( 'recurring' );
 		$this->send_admin_notice( 'expiration' );
-		$this->send_admin_notice( 'creditcard' );
+		// $this->send_admin_notice( 'creditcard' ); // TODO: Enable the admin notice for credit card expiration warnings
 		
 		$util = Utilities::get_instance();
 		$util->log( "Completed message transmission operations" );
