@@ -1,1 +1,3 @@
-BUG FIX: Didn't check if admin had enabled payment & subscription data download
+BUG FIX: Typo in help text for saved credit card info
+ENHANCEMENT: Don't send email notice to admin if no messages of the type was sent
+ENHANCEMENT: Add filter to let notice to admin get sent if no messages of the type was sent ('e20r-payment-warning-skip-admin-message-if-none-sent')
