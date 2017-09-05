@@ -131,16 +131,17 @@ class Handle_Messages extends E20R_Background_Process {
 	 */
 	private function send_admin_notice( $type ) {
 		
-		$users     = array();
-		$today     = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
-		$type_text = null;
-		$subject   = sprintf( __( "Completed processing the %s payment warning type", Payment_Warning::plugin_slug ), $type );
+		$users              = array();
+		$today              = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+		$type_text          = null;
+		$subject            = sprintf( __( "Completed processing the %s payment warning type", Payment_Warning::plugin_slug ), $type );
+		$skip_admin_notices = apply_filters( 'e20r-payment-warning-skip-admin-message-if-none-sent', true );
 		
 		switch ( $type ) {
 			case 'recurring':
 				$users     = get_option( 'e20r_pw_sent_recurring', array() );
 				$type_text = __( "upcoming recurring payment", Payment_Warning::plugin_slug );
-				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
@@ -148,7 +149,7 @@ class Handle_Messages extends E20R_Background_Process {
 			case 'expiration':
 				$users     = get_option( 'e20r_pw_sent_expiration', array() );
 				$type_text = __( "pending membership expiration", Payment_Warning::plugin_slug );
-				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
@@ -156,7 +157,7 @@ class Handle_Messages extends E20R_Background_Process {
 			case 'creditcard':
 				$users     = get_option( 'e20r_pw_sent_creditcard', array() );
 				$type_text = __( "credit card expiration", Payment_Warning::plugin_slug );
-				$count = isset( $users[$today] ) ? count( $users[$today] ) : 0;
+				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
@@ -174,9 +175,18 @@ class Handle_Messages extends E20R_Background_Process {
 		$body      = sprintf( "<div>%s</div>", $admin_intro_text );
 		$user_list = '<div style="font-size: 11pt; font-style: italic;">';
 		
+		// Don't send empty/unneeded admin notices?
+		if ( 0 == $users[ $today ] && true === $skip_admin_notices ) {
+			
+			$utils = Utilities::get_instance();
+			$utils->log( "No need to send the {$type} admin summary. There were 0 notices sent" );
+			
+			return true;
+		}
+		
 		if ( ! empty( $users[ $today ] ) ) {
 			
-			$user_list .= implode( '<br/>', $users[$today] );
+			$user_list .= implode( '<br/>', $users[ $today ] );
 			
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
@@ -206,3 +216,4 @@ class Handle_Messages extends E20R_Background_Process {
 		return wp_mail( $admin_address, $subject, $body, $headers );
 	}
 }
+
