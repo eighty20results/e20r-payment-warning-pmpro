@@ -97,8 +97,8 @@ class Email_Message {
 	 */
 	public function configure_default_data( $template_type = null, $force = false ) {
 		
-		$util = Utilities::get_instance();
-		$data = array();
+		$util  = Utilities::get_instance();
+		$data  = array();
 		$level = null;
 		
 		global $pmpro_currency_symbol;
@@ -324,13 +324,20 @@ class Email_Message {
 		$util = Utilities::get_instance();
 		
 		$util->log( "Preparing email type: {$type}" );
-		$to            = $this->user_info->get_user_email();
+		$to = $this->user_info->get_user_email();
 		
-		$who    = get_option( "e20r_pw_sent_{$type}", array() );
+		$users  = get_option( "e20r_pw_sent_{$type}", array() );
 		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
 		$status = false;
 		
-		if ( isset( $who[ $today ][ $to ] ) && false == $who[$today][$to] ) {
+		// Option is empty
+		if ( empty( $users ) ) {
+			$users[$today] = array();
+			$users[$today][$to] = false;
+		}
+		
+		// Process possible message for user
+		if ( ! isset( $users[ $today ][ $to ] ) || ( isset( $users[ $today ][ $to ] ) && false == $users[ $today ][ $to ] ) ) {
 			
 			$variables = $this->configure_default_data( $type );
 			
@@ -348,22 +355,22 @@ class Email_Message {
 				
 				$util->log( "Recording that we attempted to send a {$type} message to: {$to}" );
 				
-				if ( ! isset ( $who[ $today ] ) ) {
+				if ( ! isset ( $users[ $today ] ) ) {
 					
 					$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
 					
-					$who[ $today ] = array();
+					$users[ $today ] = array();
 					
-					if ( count( $who ) > 1 ) {
+					if ( count( $users ) > 1 ) {
 						
 						$util->log( "Cleaning up the array of users" );
-						$new = array( $today => array() );
-						$who = array_intersect_key( $who, $new );
+						$new   = array( $today => array() );
+						$users = array_intersect_key( $users, $new );
 					}
 				}
 				
-				$who[ $today ][$to] = true;
-				update_option( "e20r_pw_sent_{$type}", $who, false );
+				$users[ $today ][ $to ] = true;
+				update_option( "e20r_pw_sent_{$type}", $users, false );
 			} else {
 				$util->log( "Error sending {$type} message to {$to}" );
 			}
@@ -455,7 +462,7 @@ class Email_Message {
 			'user_login'            => __( 'Login / username for the user receiving the message', Payment_Warning::plugin_slug ),
 			'sitename'              => __( 'The blog name (see General Settings)', Payment_Warning::plugin_slug ),
 			'membership_id'         => __( 'The ID of the membership level for the user receiving the message', Payment_Warning::plugin_slug ),
-			'membership_level_name' => __( "The active Membership Level name for the user receiving the message  (from the Membership Level settings page)" , Payment_Warning::plugin_slug ),
+			'membership_level_name' => __( "The active Membership Level name for the user receiving the message  (from the Membership Level settings page)", Payment_Warning::plugin_slug ),
 			'siteemail'             => __( "The email address used as the 'From' email when sending this message to the user", Payment_Warning::plugin_slug ),
 			'login_link'            => __( "A link to the login page for this site", Payment_Warning::plugin_slug ),
 			'display_name'          => __( 'The Display Name for the user receiving the message', Payment_Warning::plugin_slug ),
@@ -463,15 +470,15 @@ class Email_Message {
 			'currency'              => __( 'The configured currency symbol. (Default: &dollar;)', Payment_Warning::plugin_slug ),
 		);
 		
-		switch( $type ) {
+		switch ( $type ) {
 			case 'recurring':
 				
 				$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
 				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
 				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
-				$variables['payment_date'] = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
-				$variables['membership_ends'] = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
+				$variables['payment_date']        = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
+				$variables['membership_ends']     = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
 				
 				break;
 			
@@ -482,8 +489,8 @@ class Email_Message {
 			
 			case 'ccexpiration':
 				
-				$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
-				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
+				$variables['billing_info']  = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
+				$variables['saved_cc_info'] = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				
 				break;
 		}
