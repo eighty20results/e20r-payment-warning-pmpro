@@ -808,7 +808,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			if ( $expected_stub !== $addon ) {
 				$utils->log( "Not processing the {$e20r_pw_addons[$addon]['label']} add-on: {$addon}" );
 				
-				return;
+				return false;
 			}
 			
 			if ( $is_active === false ) {
