@@ -3,9 +3,12 @@
 Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
 Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
-Author: Thomas Sjolshagen <thomas@eighty20results.com>
+Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
-Version: 1.8.8
+Developer: Thomas Sjolshagen <thomas@eighty20results.com>
+Developer URI: https://eighty20results.com/thomas-sjolshagen/
+PHP Version: 5.4
+Version: 1.8.9
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -47,7 +50,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.8.8' );
+	define( 'E20R_PW_VERSION', '1.8.9' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {

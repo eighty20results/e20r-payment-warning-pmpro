@@ -3,7 +3,9 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.8.8
+Stable tag: 1.8.9
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -40,6 +42,13 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.8.9 ==
+
+* BUG FIX: Didn't send message for users in certain situations
+* BUG FIX: PHP Warning message fixed in send_admin_notice() method
+* BUG FIX: Didn't return actual value (implicit false actually retuned)
+* ENHANCEMENT: Code style improvements
 
 == v1.8.8 ==
 

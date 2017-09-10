@@ -1,3 +1,4 @@
-BUG FIX: Typo in help text for saved credit card info
-ENHANCEMENT: Don't send email notice to admin if no messages of the type was sent
-ENHANCEMENT: Add filter to let notice to admin get sent if no messages of the type was sent ('e20r-payment-warning-skip-admin-message-if-none-sent')
+BUG FIX: Didn't send message for users in certain situations
+BUG FIX: PHP Warning message fixed in send_admin_notice() method
+BUG FIX: Didn't return actual value (implicit false actually retuned)
+ENHANCEMENT: Code style improvements
