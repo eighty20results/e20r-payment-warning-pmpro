@@ -18,8 +18,9 @@
  * Thanks to @A5hleyRich at https://github.com/A5hleyRich/wp-background-processing
  */
 
-namespace E20R\Payment_Warning\Utilities;
+namespace E20R\Payment_Warning\Tools;
 
+use E20R\Utilities\Utilities;
 
 /**
  * WP Background Process
@@ -28,7 +29,7 @@ namespace E20R\Payment_Warning\Utilities;
  *
  * @credit  A5hleyRich at https://github.com/A5hleyRich/wp-background-processing
  */
-if ( ! class_exists( 'E20R\Payment_Warning\Utilities\E20R_Background_Process' ) ) {
+if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 	/**
 	 * Abstract E20R_Background_Process class.
 	 *

@@ -17,11 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace E20R\Payment_Warning\Utilities;
+namespace E20R\Payment_Warning\Tools;
 
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
 use E20R\Payment_Warning\Editor\Editor;
+use E20R\Utilities\Utilities;
 
 class Email_Message {
 	
@@ -82,7 +83,9 @@ class Email_Message {
 			$this->site_email = get_option( 'admin_email' );
 		}
 		
-		self::$instance = $this;
+		if ( is_null( self::$instance ) ) {
+			self::$instance = $this;
+		}
 		
 		$util->log( "Instantiated for {$template_name}: " . $user_info->get_user_ID() );
 	}
@@ -536,10 +539,6 @@ class Email_Message {
 	 * @return Email_Message|null
 	 */
 	public static function get_instance() {
-		
-		if ( is_null( self::$instance ) ) {
-			self::$instance = new self;
-		}
 		
 		return self::$instance;
 	}

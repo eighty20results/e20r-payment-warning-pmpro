@@ -17,11 +17,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace E20R\Payment_Warning\Utilities;
+namespace E20R\Payment_Warning\Tools;
 
 use E20R\Payment_Warning\Fetch_User_Data;
 use E20R\Payment_Warning\Payment_Reminder;
 use E20R\Payment_Warning\Payment_Warning;
+use E20R\Utilities\Utilities;
+use E20R\Utilities\Cache;
 
 class Cron_Handler {
 	
