@@ -37,7 +37,8 @@ class Upgrade_2 {
 		$utils = Utilities::get_instance();
 		
 		$charset_collate = $wpdb->get_charset_collate();
-		$user_info_table = "{$wpdb->prefix}e20rpw_user_data";
+		$user_info_table = "{$wpdb->prefix}e20rpw_user_info";
+		$success = true;
 		
 		$sql = array();
 		$sql[] = "ALTER TABLE {$user_info_table} DROP COLUMN user_subscriptions";
@@ -48,12 +49,15 @@ class Upgrade_2 {
 			foreach( $sql as $update ) {
 				
 				$result = $wpdb->query( $update );
+				$success = $success && $result;
+				
 				$utils->log("Update to v{$e20rpw_db_version} of the database tables - result: " . print_r( $result, true ));
 			}
-			
-			// require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-			// $result = dbDelta( $user_info_sql );
-			update_option( "e20rpw_db_version", 2, 'no' );
+
+			if ( true === $success ) {
+				$utils->log("Database upgraded to version 2");
+				update_option( "e20rpw_db_version", 2, 'no' );
+			}
 		}
 	}
 }
