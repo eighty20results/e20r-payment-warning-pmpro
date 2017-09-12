@@ -674,13 +674,33 @@ class User_Data {
 	 *
 	 * @param string $date A valid strtotime() date
 	 */
-	public function set_end_of_membership_date( $date ) {
+	public function set_end_of_membership_date( $date = null ) {
 		
 		$util = Utilities::get_instance();
 		
-		// Test if $date is a valid date/time
-		if ( strtotime( $date, current_time( 'timestamp' ) ) ) {
+		// Fetch the enddate for the user data, if it's configured.
+		if ( is_null( $date ) ) {
 			
+			global $wpdb;
+			
+			$sql = $wpdb->prepare(
+				"SELECT mu.enddate
+							FROM {$wpdb->pmpro_memberships_users} AS mu
+							WHERE mu.user_id = %d AND
+								mu.status = %s AND
+								mu.membership_id = %d",
+				$this->get_user_ID(),
+				'active',
+				$this->get_membership_level_ID()
+			);
+			
+			$date = $wpdb->get_var( $sql );
+		}
+		
+		// Test if $date is a valid date/time
+		if ( !empty($data) && false !== strtotime( $date, current_time( 'timestamp' ) ) ) {
+			
+			$util->log("Saving {$date} as the enddate for this membership");
 			$this->end_of_membership_date = $date;
 		} else {
 			$util->log( "Unable to save {$date} as the 'end of membership date' value" );
