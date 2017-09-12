@@ -46,6 +46,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		
 		/**
 		 * Handler for remote data fetch operation for subscriptions (background operation)
+		 *
+		 * @since 1.9.1 Didn't use the default method - get_all_user_records() - when loading member/user data
 		 */
 		public function get_remote_subscription_data() {
 			
@@ -64,7 +66,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$util->log( "Grab all active PMPro Members" );
 			$this->active_members = null;
-			$this->set_active_subscription_members();
+			$this->get_all_user_records( 'recurring' );
 			
 			$data_count = count( $this->active_members );
 			
@@ -96,7 +98,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					);
 					
 					$handler->push_to_queue( $data );
-					$util->log( "Added data set # {$i} to subscription request dispatcher: " . $data['task_handler']->get_action()  );
+					$util->log( "Added data set # {$i} to subscription request dispatcher: " . $data['task_handler']->get_action() );
 				}
 				
 				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
@@ -106,9 +108,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$run_gateway_fetch = $main->load_options( 'enable_gateway_fetch' );
 				
-				$run_gateway_fetch = ( !empty( $run_gateway_fetch ) ? true : false );
+				$run_gateway_fetch = ( ! empty( $run_gateway_fetch ) ? true : false );
 				$util->log( "Is enable_gateway_fetch enabled for subscription data download? " . ( $run_gateway_fetch ? 'Yes' : 'No' ) );
-
+				
 				if ( true === $run_gateway_fetch ) {
 					
 					$util->log( "No need to split the data set to queue for processing!" );
@@ -127,6 +129,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		
 		/**
 		 * Handler for remote data fetch operation for payments (non-recurring payments in background operation)
+		 *
+		 * @since 1.9.1 Didn't use the default method - get_all_user_records() - when loading member/user data
 		 */
 		public function get_remote_payment_data() {
 			
@@ -143,15 +147,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
-			$util->log( "Grab all active PMPro Members without subscription plans" );
+			$util->log( "Grab all active Members without subscription plans" );
 			$this->active_members = null;
-			$this->set_active_non_subscription_members();
+			
+			$this->get_all_user_records( 'expiring' );
 			
 			$data_count = count( $this->active_members );
 			$util->log( "Process payment data for {$data_count} active members" );
 			
 			$handler = $main->get_handler( 'lhr_payments' );
-			// $handler->set_task_handler( $main->get_handler( 'payments' ) );
 			
 			if ( $data_count > $this->per_request_count ) {
 				
@@ -187,7 +191,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$run_gateway_fetch = $main->load_options( 'enable_gateway_fetch' );
 				
-				$run_gateway_fetch = ( !empty( $run_gateway_fetch ) ? true : false );
+				$run_gateway_fetch = ( ! empty( $run_gateway_fetch ) ? true : false );
 				$util->log( "Is enable_gateway_fetch enabled for payment info download? " . ( $run_gateway_fetch ? 'Yes' : 'No' ) );
 				
 				if ( true === $run_gateway_fetch ) {
@@ -252,11 +256,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					if ( ! empty( $last_order->code ) ) {
 						
-						$record = new User_Data( $user, $last_order );
+						$record = new User_Data( $user, $last_order, 'expiration' );
 						$record->set_recurring_membership_status( false );
 						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( false === $record->get_recurring_membership_status() ? 'No' : 'Yes' ) );
 					} else {
-						$record = new User_Data( $user, null );
+						$record = new User_Data( $user, null, 'expiration' );
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					}
 					
@@ -304,7 +308,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		
 		/**
 		 * Fetch all active members with recurring payment subscriptions and their last order info from local DB (or cache)
-		 *
 		 */
 		public function set_active_subscription_members() {
 			
@@ -346,12 +349,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					}
 					
 					if ( ! empty( $last_order->code ) ) {
-						$record = new User_Data( $user, $last_order );
+						$record = new User_Data( $user, $last_order, 'recurring' );
 						$record->set_recurring_membership_status();
 						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
 						
 					} else {
-						$record = new User_Data( $user, null );
+						$record = new User_Data( $user, null, 'recurring' );
 						$record->set_recurring_membership_status();
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					}
@@ -394,6 +397,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$last_order = null;
 		}
 		
+		/**
+		 * Load all (PMPro) members who are currently active (on the local system)
+		 */
 		public function set_all_active_members() {
 			
 			$this->active_members = array();
@@ -535,8 +541,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @param string $type
 		 *
 		 * @return User_Data[]
+		 *
+		 * @since 1.9.2 BUG FIX: Didn't always load the required user records
 		 */
-		public function get_all_user_records( $type = 'recurring' ) {
+		public function get_all_user_records( $type = 'ccexpiration' ) {
 			
 			$util = Utilities::get_instance();
 			
@@ -546,7 +554,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$class = self::get_instance();
 				
-				switch( $type ) {
+				switch ( $type ) {
 					case 'recurring':
 						$class->set_active_subscription_members();
 						break;
@@ -565,27 +573,35 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					foreach ( $records as $key => $user_data ) {
 						
-						$user_data->set_reminder_type( $type );
-						$order = $user_data->get_last_pmpro_order();
+						$order         = $user_data->get_last_pmpro_order();
+						$user_id       = $user_data->get_user_ID();
+						$user_level_id = $user_data->get_membership_level_ID();
 						
 						if ( ! empty( $order ) && ! empty( $order->id ) ) {
 							
-							$util->log( "Found order ID: {$order->id} for " . $user_data->get_user_ID() );
+							$util->log( "Found order ID: {$order->id} for {$user_id}" );
 							$order_id = $order->id;
 							
-							$user_data->maybe_load_from_db( $user_data->get_user_ID(), $order_id, $user_data->get_membership_level_ID() );
+							$user_data->maybe_load_from_db( $user_id, $order_id, $user_level_id );
+							$user_data->set_reminder_type( $type );
 							
 							$next_payment = $user_data->get_next_payment();
+							$is_active    = pmpro_hasMembershipLevel( $user_level_id, $user_id );
 							
-							// Only include this user record if the user/member has a pre-existing payment date in the
-							if ( ! empty( $next_payment ) || false !== $user_data->get_end_of_subscr_status() ) {
+							// Include record if we're processing recurring payments & the user is active & has an upcoming payment
+							// Or if we're processing credit card data/expiration data & the user is an active member
+							// @since 1.9.2 BUG FIX: Didn't always load the required user records
+							if (
+								( ( 'recurring' === $type ) && ! empty( $next_payment ) && true === $is_active ) ||
+								( in_array( $type, array( 'expiration', 'ccexpiration' ) ) && true === $is_active )
+							) {
 								
-								$util->log( "Including record for " . $user_data->get_user_ID() );
+								$util->log( "Including record for {$user_id}" );
 								$this->active_members[] = $user_data;
+							} else {
+								$util->log( "Will skip record for {$user_id} (Not considered an 'active' member for {$type} data)..." );
 							}
-							
 						}
-						
 					}
 				}
 				
