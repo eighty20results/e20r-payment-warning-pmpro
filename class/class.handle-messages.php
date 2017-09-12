@@ -116,8 +116,19 @@ class Handle_Messages extends E20R_Background_Process {
 		// $this->send_admin_notice( 'creditcard' ); // TODO: Enable the admin notice for credit card expiration warnings
 		
 		$util = Utilities::get_instance();
-		$util->log( "Completed message transmission operations" );
-		// $util->add_message( __("Fetched user subscription data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
+		$now = date_i18n( 'H:i:s (m-d)', strtotime( get_option('timezone_string' ) ) );
+		$util->log( "Completed message transmission operations: {$now}" );
+		
+		if ( true === apply_filters('e20rpw_show_completion_info_banner', false ) ) {
+			$util->add_message(
+				sprintf(
+					__( "Sending warning messages to active members complete: %s", Payment_Warning::plugin_slug ),
+					$now
+				),
+				'info',
+				'backend'
+			);
+		}
 	}
 	
 	/**
