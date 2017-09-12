@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,8 @@ namespace E20R\Payment_Warning;
 
 
 use E20R\Payment_Warning\Editor\Editor;
-use E20R\Payment_Warning\Utilities\Email_Message;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\Email_Message;
+use E20R\Utilities\Utilities;
 use DateTime;
 use DateTimeZone;
 use DateInterval;
@@ -55,9 +55,7 @@ class Payment_Reminder {
 			$this->load_schedule();
 		}
 		
-		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_payment_reminder' ), 10, 4 );
-		
-		$this->message_handler = new Handle_Messages( $this );
+		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), 10, 4 );
 	}
 	
 	public function load_hooks() {
@@ -73,14 +71,16 @@ class Payment_Reminder {
 	 *
 	 * @return bool
 	 */
-	public function should_send_payment_reminder( $send, $user_payment_date, $interval, $type ) {
+	public function should_send_reminder_message( $send, $user_payment_date, $interval, $type ) {
 		
 		$util = Utilities::get_instance();
 		$util->log( "Testing if {$user_payment_date} is within {$interval} days of " . date_i18n( 'Y-m-d', current_time( 'timestamp' ) ) );
 		
+		/** Ignore the type
 		if ( $type !== 'recurring' ) {
 			return $send;
 		}
+	    */
 		
 		$negative = ( $interval < 0 ) ? true : false;
 		
@@ -145,9 +145,11 @@ class Payment_Reminder {
 			$type = 'recurring';
 		}
 		
-		$fetch     = Fetch_User_Data::get_instance();
-		$users     = $fetch->get_all_user_records( $type );
-		$templates = Editor::get_templates_of_type( $type );
+		$fetch           = Fetch_User_Data::get_instance();
+		$main            = Payment_Warning::get_instance();
+		$users           = $fetch->get_all_user_records( $type );
+		$templates       = Editor::get_templates_of_type( $type );
+		$message_handler = $main->get_handler( 'messages' );
 		
 		$util->log( "Will process {$type} messages for " . count( $users ) . " members/users" );
 		$this->set_users( $users );
@@ -161,11 +163,11 @@ class Payment_Reminder {
 				$message = new Email_Message( $user_info, $template_name );
 				
 				$util->log( "Adding user message for " . $message->get_user()->get_user_ID() );
-				$this->message_handler->push_to_queue( $message );
+				$message_handler->push_to_queue( $message );
 			}
 			
 			$util->log( "Dispatching the possible send message operation for all users" );
-			$this->message_handler->save()->dispatch();
+			$message_handler->save()->dispatch();
 		}
 	}
 	

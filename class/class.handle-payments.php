@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,8 +20,8 @@
 namespace E20R\Payment_Warning;
 
 
-use E20R\Payment_Warning\Utilities\E20R_Background_Process;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\E20R_Background_Process;
+use E20R\Utilities\Utilities;
 
 class Handle_Payments extends E20R_Background_Process {
 	
@@ -36,18 +36,19 @@ class Handle_Payments extends E20R_Background_Process {
 	/**
 	 * Handle_Payments constructor.
 	 *
-	 * @param mixed $calling_class
+	 * @param string $handle
 	 */
-	public function __construct( $calling_class ) {
+	public function __construct( $handle ) {
 		
 		$util = Utilities::get_instance();
 		$util->log("Instantiated Handle_Payments class");
 		
 		self::$instance = $this;
+		/*
 		$av = get_class( $calling_class );
 		$name = explode( '\\', $av );
-		
-		$this->action = "hp_" . strtolower( $name[(count( $name ) - 1 )] );
+		*/
+		$this->action = "hp_" . strtolower( $handle );
 		$util->log("Set Action variable to {$this->action} for Handle_Payments");
 		
 		parent::__construct();
@@ -64,22 +65,40 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		$util = Utilities::get_instance();
 		
-		if ( false === $user_data->has_active_subscription()) {
+		$util->log("Trigger per-addon payment/charge download for user" );
+		
+		if ( !is_bool( $user_data ) ) {
 			
-			$util->log("Trigger per-addon payment/charge download for user" );
+			$user_id = $user_data->get_user_ID();
+			$util->log( "Loading from DB (if record exists) for {$user_id}");
+			$user_data->maybe_load_from_db();
+			
 			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
 			
-			if ( false !== $user_data ) {
+			if ( false !== $user_data && true === $user_data->save_to_db( 'payments' ) ) {
 				
-				$util->log( "Fetched payments for " . $user_data->get_user_email() );
-				
-				$user_data->save_to_db( 'payments' );
-				$util->log( "Completed payment fetch and save for user" );
+				$util->log( "Fetched payment data from gateway for " . $user_data->get_user_email() );
+				$util->log( "Done processing payment data for {$user_id}. Removing the user from the queue" );
+				return false;
 			}
+			
+			$util->log( "User payment record not saved/processed. May be a-ok..." );
+			
+		} else {
+			$util->log("Incorrect format for user data record (boolean received!)");
 		}
 		
 		return false;
 		
+	}
+	
+	/**
+	 * Return the action name for this Background Process
+	 *
+	 * @return string
+	 */
+	public function get_action() {
+		return $this->action;
 	}
 	
 	/**

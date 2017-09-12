@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 namespace E20R\Payment_Warning;
 
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Utilities\Utilities;
 use DateTime;
 
 class User_Data {
@@ -68,9 +68,9 @@ class User_Data {
 	
 	private $gateway_customer_id = null;
 	
-	private $user_subscriptions = null;
+	// private $user_subscriptions = null;
 	
-	private $user_charges = null;
+	// private $user_charges = null;
 	
 	private $user_payment_status = 'stopped';
 	
@@ -125,8 +125,6 @@ class User_Data {
 			$this->user_gateway_type = $order->gateway_environment;
 			
 			$util->log( "Saved gateway info: {$this->user_gateway} in a {$this->user_gateway_type} environment" );
-			
-			$this->maybe_load_from_db();
 		}
 		
 		global $wpdb;
@@ -152,13 +150,19 @@ class User_Data {
 	 * @param null $user_id
 	 * @param null $order_id
 	 * @param null $level_id
+	 * @param bool $skip
 	 */
-	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null ) {
+	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null, $skip = false ) {
 		
 		global $wpdb;
 		
 		$util = Utilities::get_instance();
 		$util->log( "Looking for preexisting data from local DB: {$user_id}" );
+		
+		if ( true === $skip ) {
+			$util->log("Won't load the DB record for this user record...");
+			return;
+		}
 		
 		if ( is_null( $user_id ) ) {
 			$user_id = isset( $this->user->ID ) ? $this->user->ID : null;
@@ -216,6 +220,11 @@ class User_Data {
 		
 		$this->credit_card = $wpdb->get_results( $cc_sql, ARRAY_A );
 		$util->log( "Loaded " . count( $this->credit_card ) . " credit card(s) for {$user_id}" );
+		
+		if (isset( $this->modified ) ) {
+			$util->log( "Removing unused/unneeded `modified` column data");
+			unset( $this->modified );
+		}
 	}
 	
 	/**
@@ -324,7 +333,7 @@ class User_Data {
 				'gateway_subscr_id'              => $this->gateway_subscr_id,
 				'gateway_payment_id'             => $this->gateway_payment_id,
 				'is_delinquent'                  => $this->is_delinquent,
-				'has_active_subscription'        => ( ! empty( $this->user_subscriptions ) ? true : false ),
+				'has_active_subscription'        => $this->has_active_subscription,
 				'has_local_recurring_membership' => $this->is_local_membership_recurring( $this->user->current_membership_level ),
 				'payment_currency'               => $this->payment_currency,
 				'payment_amount'                 => $this->payment_amount,
@@ -338,9 +347,9 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
-				'user_subscriptions'             => ( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
-				'user_charges'                   => ( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
-				'modified'                       => current_time( 'timestamp' ),
+				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
+				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
+				'modified'                       => current_time('mysql'),
 			);
 			
 			$data_format = array(
@@ -348,6 +357,7 @@ class User_Data {
 				'%d', // level_id
 				'%d', // last_order_id
 				'%s', // gateway_subscr_id
+				'%s', // gateway_payment_id
 				'%d', // is_delinquent
 				'%d', // has_active_subscription
 				'%d', // has_local_recurring_membership
@@ -371,11 +381,18 @@ class User_Data {
 			$where = array(
 				'user_id'       => $this->user->ID,
 				'level_id'      => $this->last_order->membership_id,
-				'last_order_id' => $this->last_order->id,
 			);
 			
-			$util->log( "Record: " . print_r( $user_data, true ) );
-			$util->log( "Where: " . print_r( $where, true ) );
+			if ( !empty( $this->gateway_subscr_id ) ) {
+				$where['gateway_subscr_id'] = $this->gateway_subscr_id;
+			} else {
+				if ( !empty( $this->gateway_payment_id ) ) {
+					$where['gateway_payment_id'] = $this->gateway_payment_id;
+				}
+			}
+			
+//			$util->log( "Record: " . print_r( $user_data, true ) );
+//			$util->log( "Where: " . print_r( $where, true ) );
 			
 			// No valid membership level defined!
 			if ( empty( $user_data['level_id'] ) ) {
@@ -384,14 +401,26 @@ class User_Data {
 				return false;
 			}
 			
-			$where_format = array( '%d', '%d', '%d' );
+			$where_format = array( '%d', '%d', '%s' );
 			
-			$check_sql = $wpdb->prepare(
-				"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d",
-				$this->user->ID,
-				$this->last_order->membership_id,
-				$this->last_order->id
-			);
+			if ( !empty( $this->gateway_subscr_id ) ) {
+				$check_sql = $wpdb->prepare(
+					"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_subscr_id = %s",
+					$this->user->ID,
+					$this->last_order->membership_id,
+					$this->gateway_subscr_id
+				);
+				
+			} else {
+				if ( !empty( $this->gateway_payment_id ) ) {
+					$check_sql = $wpdb->prepare(
+						"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_payment_id = %s",
+						$this->user->ID,
+						$this->last_order->membership_id,
+						$this->gateway_payment_id
+					);
+				}
+			}
 			
 			$exists = $wpdb->get_var( $check_sql );
 			
@@ -411,6 +440,8 @@ class User_Data {
 			// $util->add_message( sprintf( __( "Error inserting/updating data for %s", Payment_Warning::plugin_slug ), $this->user->user_email ), 'error', 'backend' );
 			
 			return false;
+		} else {
+			$util->log("We " . ( empty( $exists ) ? 'inserted' : 'updated' ) . " the record for {$this->user->ID}." );
 		}
 		
 		$util->log( "Attempt to save payment info for {$this->user->ID}" );
@@ -1018,10 +1049,15 @@ class User_Data {
 	
 	/**
 	 * Set (local) recurring membership status based on user's membership level
+	 * @param bool $is_recurring
 	 */
-	public function set_recurring_membership_status() {
+	public function set_recurring_membership_status( $is_recurring = false ) {
 		
-		$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		if ( true === $is_recurring ) {
+			$this->has_local_recurring_membership = $is_recurring;
+		} else {
+			$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		}
 	}
 	
 	/**
@@ -1389,7 +1425,7 @@ class User_Data {
 			
 			if ( ! empty( $level->cycle_number ) ) {
 				
-				$interval   = "+ {$level->cycle_number} {$level->cycle_period}";
+				$interval   = "+{$level->cycle_number} {$level->cycle_period}";
 				$timestring = "{$this->payment_date} {$timezone} {$interval}";
 				
 				$util->log( "Using interval setting: {$interval} and date string: {$timestring}" );
@@ -1399,7 +1435,7 @@ class User_Data {
 				
 				$util->log( "Using a calculated enddate for this member..." );
 			} else {
-			
+				$util->log("Membership level for {$this->user->ID} is not recurring!");
 			}
 			
 		} else {
@@ -1429,13 +1465,17 @@ class User_Data {
 		global $wpdb;
 		global $e20rpw_db_version;
 		
+		if ( $e20rpw_db_version < 1 ) {
+			$e20rpw_db_version = 1;
+		}
+		
 		$charset_collate = $wpdb->get_charset_collate();
 		$user_info_table = "{$wpdb->prefix}e20rpw_user_info";
 		$cc_table        = "{$wpdb->prefix}e20rpw_user_cc";
 		$reminder_table  = "{$wpdb->prefix}e20rpw_emails";
 		
 		$user_info_sql = "
-				CREATE TABLE IF NOT EXISTS {$user_info_table} (
+				CREATE TABLE {$user_info_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					level_id mediumint(9) NOT NULL DEFAULT 0,
@@ -1456,10 +1496,8 @@ class User_Data {
 					next_payment_date datetime NULL,
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
-					reminder_type enum('recurring', 'expiration') NOT NULL DEFAULT 'recurring',
-					user_subscriptions mediumtext NULL,
-					user_charges mediumtext NULL,
-					modified timestamp NOT NULL ON UPDATE now(),
+					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
+					modified DATETIME  NOT NULL,
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
 					INDEX end_of_period USING BTREE (end_of_payment_period),
@@ -1467,11 +1505,12 @@ class User_Data {
 					INDEX level_ids (level_id),
 					INDEX types( reminder_type ),
 					INDEX user_levels (user_id, level_id),
-					INDEX end_of_payments (user_id, has_active_subscription, end_of_payment_period)
+					INDEX end_of_payments (user_id, has_active_subscription, end_of_payment_period),
+					INDEX modified ( modified )
 				) {$charset_collate};";
 		
 		$cc_table_sql = "
-				CREATE TABLE IF NOT EXISTS {$cc_table} (
+				CREATE TABLE {$cc_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					last4 varchar(4) NOT NULL,
@@ -1488,7 +1527,7 @@ class User_Data {
 		
 		/*
 		$notices_sql = "
-				CREATE TABLE IF NOT EXISTS {$reminder_table} (
+				CREATE TABLE {$reminder_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					user_info_id mediumint(9) NOT NULL,
@@ -1505,13 +1544,17 @@ class User_Data {
 		
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 		
-		$utils->log( "Creating table {$user_info_table} for Payment_Warning" );
-		dbDelta( $user_info_sql );
+		$update_result = dbDelta( $user_info_sql );
+		$utils->log( "Create {$user_info_table} for Payment_Warning - result: " . print_r( $update_result, true )  );
 		
-		$utils->log( "Creating table {$cc_table} for Payment_Warning" );
-		dbDelta( $cc_table_sql );
+		$update_result = dbDelta( $cc_table_sql );
+		$utils->log( "Create {$cc_table} for Payment_Warning - result: " .  print_r( $update_result, true ) );
 		
-		update_option( 'e20rpw_db_version', $e20rpw_db_version );
+		/*
+		$update_result = dbDelta( $notices_sql );
+		$utils->log( "Create {$cc_table} for Payment_Warning - result: " .  print_r( $update_result, true ) );
+		*/
+		update_option( 'e20rpw_db_version', 1, 'no' );
 	}
 	
 }

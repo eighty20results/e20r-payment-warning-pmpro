@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,9 +20,9 @@
 namespace E20R\Payment_Warning\Addon;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Licensing\Licensing;
+use E20R\Utilities\Licensing\Licensing;
 use E20R\Payment_Warning\User_Data;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Utilities\Utilities;
 
 abstract class E20R_PW_Gateway_Addon {
 	
@@ -42,9 +42,12 @@ abstract class E20R_PW_Gateway_Addon {
 	 *      \PMProGateway_stripe|
 	 *      \PMProGateway_Twocheckout
 	 */
-	private $gateway_class = array();
+	protected $gateway_class = array();
 	
-	protected $gateway_loaded = false;
+	/**
+	 * @var mixed
+	 */
+	protected $gateway = null;
 	
 	/**
 	 * @var E20R_PW_Gateway_Addon
@@ -56,7 +59,7 @@ abstract class E20R_PW_Gateway_Addon {
 	 *
 	 * @var string $option_name
 	 */
-	private $option_name = 'e20r_pwgw_default';
+	protected $option_name = 'e20r_pwgw_default';
 	
 	/**
 	 * @var null|string Timezone string for payment gateway config
@@ -64,6 +67,22 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @access protected
 	 */
 	protected $gateway_timezone;
+	
+	/**
+	 * @var null|string
+	 */
+	protected $gateway_name = null;
+	
+	/**
+	 * @var bool
+	 */
+	protected $gateway_loaded = false;
+	
+	/**
+	 * @var null|string $current_gateway_type Can be set to 'live' or 'sandbox' or null
+	 */
+	protected $current_gateway_type = null;
+	
 	/**
 	 * Local settings array
 	 *
@@ -99,26 +118,83 @@ abstract class E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Save info about mismatched gateway customer ID and email record(s).
+	 * Save error info about mismatched gateway customer ID and email record(s).
+	 *
+	 * @action e20r_pw_addon_save_email_error_data - Action hook to save data mis-match between payment gateway & local email address on file
 	 *
 	 * @param string $gateway_name
 	 * @param string $gateway_cust_id
 	 * @param string $gateway_email_addr
 	 * @param string $local_email_addr
 	 */
-	abstract public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr );
+	public function save_email_error( $gateway_name, $gateway_cust_id, $gateway_email_addr, $local_email_addr ) {
+		
+		$metadata = array(
+			'gateway_name'        => $gateway_name,
+			'local_email_addr'    => $local_email_addr,
+			'gateway_email_addr'  => $gateway_email_addr,
+			'gateway_customer_id' => $gateway_cust_id,
+		);
+		
+		$user_data        = get_user_by( 'email', $local_email_addr );
+		$email_error_data = get_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', false );
+		
+		if ( false === $email_error_data ) {
+			add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+		} else {
+			foreach ( $email_error_data as $current ) {
+				
+				if ( false !== $current && ! empty( $current['gateway_name'] ) && $this->gateway_name === $current['gateway_name'] ) {
+					update_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+				} else if ( ! isset( $current['gateway_name'] ) || $this->gateway_name === $current['gateway_name'] ) {
+					add_user_meta( $user_data->ID, 'e20rpw_gateway_email_mismatched', $metadata );
+				}
+			}
+		}
+	}
 	
 	/**
-	 * Save info about extra/mismatched payment gateway and email record data
+	 * Save error info about unexpected subscription entries on upstream gateway
 	 *
-	 * @param string       $gateway_name              The Payment Gateway name
-	 * @param User_Data    $user_data                 The local user data object
-	 * @param \MemberOrder $member_order              The local MemberOrder object
-	 * @param mixed        $gateway_subscription_data The Subscription object / data at the payment gateway
+	 * @action e20r_pw_addon_save_subscription_mismatch - Action hook to save subscription mis-match between payment gateway & local data
+	 *
+	 * @param string       $gateway_name
+	 * @param User_Data    $user_data
+	 * @param \MemberOrder $member_order
+	 * @param string $gateway_subscription_id
 	 *
 	 * @return mixed
 	 */
-	abstract public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_data );
+	public function save_subscription_mismatch( $gateway_name, $user_data, $member_order, $gateway_subscription_id ) {
+		
+		$util = Utilities::get_instance();
+		
+		$metadata = array(
+			'gateway_name'     => $gateway_name,
+			'local_subscr_id'  => $member_order->subscription_transaction_id,
+			'remote_subscr_id' => $gateway_subscription_id,
+		);
+		
+		$util->log( "Expected Subscription ID from upstream: {$member_order->subscription_transaction_id}, got something different ({$gateway_subscription_id})!" );
+		
+		$subscr_error_data = get_user_meta( $user_data->get_user_ID(), 'e20rpw_gateway_subscription_mismatched', false );
+		$user_id           = $user_data->get_user_ID();
+		
+		if ( ! empty( $user_id ) && false === $subscr_error_data ) {
+			add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+		} else {
+			foreach ( $subscr_error_data as $current ) {
+				
+				if ( ! empty( $user_id ) && false !== $current && ! empty( $current['gateway_name'] ) && $gateway_name === $current['gateway_name'] ) {
+					$util->log( "Updating existing subscription mismatch record for {$gateway_name}/{$user_id}" );
+					update_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata, $current );
+				} else if ( $gateway_name === $current['gateway_name'] ) {
+					$util->log( "Adding subscription mismatch record for {$gateway_name}/{$user_id}" );
+					add_user_meta( $user_id, 'e20rpw_gateway_subscription_mismatched', $metadata );
+				}
+			}
+		}
+	}
 	
 	/**
 	 * Core function: Verify that the user data has valid/expected gateway settings
@@ -198,31 +274,25 @@ abstract class E20R_PW_Gateway_Addon {
 		}
 		
 		$enabled = false;
+		$screen = null;
 		
 		global $e20r_pw_addons;
 		
-		$e20r_pw_addons[ $stub ]['is_active']      = ( true == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false );
-		$e20r_pw_addons[ $stub ]['active_license'] = ( true == get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false );
+		$e20r_pw_addons[ $stub ]['is_active']      = ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? true : false );
+		$e20r_pw_addons[ $stub ]['active_license'] = ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) ? true : false );
 		
-		$utils->log( "is_active setting: " . $e20r_pw_addons[ $stub ]['is_active'] );
+		$utils->log( "is_active setting for {$stub}: " . ( $e20r_pw_addons[ $stub ]['is_active'] ? 'True' : 'False' ) );
+		$utils->log("The {$stub} add-on is licensed? " . ( $e20r_pw_addons[$stub]['active_license'] ? 'Yes' : 'No') );
 		
-		if ( true == $e20r_pw_addons[ $stub ]['is_active'] ) {
-			$enabled = true;
+		if ( false === $e20r_pw_addons[ $stub ]['active_license'] || ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) ) ) {
+			
+			$utils->log("Checking license server (forced)");
+			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
+			update_option( "e20r_pw_addon_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], false );
 		}
-		
 		$utils->log( "The {$stub} add-on is enabled? {$enabled}" );
 		
-		if ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) ) {
-			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
-		}
-		
-		if ( false === $e20r_pw_addons[$stub]['active_license'] ) {
-			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub );
-		}
-		
-		$utils->log( "The {$stub} add-on is licensed? {$e20r_pw_addons[ $stub ]['active_license']}" );
-		
-		$e20r_pw_addons[ $stub ]['is_active'] = ( $enabled && $e20r_pw_addons[ $stub ]['active_license'] );
+		$e20r_pw_addons[ $stub ]['is_active'] = ( $e20r_pw_addons[$stub]['is_active'] && $e20r_pw_addons[$stub]['active_license'] );
 		
 		if ( $e20r_pw_addons[ $stub ]['is_active'] ) {
 			$e20r_pw_addons[ $stub ]['status'] = 'active';
@@ -233,6 +303,22 @@ abstract class E20R_PW_Gateway_Addon {
 		$utils->log( "The {$stub} add-on is active? " . ( $e20r_pw_addons[ $stub ]['is_active'] ? 'Yes' : 'No' ) );
 		
 		return $e20r_pw_addons[ $stub ]['is_active'];
+	}
+	
+	/**
+	 * Loading add-on specific handler for the Gateway Notifications (early handling to stay out of the way of PMPro itself)
+	 */
+	public function load_webhook_handler( $stub = null ) {
+		
+		global $e20r_pw_addons;
+		
+		if ( true === $this->is_active( $stub )) {
+			
+			$util = Utilities::get_instance();
+			$util->log( "Loading {$stub} Webhook handler functions..." );
+			add_action( "wp_ajax_nopriv_{$e20r_pw_addons[$stub]['handler_name']}", array( self::get_instance(), 'webhook_handler' ), 5 );
+			add_action( "wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}", array( self::get_instance(), 'webhook_handler' ), 5 );
+		}
 	}
 	
 	/**
@@ -436,6 +522,17 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @return mixed $validated
 	 */
 	abstract public function validate_settings( $input );
+	
+	/**
+	 * Fetch the (current) Payment Gateway specific customer ID from the local Database
+	 *
+	 * @param string    $gateway_customer_id
+	 * @param string    $gateway_name
+	 * @param User_Data $user_info
+	 *
+	 * @return mixed
+	 */
+	abstract public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info );
 	
 	/**
 	 * Required Add-on class method: configure_menu();

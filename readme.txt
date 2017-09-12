@@ -2,8 +2,11 @@
 Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
-Tested up to: 4.8
-Stable tag: 1.1
+Tested up to: 4.8.1
+Stable tag: 1.9.1
+PHP Version: 5.4
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 =========
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -41,7 +44,280 @@ If you sponsor the development of gateway support you will receive forum support
 
 = Changelog =
 
-== 1.1 ==
+== v1.9.1 ==
+
+* BUG FIX: Didn't use the correct table name when updating the DB
+
+== v1.9.0 ==
+
+* BUG FIX: Fixed version numbering for DB tables
+* BUG FIX: Namespace fix for Licensing classes
+* ENHANCEMENT/FIX: Activation SQL for database table(s)
+* ENHANCEMENT/FIX: Update namespace for new Utilities submodule & relocation to Tools NS for Cron & Background job classes
+* ENHANCEMENT: Use Utilities as submodule
+* ENHANCEMENT: Move cron & background handler code to Tools/
+* ENHANCEMENT: Move Email Message handler code to Tools/
+* ENHANCEMENT: Move utilities (Utilities & Cache handling) classes to own submodule
+* ENHANCEMENT: Add option for info banner on completion of message operation
+* ENHANCEMENT: Add database upgrade infrastructure
+* ENHANCEMENT: Add Database Upgrade functionality
+* ENHANCEMENT: Use licensing/utilities submodule
+
+== v1.8.9 ==
+
+* BUG FIX: Didn't send message for users in certain situations
+* BUG FIX: PHP Warning message fixed in send_admin_notice() method
+* BUG FIX: Didn't return actual value (implicit false actually retuned)
+* ENHANCEMENT: Code style improvements
+
+== v1.8.8 ==
+
+* BUG FIX: Typo in help text for saved credit card info
+* ENHANCEMENT: Don't send email notice to admin if no messages of the type was sent
+* ENHANCEMENT: Add filter to let notice to admin get sent if no messages of the type was sent ('e20r-payment-warning-skip-admin-message-if-none-sent')
+
+== v1.8.6 ==
+
+* BUG FIX: Didn't check if admin had enabled payment & subscription data download
+
+== v1.8.5 ==
+
+* BUG FIX: Didn't run email notice transmission within the first day of activation
+
+== v1.8.4 ==
+
+* BUG FIX: Didn't run data collection within the first day of activation
+
+== v1.8.3 ==
+
+* BUG FIX: Database table creation failure
+
+== v1.8.2 ==
+
+* BUG FIX: Invalid format array caused save errors for user data
+* BUG FIX: Didn't save the correct modified timestamp
+* BUG FIX: Incorrect column definition for e20rpw_user_info.modified
+* BUG FIX: Removed credit card admin notice (for now)
+* ENHANCEMENT: Added index for modified timestamp
+
+== v1.8.1 ==
+
+* BUG FIX: Didn't render the Fetch from remote Payment Gateways setting
+
+== v1.8.0 ==
+
+* BUG FIX: Would trigger upstream gateway data fetch for any message cron job
+* ENHANCEMENT/FIX: Synchronize name of Background Processing class constructor variables ($handle)
+* ENHANCEMENT/FIX: Only process Payment & Subscription data from remote payment gateways when explicitly permitted
+* ENHANCEMENT: Explicit control over background processing handles
+* ENHANCEMENT: Remove modified column data (want to use trigger to update timestamp)
+* ENHANCEMENT: Added debug to validate type of user record operation (insert or update)
+* ENHANCEMENT: Added E20R_DEBUG_OVERRIDE constant to force the gateway download delays in the schedule to be overridden when in WP_DEBUG (define())
+
+== v1.7.2 ==
+
+* BUG FIX: Didn't update subscription info in local DB
+
+== v1.7.1 ==
+
+* BUG FIX: Didn't save the current timestamp when modifying user's record
+* BUG FIX: Didn't use the subscription of charge ID to identify current/pre-exisiting record in DB
+* BUG FIX: Use default & ON UPDATE trigger value in DB for modified column
+
+== v1.7.0 ==
+
+* BUG FIX: Don't exit if there's no current post ID when loading media
+* ENHANCEMENT/FIX: Clean up any weird template settings
+* ENHANCEMENT: Added default substitution variables w/help info
+* ENHANCEMENT: Add substitution variable help on Template Editor page
+
+== v1.6.6 ==
+
+* BUG FIX: Sent duplicate notices to the same user
+
+== v1.6.5 ==
+
+* BUG FIX: Didn't extract the correct credit card info for the Payment Details
+
+== v1.6.4 ==
+
+* BUG FIX: Didn't always calculate the right number of sent message notifications
+* BUG FIX: Didn't send notification email for user
+
+== v1.6.3 ==
+
+* BUG FIX: Didn't clear the charge/subscription data
+* ENHANCEMENT/FIX: Update record based on subscription or charge ID (not MemberOrder ID)
+* ENHANCEMENT: Better debug logging when clearing a scheduled event (on completion)
+* ENHANCEMENT: Upgrading Utilities class to v1.9
+* ENHANCEMENT: Use a membership agnostic option for fetching membership level specific data
+* ENHANCEMENT: Simplify debug output during license check loopback prevention
+
+== v1.6.2 ==
+
+* BUG FIX: Cleaned up CSS file for plugin (not used)
+* BUG FIX: Didn't let PMPro Webhook actions to trigger for Stripe.com
+* BUG FIX: Empty Javascript & Style load caused 404 error in wp-admin backend
+* ENHANCEMENT/FIX: Use static constant (plugin_slug)
+* ENHANCEMENT: Refactored admin_enqueue_script()
+* ENHANCEMENT: Added webhook_handler() method to PayPal Express gateway add-on (stub)
+* ENHANCEMENT: Added PHPDoc for webhook_hander method()
+
+== v1.6.1 ==
+
+* ENHANCEMENT/FIX: load_webhook_handler() checks that add-on is active before loading the AJAX handler(s)
+* ENHANCEMENT: Moved logic for load_webhook_handler() to E20R_PW_Gateway_Addon class
+* ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (Stripe.com add-on)
+* ENHANCEMENT: Handling most of the heavy lifting for the load_webhook_handler() method in the E20R_PW_Gateway_Addon class (PayPal Express add-on)
+* ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for PayPal Express addon
+* ENHANCEMENT: Added 'handler_name' attribute to global add-on settings array ($e20r_pw_addons) for Stripe.com addon
+* ENHANCEMENT: Added new API version to version array for Stripe.com
+
+== v1.6 ==
+
+* BUG FIX: Would sometimes timeout during add-on/gateway activation
+* BUG FIX: Didn't consistently save the license status for the add-on being processed
+* BUG FIX: Used the wrong stub filter for the PayPal Express Gateway class
+* ENHANCEMENT/FIX: An add-on is only active if it's both licenseed and the is_active status (checkbox) is checked
+* ENHANCEMENT/FIX: Update licensing class to v1.4 - Includes fixes for invalid product key provided, etc
+* ENHANCEMENT/FIX: No longer checking license to enable the Template editor
+* ENHANCEMENT/FIX: Renamed the E20R_Stripe_Gateway_Addon class to Stripe_Gateway_Addon
+* ENHANCEMENT: Fix filter name: e20r_pw_addon_stripe_gateway_addon_name
+* ENHANCEMENT: Use the global settings when checking the status for the Stripe_Gateway_Addon activation logic
+* ENHANCEMENT: Simplify restoring values for is_active and active_license in the Stripe_Gateway_Addon config array
+* ENHANCEMENT: Rename 'add-ons' to the more descriptive 'Gateways' and fix the descriptive text for the options
+* ENHANCEMENT: Remove redundant 'Gateway' from label
+
+== v1.5.4 ==
+
+* BUG FIX: DeBUG FIX: Selected the wrong template type for Recurring Payment warning (and credit card expiration warning)
+
+== v1.5.3 ==
+
+* BUG FIX: Deactivate PayPal Express completely
+
+== v1.5.2 ==
+
+* BUG FIX: Didn't always confirm that jobs were scheduled
+* ENHANCEMENT/FIX: Make plugin activation/deactivation functions static
+
+== v1.5.1 ==
+
+* BUG FIX: Included escaped text in email body
+* BUG FIX: Would sometimes send multiple instances of same message to same user on same day
+* BUG FIX: Didn't correctly handle expiration and credit card expiration messages
+* BUG FIX: Uses has_active_subscription variable to determine staus for user record
+* BUG FIX: Didn't always send reminder message for non-recurring message types
+* BUG FIX: Set correct access for class parameters
+* BUG FIX: Update action hook handler for e20r_pw_addon_gateway_subscr_statuses filter in stripe gateway class
+* ENHANCEMENT/FIX: Incorrect template type for Credit Card Expiration message
+* ENHANCEMENT/FIX: Use dedicated template type setting for Credit Card expiration notice
+* ENHANCEMENT/FIX: Moved subscription mismatch handler to core gateway handler class
+* ENHANCEMENT/FIX: Moved email address mismatch handler to core gateway handler class
+* ENHANCEMENT/FIX: Add abstract load_webhook_handler() method to core gateway handler class
+* ENHANCEMENT/FIX: Add abstract get_local_customer_id() method to core gateway handler class
+* ENHANCEMENT: Load all active members to active_members variable (set_all_active_members() method)
+* ENHANCEMENT: Added cache clear for new all_active_members cache
+* ENHANCEMENT: No longer stores subscription or charge data in local db tables
+* ENHANCEMENT: Remove debug info from logs
+* ENHANCEMENT: Renamed should_send_payment_reminder() method to should_send_reminder_message()
+* ENHANCEMENT: Move save_subscription_mismatch action handler to core class
+* ENHANCEMENT: Rename valid_stripe_subscription_statuses() to valid_gateway_subscription_statuses()
+* ENHANCEMENT: Stop saving transaction data to local DB (subscriptions and charges)
+* ENHANCEMENT: Only used the subscription ID in the e20r_pw_addon_save_subscription_mismatch action hooks
+* ENHANCEMENT: Add initial framework for PayPal Express payment gateway add-on
+* ENHANCEMENT: Remove subscription list and charge list from local DB storage
+* ENHANCEMENT: Add ccexpiration as a valid reminder type
+* ENHANCEMENT: Add libraries directory to build script
+* ENHANCEMENT: Minor updates to Example add-on class stub
+* ENHANCEMENT: Add REST API library for PayPal/PayPal Express
+
+== v1.5 ==
+
+* ENHANCEMENT: Add private next_scheduled() method to calculate the next timestamp for a Cron job in Cron_Handler
+* ENHANCEMENT: Use next_scheduled() method to provide timestamp for when Cron jobs start in Cron_Handler
+* ENHANCEMENT: Added updated_membership_level() method to Payment_Warning Class
+* ENHANCEMENT: Added update_discount_codes() method to Payment_Warning Class
+* ENHANCEMENT: Added get_util_cache_key() method to Utilities class
+* ENHANCEMENT/FIX: Dropping cache values for Cron schedules after discount code or level updates
+* BUG FIX: Displayed extra slash characters in message body
+* BUG FIX: Displayed extra slash charaters in message title/subject
+* BUG FIX: Didn't update the next scheduled option for the upstream gateway data collection operation
+
+== v1.4.4 ==
+
+* BUG FIX: Didn't always identify the right user list for the Subject field
+
+== v1.4.3 ==
+
+* BUG FIX: Didn't expand the user list properly for the notification message(s)
+
+== v1.4.2 ==
+
+* BUG FIX: Didn't always allow cron job(s) to execute
+
+== v1.4.1 ==
+
+* BUG FIX: Typo in e20r_payment_warning_schedule_override filter name
+* ENHANCEMENT: Add fetch_remote_info test method & override scheduled run info during DEBUG
+
+== v1.4 ==
+
+* BUG FIX: Didn't set translation/language domain on init/startup of plugin
+* BUG FIX: Didn't always apply first-run logic on activation of plugin
+* BUG FIX: Attempted to run email notice cron jobs on activation
+* BUG FIX: Didn't schedule the background cron actions
+* BUG FIX: Clear all existing user entries in active_members member variable
+* BUG FIX: Would include too many users when loading active non_subscription based members/users
+* BUG FIX: Would include too many users when loading active subscription based members/users
+* BUG FIX: Didn't dispatch request handler for large number(s) of records to process
+* ENHANCEMENT: Reduce memory footprint during load of User_Data class
+* ENHANCEMENT: Allow coder to specify whether to load data or not in maybe_load_from_db() method
+* ENHANCEMENT: Allow override of recurring membership status (via variable - boolean)
+* ENHANCEMENT: Reduced memory footprint in initial load of user records (deferred data load to task hander).
+* ENHANCEMENT: Added get_action() method to Handle_Payments and Handle_Subscriptions classes
+* ENHANCEMENT: Don't run gateway check immediately on plugin activation
+* ENHANCEMENT: Allow override from manual initiation of plugin CRON job(s)
+* ENHANCEMENT: Removed unneeded logging
+* ENHANCEMENT: Rename get_active_*_members() methods to set_active_*_members()
+* ENHANCEMENT: Ignore orders that are made with a different gateway environment (live|sandbox) than the currently configured PMPro Payment Gateway key(s)/settings
+* ENHANCEMENT: Setting membership status manually
+* ENHANCEMENT: Clean up memory
+* ENHANCEMENT: Assign all active user records to active_members variable (avoid duplication)
+* ENHANCEMENT: Renamed handler array variable to task_handler
+* ENHANCEMENT: Improved debug logging for Subscription handler task() method
+* ENHANCEMENT: Added get_action() method
+
+== v1.3.1 ==
+
+* BUG FIX: Would sometimes ignore settings for emailing warnings during scheduled events
+* BUG FIX: Wouldn't honor the delay frequency (reduce load on server
+* BUG FIX: Would stomp it's own large request handling for payments & subscriptions
+* ENHANCEMENT: Allow WP Crontrol plugin to manually override data fetch
+* ENHANCEMENT: Use different instances of the large request handler for subscriptions and payments
+* ENHANCEMENT: Use string identifier for the action name in Large_Request_Handler
+
+== v1.3 ==
+
+* ENHANCEMENT: Update copyright notice (year)
+* ENHANCEMENT: Improved granularity for error/debug logging
+* ENHANCEMENT: Fetch background process handler(s) with Payment_Warnings::get_handler() method
+* ENHANCEMENT: Add get_handler() method to return the specified request handler
+* ENHANCEMENT: Add private variables for the request handlers to Payment_Warnings class
+* ENHANCEMENT: Use Payment_Warnings::get_handler() to fetch message handler
+* ENHANCEMENT: More descriptive variable name in constructor for Large_Request_Handler class
+* ENHANCEMENT/FIX: Move the required handler instantiations to the main Payment_Warnings class
+* ENHANCEMENT/FIX: Move all request based processing (background processing) to main Payment_Warnings class
+* BUG FIX: Didn't always handle message sending correctly
+* BUG FIX: Clean up schedule handling in E20R_Background_Process class
+* BUG FIX: Didn't always dispatch large requests
+
+== v1.2 ==
+
+* BUG FIX: Didn't disable the default PMPro actions for expiration warnings, credit card expiration warnings and recurring payment notices if the equivalent functionality is active in this plugin
+* ENHANCEMENT: Add placeholder to allow adding PMPro Template Editor messages if present
+
+== v1.1 ==
 
 * ENHANCEMENT: Add ability to process large number of users across multiple requests
 * ENHANCEMENT: Process at most 250 user data records at a time
@@ -60,7 +336,7 @@ If you sponsor the development of gateway support you will receive forum support
 * BUG FIX: Only process payment data in get_remote_payment_data() method
 * BUG FIX: Didn't include the amount_from_currency() method for Stripe specific amount formatting
 
-== 1.0 ==
+== v1.0 ==
 
 * Initial Release (v1.0)
 * ENHANCEMENT: Prevent Cron jobs from running immediately

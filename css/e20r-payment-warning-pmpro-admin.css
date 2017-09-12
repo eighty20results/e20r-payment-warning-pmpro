@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+  * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
   * ALL RIGHTS RESERVED
   *
   * This program is free software: you can redistribute it and/or modify
@@ -15,17 +15,3 @@
   * You should have received a copy of the GNU General Public License
   * along with this program.  If not, see <http://www.gnu.org/licenses/>.
   */
-#repair_roles_container{
-	background: #fff;
-	float: left;
-	padding: 8px 10px;
-	margin-top: 25px;
-}
-#repaired_roles{
-	display: none;
-	margin-bottom: 0;
-}
-#repair_roles, #repair_roles:active{
-	vertical-align: middle;
-	margin-left: 15px;
-}

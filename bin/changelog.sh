@@ -8,9 +8,9 @@ incomplete_out=tmp.txt
 json_out=json_changelog.txt
 readme_out=readme_changelog.txt
 version=$(egrep "^Version:" ../class.${short_name}.php | sed 's/[[:alpha:]|(|[:space:]|\:]//g' | awk -F- '{printf "%s", $1}')
-json_header="<h3>${version}</h3><ol>"
+json_header="<h3>v${version}</h3><ol>"
 json_footer="</ol>"
-readme_header="== ${version} =="
+readme_header="== v${version} =="
 ###########
 #
 # Create a metadata.json friendly changelog entry for the current ${version}

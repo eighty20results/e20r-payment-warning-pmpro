@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 namespace E20R\Payment_Warning\Editor;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Utilities\Utilities;
 
 class Template_Editor_View {
 	
@@ -135,11 +135,15 @@ class Template_Editor_View {
 						<?php _e( 'Header/Footer', Payment_Warning::plugin_slug ); ?>
                     </option>
                     <option value="expiration" <?php selected( $template['type'], 'expiration' ); ?>>
-						<?php _e( 'Warning', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Expiration Message', Payment_Warning::plugin_slug ); ?>
                     </option>
                     <option value="recurring" <?php selected( $template['type'], 'recurring' ); ?>>
-						<?php _e( 'Reminder', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Recurring Payment', Payment_Warning::plugin_slug ); ?>
                     </option>
+                    <option value="ccexpiration" <?php selected( $template['type'], 'ccexpiration' ); ?>>
+		                <?php _e( 'Credit Card Expiration', Payment_Warning::plugin_slug ); ?>
+                    </option>
+
                 </select>
             </td>
         </tr>
@@ -186,7 +190,7 @@ class Template_Editor_View {
             <td class="e20r-message-template-col">
                 <input id="e20r-message-template-subject_<?php esc_attr_e( $template_name ); ?>"
                        name="e20r_message_template-subject"
-                       type="text" size="100" value="<?php echo esc_html( $template['subject'] ); ?>"/>
+                       type="text" size="100" value="<?php echo esc_html( wp_unslash( $template['subject'] ) ); ?>"/>
             </td>
         </tr>
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>">
@@ -199,7 +203,7 @@ class Template_Editor_View {
                 <div class="template_editor_container">
 					<?php
 					if ( false === $return && 'new' !== $template_name ) {
-						wp_editor( ( ! empty( $template['body'] ) ? $template['body'] : null ), "e20r-message-body_{$template_name}", array( 'editor_height' => 350 ) );
+						wp_editor( ( ! empty( $template['body'] ) ? wp_unslash( $template['body'] ) : null ), "e20r-message-body_{$template_name}", array( 'editor_height' => 350 ) );
 					} else {
 						?>
                         <!-- <div id="wp-e20r-message-body_new-media-buttons" class="wp-media-buttons"> -->
@@ -224,6 +228,17 @@ class Template_Editor_View {
                 </p>
             </td>
         </tr>
+        <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>" valign="top" scope="row">
+            <th class="e20r-message-template-col">
+                <label for="variable_references"><?php _e('Placeholder Reference', Payment_Warning::plugin_slug ); ?>:</label>
+            </th>
+            <td>
+                <div class="template_reference" style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
+                    <p><em><?php _e('Insert these variables in editor window above.', Payment_Warning::plugin_slug ); ?></em></p>
+			        <?php self::add_placeholder_variables( $template['type'] ); ?>
+                </div>
+            </td>
+        </tr>
         <tr class="e20r-message-template-name_<?php esc_attr_e( $template_name ); ?> e20r-start-hidden">
             <td colspan="2" class="e20r-message-template-col">
                 <hr/>
@@ -235,4 +250,21 @@ class Template_Editor_View {
 			return ob_get_clean();
 		}
 	}
+	
+	public static function add_placeholder_variables( $type ) {
+	    ?>
+        <style>
+            .template_reference dt {display: block;float: left;font-weight: bold; min-width: 200px;margin-right: 10px;}
+            .template_reference dd {display: block;margin-left: 210px; }
+        </style>
+        <dl>
+            <?php
+            $variable_settings = apply_filters( 'e20r_pw_handler_substitution_variables', array(), $type );
+            foreach( $variable_settings as $name => $description ) {
+                ?><dt>!!<?php esc_attr_e( $name ); ?>!!</dt>
+                <dd><?php esc_attr_e( $description ); ?></dd>
+            <?php } ?>
+        </dl>
+        <?php
+    }
 }

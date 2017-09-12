@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,10 +20,10 @@
 namespace E20R\Payment_Warning\Editor;
 
 
-use E20R\Licensing\Licensing;
+use E20R\Utilities\Licensing\Licensing;
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Utilities\Email_Message;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\Email_Message;
+use E20R\Utilities\Utilities;
 
 class Editor {
 	
@@ -43,6 +43,8 @@ class Editor {
 	public function __construct() {
 		
 		$util = Utilities::get_instance();
+		$util->log("Loading editor hooks in constructor");
+		$this->load_hooks();
 	}
 	
 	/**
@@ -56,13 +58,7 @@ class Editor {
 		
 		if ( is_null( self::$instance ) ) {
 			
-			if ( true === Licensing::is_licensed( Payment_Warning::plugin_slug ) ) {
-				$util->log( "The Payment Warnings product is licensed so enabling editor." );
-				
-				self::$instance = new self;
-				self::$instance->load_hooks();
-				
-			}
+			self::$instance = new self;
 		}
 		
 		return self::$instance;
@@ -106,7 +102,10 @@ class Editor {
 			global $post;
 			
 			wp_enqueue_editor();
-			wp_enqueue_media( $post->ID );
+			
+			if ( !empty( $post->ID ) ) {
+				wp_enqueue_media( $post->ID );
+			}
 			
 			$util->log("Loading style(s) for Payment Warning plugin");
 			
@@ -180,8 +179,7 @@ class Editor {
 			case 'recurring':
 				
 				$schedule = array_keys( apply_filters( 'pmpro_upcoming_recurring_payment_reminder', array(
-					7  => 'membership_recurring',
-					30 => 'membership_recurring',
+					7  => 'membership_recurring'
 				) ) );
 				$schedule = apply_filters( 'e20r-payment-warning-recurring-reminder-schedule', $schedule );
 				break;
@@ -218,6 +216,9 @@ class Editor {
 		
 		$util->log( "Loading Message templates for {$template_name}:" );
 		
+		// TODO: Load existing PMPro templates that apply for this editor
+		$pmpro_email_templates = apply_filters( 'pmproet_templates', array() );
+		
 		$template_info = get_option( $this->option_name, $this->default_templates() );
 		
 		if ( 'all' === $template_name ) {
@@ -225,6 +226,11 @@ class Editor {
 			if ( true === $load_body ) {
 				
 				foreach ( $template_info as $name => $settings ) {
+					
+					if ( empty( $name ) ) {
+						unset( $template_info[$name] );
+						continue;
+					}
 					
 					$util->log( "Loading body for {$name}" );
 					
@@ -288,12 +294,16 @@ class Editor {
 	 */
 	public static function get_templates_of_type( $type ) {
 		
-		$class = self::get_instance();
 		$util  = Utilities::get_instance();
 		$util->log( "Loading templates for type: {$type}" );
 		
+		if ( empty( self::$instance ) ) {
+			$util->log("Error attempting to load myself!");
+			return array();
+		}
+		
 		$template_keys = array();
-		$templates     = $class->load_template_settings( 'all', false );
+		$templates     = self::$instance->load_template_settings( 'all', false );
 		
 		foreach ( $templates as $template_name => $template ) {
 			
@@ -384,7 +394,7 @@ class Editor {
 			'ccexpiring_default' => array(
 				'subject'        => sprintf( __( "Credit Card on file at %s expiring soon", Payment_Warning::plugin_slug ), get_option( "blogname" ) ),
 				'active'         => true,
-				'type'           => 'expiration',
+				'type'           => 'ccexpiration',
 				'body'           => null,
 				'data_variables' => array(),
 				'schedule'       => $this->default_schedule( 'expiration' ),

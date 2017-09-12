@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,29 +19,38 @@
 
 namespace E20R\Payment_Warning;
 
-use E20R\Payment_Warning\Utilities\E20R_Background_Process;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\E20R_Background_Process;
+use E20R\Utilities\Utilities;
 
 class Large_Request_Handler extends E20R_Background_Process {
 	
+	/**
+	 * @var null|string
+	 */
 	protected $action = null;
+	
+	/**
+	 * @var null|Handle_Subscriptions|Handle_Payments|Handle_Messages
+	 */
+	private $sub_handler = null;
 	
 	/**
 	 * Large_Request_Handler constructor.
 	 *
-	 * @param int $cnt
+	 * @param string $handle
 	 */
-	public function __construct( $class ) {
+	public function __construct( $handle ) {
+		
+		$this->action = "lhr_{$handle}";
 		
 		$util = Utilities::get_instance();
-		
-		$av = get_class( $class );
-		$name = explode( '\\', $av );
-		$this->action = "lhr_" . strtolower( $name[(count( $name ) - 1 )] );
-		
-		$util->log( "Set Action variable to {$this->action} for this Large_Request_Handler" );
+		$util->log( "Set Action variable to {$this->action} for the Large_Request_Handler" );
 		
 		parent::__construct();
+	}
+	
+	public function set_task_handler( $handler ) {
+		$this->sub_handler = $handler;
 	}
 	
 	/**
@@ -56,8 +65,12 @@ class Large_Request_Handler extends E20R_Background_Process {
 		$util = Utilities::get_instance();
 		$main = Payment_Warning::get_instance();
 		
-		$util->log( "Handler class: " . get_class( $data['handler'] ) );
-		$util->log( "Trigger processing for " . count( $data['dataset'] ) . " in the background..." );
+		$util->log( "Handler class: " . get_class( $data['task_handler'] ) );
+		$util->log( "Trigger processing for " . count( $data['dataset'] ) . " records in the background..." );
+		
+		if ( !isset( $data['task_handler'] ) ) {
+			$util->log("Error: No task handler found for this data!!! " );
+		}
 		
 		foreach ( $data['dataset'] as $user_data ) {
 			
@@ -68,12 +81,12 @@ class Large_Request_Handler extends E20R_Background_Process {
 			if ( true == $is_active ) {
 				
 				$util->log( "Adding remote data processing for " . $user_data->get_user_ID() );
-				$data['handler']->push_to_queue( $user_data );
+				$data['task_handler']->push_to_queue( $user_data );
 			}
 		}
 		
 		$util->log( "Dispatch the data processing background job" );
-		$data['handler']->save()->dispatch();
+		$data['task_handler']->save()->dispatch();
 		
 		return false;
 	}
