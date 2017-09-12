@@ -20,8 +20,8 @@
 namespace E20R\Payment_Warning;
 
 
-use E20R\Payment_Warning\Utilities\E20R_Background_Process;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\E20R_Background_Process;
+use E20R\Utilities\Utilities;
 
 class Handle_Subscriptions extends E20R_Background_Process {
 	

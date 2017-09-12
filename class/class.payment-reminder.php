@@ -21,8 +21,8 @@ namespace E20R\Payment_Warning;
 
 
 use E20R\Payment_Warning\Editor\Editor;
-use E20R\Payment_Warning\Utilities\Email_Message;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\Email_Message;
+use E20R\Utilities\Utilities;
 use DateTime;
 use DateTimeZone;
 use DateInterval;

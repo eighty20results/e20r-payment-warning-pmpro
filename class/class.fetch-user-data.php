@@ -20,8 +20,8 @@
 namespace E20R\Payment_Warning;
 
 
-use E20R\Payment_Warning\Utilities\Cache;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Utilities\Cache;
+use E20R\Utilities\Utilities;
 
 if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 	
