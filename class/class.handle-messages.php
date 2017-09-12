@@ -196,17 +196,17 @@ class Handle_Messages extends E20R_Background_Process {
 			)
 		);
 		
-		$body      = sprintf( "<div>%s</div>", $admin_intro_text );
-		$user_list = '<div style="font-size: 11pt; font-style: italic;">';
-		
 		// Don't send empty/unneeded admin notices?
-		if ( isset( $users[ $today ] ) && empty( $users[ $today ] ) && true === $skip_admin_notices ) {
+		if ( empty( $users[ $today ] ) && true === $skip_admin_notices ) {
 			
 			$utils = Utilities::get_instance();
 			$utils->log( "No need to send the {$type} admin summary. There were 0 notices sent" );
 			
 			return true;
 		}
+		
+		$body      = sprintf( "<div>%s</div>", $admin_intro_text );
+		$user_list = '<div style="font-size: 11pt; font-style: italic;">';
 		
 		if ( ! empty( $users[ $today ] ) ) {
 			
