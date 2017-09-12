@@ -134,7 +134,7 @@ class Payment_Reminder {
 	 *
 	 * @param string $type
 	 */
-	public function process_reminders( $type = 'recurring' ) {
+	public function process_reminders( $type = 'ccexpiration' ) {
 		
 		$util = Utilities::get_instance();
 		
