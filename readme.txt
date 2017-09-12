@@ -3,7 +3,8 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.8.9
+Stable tag: 1.9.1
+PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 =========
@@ -42,6 +43,25 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.9.1 ==
+
+* BUG FIX: Didn't use the correct table name when updating the DB
+
+== v1.9.0 ==
+
+* BUG FIX: Fixed version numbering for DB tables
+* BUG FIX: Namespace fix for Licensing classes
+* ENHANCEMENT/FIX: Activation SQL for database table(s)
+* ENHANCEMENT/FIX: Update namespace for new Utilities submodule & relocation to Tools NS for Cron & Background job classes
+* ENHANCEMENT: Use Utilities as submodule
+* ENHANCEMENT: Move cron & background handler code to Tools/
+* ENHANCEMENT: Move Email Message handler code to Tools/
+* ENHANCEMENT: Move utilities (Utilities & Cache handling) classes to own submodule
+* ENHANCEMENT: Add option for info banner on completion of message operation
+* ENHANCEMENT: Add database upgrade infrastructure
+* ENHANCEMENT: Add Database Upgrade functionality
+* ENHANCEMENT: Use licensing/utilities submodule
 
 == v1.8.9 ==
 

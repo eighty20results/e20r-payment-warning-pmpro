@@ -1,4 +1,1 @@
-BUG FIX: Didn't send message for users in certain situations
-BUG FIX: PHP Warning message fixed in send_admin_notice() method
-BUG FIX: Didn't return actual value (implicit false actually retuned)
-ENHANCEMENT: Code style improvements
+BUG FIX: Didn't use the correct table name when updating the DB
