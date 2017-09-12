@@ -1465,13 +1465,17 @@ class User_Data {
 		global $wpdb;
 		global $e20rpw_db_version;
 		
+		if ( $e20rpw_db_version < 1 ) {
+			$e20rpw_db_version = 1;
+		}
+		
 		$charset_collate = $wpdb->get_charset_collate();
 		$user_info_table = "{$wpdb->prefix}e20rpw_user_info";
 		$cc_table        = "{$wpdb->prefix}e20rpw_user_cc";
 		$reminder_table  = "{$wpdb->prefix}e20rpw_emails";
 		
 		$user_info_sql = "
-				CREATE TABLE IF NOT EXISTS {$user_info_table} (
+				CREATE TABLE {$user_info_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					level_id mediumint(9) NOT NULL DEFAULT 0,
@@ -1506,7 +1510,7 @@ class User_Data {
 				) {$charset_collate};";
 		
 		$cc_table_sql = "
-				CREATE TABLE IF NOT EXISTS {$cc_table} (
+				CREATE TABLE {$cc_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					last4 varchar(4) NOT NULL,
@@ -1523,7 +1527,7 @@ class User_Data {
 		
 		/*
 		$notices_sql = "
-				CREATE TABLE IF NOT EXISTS {$reminder_table} (
+				CREATE TABLE {$reminder_table} (
 					ID mediumint(9) NOT NULL AUTO_INCREMENT,
 					user_id mediumint(9) NOT NULL,
 					user_info_id mediumint(9) NOT NULL,
@@ -1540,13 +1544,17 @@ class User_Data {
 		
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 		
-		$utils->log( "Creating table {$user_info_table} for Payment_Warning" );
-		dbDelta( $user_info_sql );
+		$update_result = dbDelta( $user_info_sql );
+		$utils->log( "Create {$user_info_table} for Payment_Warning - result: " . print_r( $update_result, true )  );
 		
-		$utils->log( "Creating table {$cc_table} for Payment_Warning" );
-		dbDelta( $cc_table_sql );
+		$update_result = dbDelta( $cc_table_sql );
+		$utils->log( "Create {$cc_table} for Payment_Warning - result: " .  print_r( $update_result, true ) );
 		
-		update_option( 'e20rpw_db_version', $e20rpw_db_version );
+		/*
+		$update_result = dbDelta( $notices_sql );
+		$utils->log( "Create {$cc_table} for Payment_Warning - result: " .  print_r( $update_result, true ) );
+		*/
+		update_option( 'e20rpw_db_version', 1, 'no' );
 	}
 	
 }
