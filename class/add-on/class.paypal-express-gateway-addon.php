@@ -20,10 +20,10 @@
 namespace E20R\Payment_Warning\Addon;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Utilities\Cache;
+use E20R\Utilities\Cache;
 use E20R\Payment_Warning\User_Data;
-use E20R\Payment_Warning\Utilities\Utilities;
-use E20R\Licensing\Licensing;
+use E20R\Utilities\Utilities;
+use E20R\Utilities\Licensing;
 use PayPal\Auth\OAuthTokenCredential;
 use PayPal\Rest\ApiContext;
 
