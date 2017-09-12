@@ -21,12 +21,12 @@ namespace E20R\Payment_Warning\Upgrades;
 
 use E20R\Utilities\Utilities;
 
-class Upgrade_2 {
+class Upgrade_3 {
 	
 	public function __construct() {
 		
 		global $e20rpw_db_version;
-		add_action( 'e20rpw_trigger_database_upgrade_2', array( $this, 'load_upgrade'), $e20rpw_db_version );
+		add_action( 'e20rpw_trigger_database_upgrade_3', array( $this, 'load_upgrade'), $e20rpw_db_version );
 	}
 	
 	public function load_upgrade( $current_version ) {
@@ -41,10 +41,9 @@ class Upgrade_2 {
 		$success = true;
 		
 		$sql = array();
-		$sql[] = "ALTER TABLE {$user_info_table} DROP COLUMN user_subscriptions";
-		$sql[] = "ALTER TABLE {$user_info_table} DROP COLUMN user_charges";
+		$sql[] = "ALTER TABLE {$user_info_table} CHANGE modified modified DATETIME NULL";
 		
-		if ( $current_version < $e20rpw_db_version ) {
+		if ( intval($current_version ) < $e20rpw_db_version ) {
 			
 			foreach( $sql as $update ) {
 				
@@ -58,8 +57,8 @@ class Upgrade_2 {
 			}
 
 			if ( true == $success ) {
-				$utils->log("Database upgraded to version 2");
-				update_option( "e20rpw_db_version", 2, 'no' );
+				$utils->log("Database upgraded to version 3");
+				update_option( "e20rpw_db_version", 3, 'no' );
 			}
 		}
 	}
