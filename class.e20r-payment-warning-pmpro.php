@@ -35,6 +35,7 @@ Domain Path: /languages
 namespace E20R\Payment_Warning;
 
 use E20R\Payment_Warning\Editor\Editor;
+use E20R\Payment_Warning\Upgrades;
 use E20R\Utilities\Cache;
 use E20R\Payment_Warning\Tools\Cron_Handler;
 use E20R\Utilities\Utilities;
@@ -60,6 +61,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 	
 	global $e20r_pw_addons;
 	$e20r_pw_addons = array();
+	
+	global $e20rpw_db_version;
+	$e20rpw_db_version = 2; // The current version of the DB schema
 	
 	class Payment_Warning {
 		
@@ -104,10 +108,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @since  1.0
 		 */
 		private function __construct() {
-			
-			global $e20rpw_db_version;
-			$e20rpw_db_version = E20R_PW_VERSION;
-			
+   
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ) );
 			
 			$this->lsubscription_requests = new Large_Request_Handler( 'subscriptions' );
@@ -115,7 +116,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$this->process_subscriptions = new Handle_Subscriptions( 'process_subscr' );
 			$this->process_payments = new Handle_Payments( 'process_payments' );
 			$this->process_emails = new Handle_Messages( 'process_email' );
-   
 		}
 		
 		/**
@@ -967,7 +967,28 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    $utils->log("Trigger deactivation action for add-ons");
 		    do_action( 'e20r_pw_addon_deactivating_core', $clean_up );
         }
-		
+        
+		/**
+		 * Trigger a DB version specific upgrade action
+		 */
+        public function trigger_db_upgrade() {
+	
+	        global $e20rpw_db_version;
+         
+	        $utils = Utilities::get_instance();
+	        
+	        $installed_ver = get_option( 'e20rpw_db_version', null );
+         
+	        $upgraded = $this->load_db_upgrades();
+         
+	        $utils->log("Current version of DB: {$installed_ver} vs needed version: {$e20rpw_db_version}");
+	        
+	        if ( $installed_ver < $e20rpw_db_version ) {
+	            $utils->log("Trigger database upgrade for version {$e20rpw_db_version}");
+	            do_action( "e20rpw_trigger_database_upgrade_{$e20rpw_db_version}", $installed_ver );
+            }
+        }
+        
 		/**
 		 * Class auto-loader for the Payment Warnings for PMPro plugin
 		 *
@@ -994,7 +1015,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$iterator = new \RecursiveDirectoryIterator( $base_path, \RecursiveDirectoryIterator::SKIP_DOTS | \RecursiveIteratorIterator::SELF_FIRST | \RecursiveIteratorIterator::CATCH_GET_CHILD | \RecursiveDirectoryIterator::FOLLOW_SYMLINKS );
 			
 			/**
-			 * Loate class member files, recursively
+			 * Locate class member files, recursively
 			 */
 			$filter = new \RecursiveCallbackFilterIterator( $iterator, function ( $current, $key, $iterator ) use ( $filename ) {
 				
@@ -1044,6 +1065,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 		}
 		
+		/**
+         * Define list of upgrade classes to use/include
+         *
+		 * @return array
+		 */
+		public function load_db_upgrades() {
+			
+			$classes = array();
+			$classes[] = new Upgrades\Upgrade_2();
+			
+			return $classes;
+		}
 	}
 	
 }
@@ -1058,6 +1091,7 @@ register_deactivation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warni
 
 // Load this plugin
 add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'plugins_loaded' ), 10 );
+add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'trigger_db_upgrade' ), 11 );
 
 // One-click update handler
 if ( ! class_exists( '\\Puc_v4_Factory' ) ) {
