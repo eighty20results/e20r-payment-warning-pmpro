@@ -23,7 +23,7 @@ use E20R\Payment_Warning\Payment_Warning;
 use E20R\Utilities\Cache;
 use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Utilities;
-use E20R\Utilities\Licensing;
+use E20R\Utilities\Licensing\Licensing;
 use PayPal\Auth\OAuthTokenCredential;
 use PayPal\Rest\ApiContext;
 
