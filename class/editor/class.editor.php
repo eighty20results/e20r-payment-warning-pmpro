@@ -20,10 +20,10 @@
 namespace E20R\Payment_Warning\Editor;
 
 
-use E20R\Licensing\Licensing;
+use E20R\Utilities\Licensing;
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Utilities\Email_Message;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Payment_Warning\Tools\Email_Message;
+use E20R\Utilities\Utilities;
 
 class Editor {
 	

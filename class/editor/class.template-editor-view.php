@@ -20,7 +20,7 @@
 namespace E20R\Payment_Warning\Editor;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Utilities\Utilities;
+use E20R\Utilities\Utilities;
 
 class Template_Editor_View {
 	
