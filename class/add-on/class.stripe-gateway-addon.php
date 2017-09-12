@@ -1372,7 +1372,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				if ( ! empty( $customer ) && ! empty( $user ) && ! empty( $subscription ) ) {
 					
 					$util->log( "Adding local PMPro order for {$user->ID}/{$customer->id}" );
-					$user_info = $this->add_local_order( $customer, $user, $subscription );
+					$user_info = $this->add_local_subscription_order( $customer, $user, $subscription );
 					
 					$user_info->set_gw_subscription_id( $subscription->id );
 					$user_info->set_payment_currency( $subscription->items->data[0]->plan->currency );
@@ -1465,7 +1465,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 *
 		 * @return User_Data
 		 */
-		public function add_local_order( $stripe_customer, $user, $subscription ) {
+		public function add_local_subscription_order( $stripe_customer, $user, $subscription ) {
 			
 			$util = Utilities::get_instance();
 			
