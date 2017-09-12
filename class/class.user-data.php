@@ -99,7 +99,7 @@ class User_Data {
 	 * @param null|\MemberOrder        $order
 	 * @param string                   $type
 	 */
-	public function __construct( $user = null, $order = null, $type = 'recurring' ) {
+	public function __construct( $user = null, $order = null, $type = 'ccexpiring' ) {
 		
 		$util = Utilities::get_instance();
 		
@@ -135,7 +135,7 @@ class User_Data {
 	/**
 	 * Save the amount for the payment and its currency
 	 *
-	 * @param float       $amount
+	 * @param float  $amount
 	 * @param string $currency
 	 */
 	public function set_payment_amount( $amount, $currency = 'USD' ) {
@@ -160,7 +160,8 @@ class User_Data {
 		$util->log( "Looking for preexisting data from local DB: {$user_id}" );
 		
 		if ( true === $skip ) {
-			$util->log("Won't load the DB record for this user record...");
+			$util->log( "Won't load the DB record for this user record..." );
+			
 			return;
 		}
 		
@@ -174,13 +175,15 @@ class User_Data {
 		
 		if ( is_null( $level_id ) || ( isset( $this->user->current_membership_level->id ) && ! empty( $level_id ) && $level_id !== $this->user->current_membership_level->id ) ) {
 			
-			$util->log( "Having to (re)set the membership level info for the user" );
+			$util->log( "Having to (re)set the membership level info for the user: {$level_id}" );
 			
-			if ( is_null( $level_id ) ) {
-				$level_id = isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null;
-			} else {
+			if ( ! is_null( $level_id ) ) {
+				
+				$util->log("(Re)Loading membership specific data for user...");
 				$this->user = Fetch_User_Data::set_membership_info( $this->user );
 			}
+			// Configure the level ID
+			$level_id = isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null;
 		}
 		
 		if ( empty( $user_id ) || empty( $order_id ) || empty( $level_id ) ) {
@@ -221,8 +224,8 @@ class User_Data {
 		$this->credit_card = $wpdb->get_results( $cc_sql, ARRAY_A );
 		$util->log( "Loaded " . count( $this->credit_card ) . " credit card(s) for {$user_id}" );
 		
-		if (isset( $this->modified ) ) {
-			$util->log( "Removing unused/unneeded `modified` column data");
+		if ( isset( $this->modified ) ) {
+			$util->log( "Removing unused/unneeded `modified` column data" );
 			unset( $this->modified );
 		}
 	}
@@ -275,10 +278,14 @@ class User_Data {
 	private function select_sql( $user_id, $level_id, $order_id ) {
 		
 		global $wpdb;
-		$sql = null;
+		
+		$utils = Utilities::get_instance();
+		$sql   = null;
 		
 		$this->user_info_table_name = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
 		$this->cc_info_table_name   = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
+		
+		$utils->log( "Loading data for {$user_id}, {$level_id}, {$order_id} and reminder type: {$this->reminder_type}" );
 		
 		if ( ! empty( $order_id ) ) {
 			
@@ -310,6 +317,8 @@ class User_Data {
 	 * @param string $type
 	 *
 	 * @return bool
+	 *
+	 * @since v1.9.1 ENHANCEMENT: Remove any instance of the charge or subscription record data
 	 */
 	public function save_to_db( $type = 'subscriptions' ) {
 		
@@ -320,7 +329,7 @@ class User_Data {
 		$user_data = array();
 		$where     = array();
 		
-		$util->log( "Saving user data for {$this->user->ID}" );
+		$util->log( "Saving user data for {$this->user->ID}/type: {$type}" );
 		
 		if ( ! empty( $this->payment_currency ) && ( ! empty( $this->gateway_subscr_id ) || ! empty( $this->gateway_payment_id ) ) ) {
 			
@@ -328,7 +337,7 @@ class User_Data {
 			
 			$user_data = array(
 				'user_id'                        => $this->user->ID,
-				'level_id'                       => isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : 0,
+				'level_id'                       => isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : null,
 				'last_order_id'                  => $this->last_order->id,
 				'gateway_subscr_id'              => $this->gateway_subscr_id,
 				'gateway_payment_id'             => $this->gateway_payment_id,
@@ -347,9 +356,7 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
-				'user_subscriptions'             => null, //( ! empty( $this->user_subscriptions ) ? wp_slash( maybe_serialize( $this->user_subscriptions ) ) : null ),
-				'user_charges'                   => null, //( ! empty( $this->user_charges ) ? wp_slash( maybe_serialize( $this->user_charges ) ) : null ),
-				'modified'                       => current_time('mysql'),
+				'modified'                       => current_time( 'mysql' ),
 			);
 			
 			$data_format = array(
@@ -373,24 +380,22 @@ class User_Data {
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
-				'%s', // user_subscriptions
-				'%s', // user_charges
 				'%s', // modified
 			);
 			
 			$where = array(
-				'user_id'       => $this->user->ID,
-				'level_id'      => $this->last_order->membership_id,
+				'user_id'  => $this->user->ID,
+				'level_id' => $this->last_order->membership_id,
 			);
 			
-			if ( !empty( $this->gateway_subscr_id ) ) {
+			if ( ! empty( $this->gateway_subscr_id ) ) {
 				$where['gateway_subscr_id'] = $this->gateway_subscr_id;
 			} else {
-				if ( !empty( $this->gateway_payment_id ) ) {
+				if ( ! empty( $this->gateway_payment_id ) ) {
 					$where['gateway_payment_id'] = $this->gateway_payment_id;
 				}
 			}
-			
+
 //			$util->log( "Record: " . print_r( $user_data, true ) );
 //			$util->log( "Where: " . print_r( $where, true ) );
 			
@@ -403,18 +408,18 @@ class User_Data {
 			
 			$where_format = array( '%d', '%d', '%s' );
 			
-			if ( !empty( $this->gateway_subscr_id ) ) {
+			if ( ! empty( $this->gateway_subscr_id ) ) {
 				$check_sql = $wpdb->prepare(
-					"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_subscr_id = %s",
+					"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_subscr_id = %s ORDER BY ID DESC LIMIT 1",
 					$this->user->ID,
 					$this->last_order->membership_id,
 					$this->gateway_subscr_id
 				);
 				
 			} else {
-				if ( !empty( $this->gateway_payment_id ) ) {
+				if ( ! empty( $this->gateway_payment_id ) ) {
 					$check_sql = $wpdb->prepare(
-						"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_payment_id = %s",
+						"SELECT ID FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND gateway_payment_id = %s ORDER BY ID DESC LIMIT 1",
 						$this->user->ID,
 						$this->last_order->membership_id,
 						$this->gateway_payment_id
@@ -441,7 +446,7 @@ class User_Data {
 			
 			return false;
 		} else {
-			$util->log("We " . ( empty( $exists ) ? 'inserted' : 'updated' ) . " the record for {$this->user->ID}." );
+			$util->log( "We " . ( empty( $exists ) ? 'inserted' : 'updated' ) . " the record for {$this->user->ID}." );
 		}
 		
 		$util->log( "Attempt to save payment info for {$this->user->ID}" );
@@ -1049,7 +1054,10 @@ class User_Data {
 	
 	/**
 	 * Set (local) recurring membership status based on user's membership level
+	 *
 	 * @param bool $is_recurring
+	 *
+	 * @since 1.9.2 ENHANCEMENT: Force the reminder_type based on whether the membership (for the user) is recurring
 	 */
 	public function set_recurring_membership_status( $is_recurring = false ) {
 		
@@ -1057,6 +1065,14 @@ class User_Data {
 			$this->has_local_recurring_membership = $is_recurring;
 		} else {
 			$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		}
+		
+		if ( true === $this->has_local_recurring_membership ) {
+			$this->reminder_type = "recurring";
+		}
+		
+		if ( false === $this->has_local_recurring_membership ) {
+			$this->reminder_type = 'expiring';
 		}
 	}
 	
@@ -1413,7 +1429,7 @@ class User_Data {
 		if ( ! empty( $this->user->current_membership_level->enddate ) ) {
 			
 			$util->log( "Membership end-date in level definition..." );
-			$this->end_of_membership_date = $this->user->current_membership_level->enddate;
+			$this->end_of_membership_date = date_i18n( 'Y-m-d H:i:s', $this->user->current_membership_level->enddate );
 			
 		} else if ( empty( $this->user->current_membership_level->enddate ) ) {
 			
@@ -1435,7 +1451,7 @@ class User_Data {
 				
 				$util->log( "Using a calculated enddate for this member..." );
 			} else {
-				$util->log("Membership level for {$this->user->ID} is not recurring!");
+				$util->log( "Membership level for {$this->user->ID} is not recurring!" );
 			}
 			
 		} else {
@@ -1545,10 +1561,10 @@ class User_Data {
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 		
 		$update_result = dbDelta( $user_info_sql );
-		$utils->log( "Create {$user_info_table} for Payment_Warning - result: " . print_r( $update_result, true )  );
+		$utils->log( "Create {$user_info_table} for Payment_Warning - result: " . print_r( $update_result, true ) );
 		
 		$update_result = dbDelta( $cc_table_sql );
-		$utils->log( "Create {$cc_table} for Payment_Warning - result: " .  print_r( $update_result, true ) );
+		$utils->log( "Create {$cc_table} for Payment_Warning - result: " . print_r( $update_result, true ) );
 		
 		/*
 		$update_result = dbDelta( $notices_sql );
