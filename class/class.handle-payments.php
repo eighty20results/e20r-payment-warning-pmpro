@@ -70,6 +70,7 @@ class Handle_Payments extends E20R_Background_Process {
 		if ( !is_bool( $user_data ) ) {
 			
 			$user_id = $user_data->get_user_ID();
+			
 			$util->log( "Loading from DB (if record exists) for {$user_id}");
 			$user_data->maybe_load_from_db();
 			
@@ -79,7 +80,6 @@ class Handle_Payments extends E20R_Background_Process {
 				
 				$util->log( "Fetched payment data from gateway for " . $user_data->get_user_email() );
 				$util->log( "Done processing payment data for {$user_id}. Removing the user from the queue" );
-				return false;
 			}
 			
 			$util->log( "User payment record not saved/processed. May be a-ok..." );
@@ -106,6 +106,8 @@ class Handle_Payments extends E20R_Background_Process {
 	 */
 	public function clear_queue() {
 		
+		$utils = Utilities::get_instance();
+		
 		global $wpdb;
 		
 		$table  = $wpdb->options;
@@ -117,7 +119,11 @@ class Handle_Payments extends E20R_Background_Process {
 		}
 		
 		$key = $this->identifier . "_batch_%";
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) );
+		$utils->log("Attempting to manually clear the job queue for {$key}");
+		
+		if ( false === $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) ) ) {
+			$utils->log("ERROR: Unable to clear the job queue for {$key}!");
+		}
 	}
 	
 	/**
