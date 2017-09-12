@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 1.8.9
+Version: 1.9.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -34,23 +34,18 @@ Domain Path: /languages
 
 namespace E20R\Payment_Warning;
 
-use Braintree\Util;
-use E20R\Payment_Warning\Addon;
 use E20R\Payment_Warning\Editor\Editor;
-use E20R\Payment_Warning\Utilities\Cache;
-use E20R\Payment_Warning\Utilities\Cron_Handler;
-use E20R\Payment_Warning\Utilities\E20R_Async_Request;
-use E20R\Payment_Warning\Utilities\E20R_Background_Process;
-use E20R\Payment_Warning\Utilities\Email_Message;
-use E20R\Payment_Warning\Utilities\Utilities;
-use E20R\Licensing\Licensing;
+use E20R\Utilities\Cache;
+use E20R\Payment_Warning\Tools\Cron_Handler;
+use E20R\Utilities\Utilities;
+use E20R\Utilities\Licensing\Licensing;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	wp_die( __( "Cannot access", Payment_Warning::plugin_slug ) );
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.8.9' );
+	define( 'E20R_PW_VERSION', '1.9.0' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -972,53 +967,63 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    $utils->log("Trigger deactivation action for add-ons");
 		    do_action( 'e20r_pw_addon_deactivating_core', $clean_up );
         }
-
+		
 		/**
-		 * Class auto-loader for the Payment Warnings plugin
+		 * Class auto-loader for the Payment Warnings for PMPro plugin
 		 *
 		 * @param string $class_name Name of the class to auto-load
 		 *
 		 * @since  1.0
-		 * @access public
+		 * @access public static
 		 */
 		public static function auto_loader( $class_name ) {
 			
-			if ( false === strpos( $class_name, 'E20R' ) ) {
+			if ( false === stripos( $class_name, 'e20r' ) ) {
 				return;
 			}
-   
-			$parts = explode( '\\', $class_name );
-			$name  = strtolower( preg_replace( '/_/', '-', $parts[ ( count( $parts ) - 1 ) ] ) );
 			
-			$base_path = plugin_dir_path( __FILE__ ) . 'class';
-			$filename  = "class.{$name}.php";
+			$parts     = explode( '\\', $class_name );
+			$c_name    = strtolower( preg_replace( '/_/', '-', $parts[ ( count( $parts ) - 1 ) ] ) );
+			$base_path = plugin_dir_path( __FILE__ ) . 'classes/';
 			
-			// For the E20R\Payment_Warning namespace
-			if ( file_exists( "{$base_path}/{$filename}" ) ) {
-				require_once( "{$base_path}/{$filename}" );
+			if ( file_exists( plugin_dir_path( __FILE__ ) . 'class/' ) ) {
+				$base_path = plugin_dir_path( __FILE__ ) . 'class/';
 			}
 			
-			// For the E20R\Payment_Warning\Addon namespace
-			if ( file_exists( "{$base_path}/add-on/{$filename}" ) ) {
-				require_once( "{$base_path}/add-on/{$filename}" );
-			}
+			$filename = "class.{$c_name}.php";
+			$iterator = new \RecursiveDirectoryIterator( $base_path, \RecursiveDirectoryIterator::SKIP_DOTS | \RecursiveIteratorIterator::SELF_FIRST | \RecursiveIteratorIterator::CATCH_GET_CHILD | \RecursiveDirectoryIterator::FOLLOW_SYMLINKS );
 			
-			// For the E20R\Payment_Warning\Editor namespace
-			if ( file_exists( "{$base_path}/editor/{$filename}" ) ) {
-				require_once( "{$base_path}/editor/{$filename}" );
-			}
+			/**
+			 * Loate class member files, recursively
+			 */
+			$filter = new \RecursiveCallbackFilterIterator( $iterator, function ( $current, $key, $iterator ) use ( $filename ) {
+				
+				$file_name = $current->getFilename();
+				
+				// Skip hidden files and directories.
+				if ( $file_name[0] == '.' || $file_name == '..' ) {
+					return false;
+				}
+				
+				if ( $current->isDir() ) {
+					// Only recurse into intended subdirectories.
+					return $file_name() === $filename;
+				} else {
+					// Only consume files of interest.
+					return strpos( $file_name, $filename ) === 0;
+				}
+			} );
 			
-			// For the E20R\Payment_Warning\Utilities namespace
-			if ( file_exists( "{$base_path}/utilities/{$filename}" ) ) {
-				require_once( "{$base_path}/utilities/{$filename}" );
-			}
-			
-			// For the E20R\Licensing namespace
-			if ( file_exists( "{$base_path}/licensing/{$filename}" ) ) {
-				require_once( "{$base_path}/licensing/{$filename}" );
+			foreach ( new \ RecursiveIteratorIterator( $iterator ) as $f_filename => $f_file ) {
+				
+				$class_path = $f_file->getPath() . "/" . $f_file->getFilename();
+				
+				if ( $f_file->isFile() && false !== strpos( $class_path, $filename ) ) {
+					require_once( $class_path );
+				}
 			}
 		}
-  
+		
 		/**
 		 * Load language/translation file(s)
 		 */
