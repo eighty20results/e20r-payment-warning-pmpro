@@ -141,9 +141,12 @@ class Handle_Payments extends E20R_Background_Process {
 		parent::complete();
 		
 		$this->clear_queue();
-	
-			// Show notice to user or perform some other arbitrary task...
+		
 		$util = Utilities::get_instance();
+		if ( false === delete_option( 'e20rpw_paym_fetch_mutex' ) ) {
+			$util->add_message( __( 'Unable to clear lock after loading Payment data', Payment_Warning::plugin_slug ), 'error', 'backend' );
+		}
+		
 		$util->log("Completed remote payment/charge data fetch for all active gateways");
 	}
 }
