@@ -255,6 +255,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * Fetch all active members with non-recurring membership plans, plus their last order from the local DB (or cache)
 		 *
 		 * @return User_Data[]|bool
+		 *
+		 * @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members
 		 */
 		public function set_active_non_subscription_members() {
 			
@@ -269,12 +271,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
+				/* @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members */
 				// Locate active member records without recurring payment configured (cycle_number is 0 or NULL).
 				$active_sql = "
 						SELECT DISTINCT *
 						FROM {$wpdb->pmpro_memberships_users} AS mu
 						WHERE mu.status = 'active'
 						AND ( mu.cycle_number = 0 OR mu.cycle_number IS NULL )
+						AND ( mu.enddate IS NOT NULL AND mu.enddate != '0000-00-00 00:00:00' )
 						ORDER BY mu.user_id ASC";
 				
 				$member_list = $wpdb->get_results( $active_sql );
@@ -353,6 +357,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @return User_Data[]|bool
 		 *
 		 * @since v1.9.4 - BUG FIX: Return record list from set_active_subscription_members()
+		 * @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future
 		 */
 		public function set_active_subscription_members() {
 			
@@ -368,12 +373,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
+				/* @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future */
 				// Only load records where the user's cycle_number is greater or equal to 1 (has a recurring payment membership)
 				$active_sql = "
 						SELECT DISTINCT *
 						FROM {$wpdb->pmpro_memberships_users} AS mu
 						WHERE mu.status = 'active'
-						AND mu.cycle_number >= 1
+						AND ( mu.cycle_number >= 1 AND mu.cycle_period IS NOT NULL )
+						AND ( mu.enddate IS NULL OR mu.enddate = '0000-00-00 00:00:00' OR mu.enddate >= NOW())
 						ORDER BY mu.user_id ASC";
 				
 				$member_list = $wpdb->get_results( $active_sql );
