@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.9.1
+Stable tag: 1.9.4
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,52 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.9.4 ==
+
+* BUG FIX: Use appropriate autoload value for update_option()
+* BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
+* BUG FIX: Return record list from set_active_subscription_members()
+* BUG FIX: Return record list from set_all_active_members()
+* BUG FIX: Would return whatever records were previously loaded if incorrect type was given
+* BUG FIX: Prevented from saving end of membership date due to typo in variable name
+* BUG FIX: Typo in reminder_type supplied for non-recurring memberships
+* BUG FIX: Didn't force the reminder type (recurring) for the user data when processing
+* BUG FIX: Didn't force the reminder type (expiration) for the user data when processing
+* BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
+* ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
+* ENHANCEMENT: No longer declaring the type of data to save (recurring/payment)
+* ENHANCEMENT: No longer need to specify type of record being saved in save_to_db()
+* ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
+* ENHANCEMENT: Preventing get_remote_payment_data() from running more than once at a time
+* ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
+* ENHANCEMENT: Remove non-recurring payment data fetch lock w/error checking & messages to dashboard
+
+== v1.9.3 ==
+
+* BUG FIX: Didn't update the version number for the DB after successfully upgraded
+* ENHANCEMENT: Adding DB v3 update
+
+== v1.9.2 ==
+
+* BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
+* BUG FIX: Explicitly instantiate User_Data() class for expiration or recurring billing info when loading
+* BUG FIX: Didn't always load the required user records in get_all_user_records() method
+* BUG FIX: Make default reminder processing option be 'ccexpiration' (Credit Cards) since all other options explicitly set their data type (recurring, expiring)
+* BUG FIX: Make default user record type option be 'ccexpiration' (Credit Cards) since all other options explicitly set their data type (recurring, expiring)
+* BUG FIX: Didn't always set the level ID we should expect for the member
+* BUG FIX: DB uses MySQL date string, got timestamp from membership level setting (seconds since epoch)
+* BUG FIX: Didn't set the correct end of (active) membership date for non-recurring members
+* BUG FIX: Didn't return error if date is bad or empty in set_end_of_membership_date()
+* BUG FIX: Should process default send email action before anything that could modify it
+* BUG FIX: Would fail to send notifications for non-recurring members
+* BUG FIX: Wouldn't respect skip admin notice setting
+* ENHANCEMENT/FIX: Add end of membership date if subscription plan is cancelled
+* ENHANCEMENT: Use local membership enddate if no date is supplied to set_end_of_membership_date() method
+* ENHANCEMENT: Remove any instance of the charge or subscription record data
+* ENHANCEMENT: Force the reminder_type based on whether the membership (for the user) is recurring or not
+* ENHANCEMENT: More debug logging and status checks when clearing the background job queue for payment handler
+* ENHANCEMENT: Name add_local_order() more appropriately for something only processing subscriptions (add_local_subscription_order())
 
 == v1.9.1 ==
 

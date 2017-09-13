@@ -288,7 +288,7 @@ abstract class E20R_PW_Gateway_Addon {
 			
 			$utils->log("Checking license server (forced)");
 			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
-			update_option( "e20r_pw_addon_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], false );
+			update_option( "e20r_pw_addon_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], 'no' );
 		}
 		$utils->log( "The {$stub} add-on is enabled? {$enabled}" );
 		
@@ -378,8 +378,8 @@ abstract class E20R_PW_Gateway_Addon {
 		$e20r_pw_addons[ $addon ]['status'] = ( $e20r_pw_addons[ $addon ]['is_active'] ? 'active' : 'deactivated' );
 		
 		$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['status']}" );
-		update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], true );
-		update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], false );
+		update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'yes' );
+		update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
 		
 		return $e20r_pw_addons[ $addon ]['is_active'];
 	}

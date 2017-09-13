@@ -55,7 +55,7 @@ class Payment_Reminder {
 			$this->load_schedule();
 		}
 		
-		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), 10, 4 );
+		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), -1, 4 );
 	}
 	
 	public function load_hooks() {
@@ -75,12 +75,6 @@ class Payment_Reminder {
 		
 		$util = Utilities::get_instance();
 		$util->log( "Testing if {$user_payment_date} is within {$interval} days of " . date_i18n( 'Y-m-d', current_time( 'timestamp' ) ) );
-		
-		/** Ignore the type
-		if ( $type !== 'recurring' ) {
-			return $send;
-		}
-	    */
 		
 		$negative = ( $interval < 0 ) ? true : false;
 		
@@ -134,7 +128,7 @@ class Payment_Reminder {
 	 *
 	 * @param string $type
 	 */
-	public function process_reminders( $type = 'recurring' ) {
+	public function process_reminders( $type = 'ccexpiration' ) {
 		
 		$util = Utilities::get_instance();
 		

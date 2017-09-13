@@ -109,7 +109,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * @var string $option_name
 		 */
 		protected $option_name = 'e20r_egwao_stripe';
-  
+		
 		/**
 		 * Return the array of supported subscription statuses to capture data about
 		 *
@@ -353,7 +353,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 							'active',
 						) )
 					) {
-						$utils->log( "Setting payment status to 'stopped' for {$cust_id}" );
+						$utils->log( "Setting payment status to 'stopped' for {$cust_id}/" . $user_data->get_user_ID() );
 						$user_data->set_payment_status( 'stopped' );
 					}
 					
@@ -369,15 +369,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						
 						$user_data->set_next_payment( $payment_next );
 						$utils->log( "Next payment on: {$payment_next}" );
-      
+						
 						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
 						$user_data->set_payment_currency( $plan_currency );
 						
 						$utils->log( "Payments are made in: {$plan_currency}" );
 						
 						$amount = $utils->amount_by_currency( $subscription->plan->amount, $plan_currency );
-                        $user_data->set_next_payment_amount( $amount );
-                        
+						$user_data->set_next_payment_amount( $amount );
+						
 						$utils->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
 						
 						$user_data->set_reminder_type( 'recurring' );
@@ -385,13 +385,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						
 						$utils->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
 						$user_data->set_subscription_end();
+						
+						$ends = date_i18n( 'Y-m-d H:i:s', $subscription->current_period_end );
+						
+						$utils->log( "Setting end of membership to {$ends}" );
+						$user_data->set_end_of_membership_date( $ends );
 					}
 					
 					$utils->log( "Attempting to load credit card (payment method) info from gateway" );
+					
 					// Trigger handler for credit card data
 					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
 					
 				} else {
+				 
 					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
 					/**
 					 * @action e20r_pw_addon_save_subscription_mismatch
@@ -452,7 +459,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
 				$customer = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
-    
+				
 			} catch ( \Exception $exeption ) {
 				
 				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
@@ -463,8 +470,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			}
 			
 			if ( $customer->subscriptions->total_count > 0 ) {
-    
+				
 				$utils->log( "User ID ({$cust_id}) on stripe.com has {$customer->subscriptions->total_count} subscription plans. Skipping payment/charge processing" );
+				
 				return $user_data;
 			}
 			
@@ -526,6 +534,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$user_data->is_payment_paid( $payment_status, $charge->failure_message );
 				
 				$user_data->set_payment_date( $charge->created, $this->gateway_timezone );
+				$user_data->set_end_of_membership_date();
+				
 				$user_data->set_reminder_type( 'expiration' );
 				// $user_data->add_charge_list( $charge );
 				
@@ -591,7 +601,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function fetch_stripe_api_versions() {
 			
 			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
-                '2017-08-15',
+				'2017-08-15',
 				'2017-06-05',
 				'2017-05-25',
 				'2017-04-06',
@@ -828,7 +838,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
 			$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['is_active']}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], false );
+			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'no' );
 		}
 		
 		/**
@@ -855,7 +865,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * Load add-on actions/filters when the add-on is active & enabled
 		 *
 		 * @param string $stub Lowercase Add-on class name
-         * @return mixed
+		 *
+		 * @return mixed
 		 */
 		final public static function is_enabled( $stub ) {
 			
@@ -935,28 +946,28 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		
 		/**
 		 * Loading add-on specific handler for Stripe (use early handling to stay out of the way of PMPro itself)
-         *
-         * @param string|null $stub
+		 *
+		 * @param string|null $stub
 		 */
 		public function load_webhook_handler( $stub = null ) {
 			
-		    global $e20r_pw_addons;
-		    
-		    $stub = strtolower( $this->get_class_name() );;
-		    $util = Utilities::get_instance();
-		    
+			global $e20r_pw_addons;
+			
+			$stub = strtolower( $this->get_class_name() );;
+			$util = Utilities::get_instance();
+			
 			parent::load_webhook_handler( $stub );
 			
-            $util->log( "Site has the expected Stripe Webhook action: " . (
-                    has_action(
-                    "wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
-                    array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
-            );
+			$util->log( "Site has the expected Stripe Webhook action: " . (
+				has_action(
+					"wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
+					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
+			);
 		}
 		
 		/**
-         * IPN handler for Stripe. Ensures that the PMPro Webhook will run too.
-         *
+		 * IPN handler for Stripe. Ensures that the PMPro Webhook will run too.
+		 *
 		 * @return bool
 		 */
 		public function webhook_handler() {
@@ -1054,12 +1065,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 							return false;
 						}
 						
-						if ( !empty( $event_id ) && !isset( $_REQUEST['event_id']) ) {
-						    
-						    $util->log("Re-adding the event ID for stripe's webhook to the REQUEST array");
-						    $_REQUEST['event_id'] = $event_id;
-                        }
-                        
+						if ( ! empty( $event_id ) && ! isset( $_REQUEST['event_id'] ) ) {
+							
+							$util->log( "Re-adding the event ID for stripe's webhook to the REQUEST array" );
+							$_REQUEST['event_id'] = $event_id;
+						}
+						
 					} else {
 						
 						$util->log( "Body/Event Parsed." );
@@ -1372,7 +1383,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				if ( ! empty( $customer ) && ! empty( $user ) && ! empty( $subscription ) ) {
 					
 					$util->log( "Adding local PMPro order for {$user->ID}/{$customer->id}" );
-					$user_info = $this->add_local_order( $customer, $user, $subscription );
+					$user_info = $this->add_local_subscription_order( $customer, $user, $subscription );
 					
 					$user_info->set_gw_subscription_id( $subscription->id );
 					$user_info->set_payment_currency( $subscription->items->data[0]->plan->currency );
@@ -1465,7 +1476,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 *
 		 * @return User_Data
 		 */
-		public function add_local_order( $stripe_customer, $user, $subscription ) {
+		public function add_local_subscription_order( $stripe_customer, $user, $subscription ) {
 			
 			$util = Utilities::get_instance();
 			
@@ -1757,7 +1768,8 @@ $e20r_pw_addons[ $stub ] = array(
 	'handler_name'          => 'stripe_webhook',
 	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
-	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
+	'status'                => 'deactivated',
+	// ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'Stripe',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(

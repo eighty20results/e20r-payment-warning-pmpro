@@ -373,7 +373,7 @@ class Email_Message {
 				}
 				
 				$users[ $today ][ $to ] = true;
-				update_option( "e20r_pw_sent_{$type}", $users, false );
+				update_option( "e20r_pw_sent_{$type}", $users, 'no' );
 			} else {
 				$util->log( "Error sending {$type} message to {$to}" );
 			}

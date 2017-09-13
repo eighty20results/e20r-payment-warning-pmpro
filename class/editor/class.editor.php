@@ -252,7 +252,7 @@ class Editor {
 			$template_info[ $template_name ] = $this->default_template_settings( $template_name );
 			
 			// Save the new template info
-			update_option( $this->option_name, $template_info, false );
+			update_option( $this->option_name, $template_info, 'no' );
 		}
 		
 		if ( $template_name !== 'all' && true === $load_body && empty( $template_info[ $template_name ]['body'] ) ) {
@@ -511,7 +511,7 @@ class Editor {
 				$reload = true;
 			}
 			
-			update_option( $this->option_name, $template_settings, false );
+			update_option( $this->option_name, $template_settings, 'no' );
 			
 			$util->log( "Saving template settings" );
 			wp_send_json_success( array(

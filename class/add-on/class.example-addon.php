@@ -275,7 +275,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
 			$utils->log( "Setting the {$addon} option to {$is_active}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $is_active, true );
+			update_option( "e20r_pw_addon_{$addon}_enabled", $is_active, 'yes' );
 		}
 		
 		/**
@@ -590,7 +590,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		 */
 		public function save_settings() {
 			
-			update_option( $this->option_name, $this->settings, true );
+			update_option( $this->option_name, $this->settings, 'yes' );
 		}
 		
 		/**

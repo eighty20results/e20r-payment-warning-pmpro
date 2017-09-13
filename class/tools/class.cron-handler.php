@@ -169,7 +169,7 @@ class Cron_Handler {
 			wp_schedule_event( $collect_when, 'daily', 'e20r_run_remote_data_update' );
 			
 			$util->log( "Configure next (allowed) run time for the cron job to be at {$collect_when}" );
-			update_option( 'e20r_pw_next_gateway_check', $collect_when );
+			update_option( 'e20r_pw_next_gateway_check', $collect_when, 'no' );
 			
 		} else {
 			$next_run = $collection_scheduled;
@@ -234,7 +234,7 @@ class Cron_Handler {
 		
 		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
-			update_option( 'e20r_pw_firstrun_cc_msg', true, false );
+			update_option( 'e20r_pw_firstrun_cc_msg', true, 'no' );
 			
 			return;
 		}
@@ -261,7 +261,7 @@ class Cron_Handler {
 		
 		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
-			update_option( 'e20r_pw_firstrun_exp_msg', true, false );
+			update_option( 'e20r_pw_firstrun_exp_msg', true, 'no' );
 			
 			return;
 		}
@@ -287,7 +287,7 @@ class Cron_Handler {
 		
 		if ( false === $not_first_run ) {
 			$util->log( "Not running on startup!" );
-			update_option( 'e20r_pw_firstrun_reminder_msg', true, false );
+			update_option( 'e20r_pw_firstrun_reminder_msg', true, 'no' );
 			
 			return;
 		}
@@ -305,6 +305,8 @@ class Cron_Handler {
 	
 	/**
 	 * Cron job handler for Fetching upstream Payment Gateway data
+	 *
+	 *  @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
 	 */
 	public function fetch_gateway_payment_info() {
 		
@@ -314,7 +316,7 @@ class Cron_Handler {
 		
 		if ( false == $not_first_run ) {
 			$util->log( "Not running on startup!" );
-			update_option( 'e20r_pw_firstrun_gateway_check', true, false );
+			update_option( 'e20r_pw_firstrun_gateway_check', true, 'no' );
 			
 			return;
 		}
@@ -329,7 +331,6 @@ class Cron_Handler {
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
 		$override_schedule    = apply_filters( 'e20r_payment_warning_schedule_override', false );
-		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
@@ -340,14 +341,24 @@ class Cron_Handler {
 			
 			$fetch_data = Fetch_User_Data::get_instance();
 			$fetch_data->get_remote_subscription_data();
-			$fetch_data->get_remote_payment_data();
 			$util->log( "Triggered remote subscription fetch configuration" );
+			$fetch_data->get_remote_payment_data();
+			$util->log( "Triggered remote payment (expiring memberships) fetch configuration" );
 			
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
 			$next_ts                         = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
-			$util->log( "Calculating when to next run the gateway data fetch operation: {$next_ts}" );
-			update_option( 'e20r_pw_next_gateway_check', $next_ts, false );
 			
+			$util->log( "Calculating when to next run the gateway data fetch operation: {$next_ts}" );
+			
+			// @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
+			delete_option( 'e20r_pw_next_gateway_check' );
+			update_option( 'e20r_pw_next_gateway_check', $next_ts, 'no' );
+			
+			$is_now = intval( get_option( 'e20r_pw_next_gateway_check' ) );
+			
+			if ( $next_ts != $is_now ) {
+				$util->log("ERROR: Couldn't update the timestamp for the Next Gateway check operation! (Expected: {$next_ts}, received: {$is_now} ");
+			}
 		} else {
 			$util->log( "Not running. Cause: Not after the scheduled next-run time/date of {$next_run}" );
 		}

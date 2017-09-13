@@ -55,6 +55,9 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 * @param User_Data $user_data
 	 *
 	 * @return bool
+	 *
+	 * @since 1.9.4 - BUG FIX: Didn't force the reminder type (recurring) for the user data when processing
+	 * @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
 	 */
 	protected function task( $user_data ) {
 		
@@ -65,13 +68,14 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		if ( ! is_bool( $user_data ) ) {
 			
 			$user_id = $user_data->get_user_ID();
+			$user_data->set_reminder_type('recurring');
 			
 			$util->log( "Loading from DB (if record exists) for {$user_id}" );
 			$user_data->maybe_load_from_db();
 			
 			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
 			
-			if ( false !== $user_data && true === $user_data->save_to_db( 'subscriptions' ) ) {
+			if ( false !== $user_data && true === $user_data->save_to_db() ) {
 				
 				$util->log( "Done processing subscription data for {$user_id}. Removing the user from the queue" );
 				return false;
@@ -118,14 +122,22 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 *
 	 * Override if applicable, but ensure that the below actions are
 	 * performed, or, call parent::complete().
+	 *
+	 * @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
 	 */
 	protected function complete() {
 		
 		parent::complete();
 		
 		$this->clear_queue();
-		// Show notice to user or perform some other arbitrary task...
+		
 		$util = Utilities::get_instance();
+		
+		// @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
+		if ( false === delete_option( 'e20rpw_subscr_fetch_mutex' ) ) {
+			$util->add_message( __( 'Unable to clear lock after loading Subscription data', Payment_Warning::plugin_slug ), 'error', 'backend' );
+		}
+		
 		$util->log("Completed remote subscription data fetch for all active gateways");
 		// $util->add_message( __("Fetched payment data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
 	}

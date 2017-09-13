@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 1.9.1
+Version: 1.9.4
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.9.1' );
+	define( 'E20R_PW_VERSION', '1.9.4' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -63,7 +63,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 	$e20r_pw_addons = array();
 	
 	global $e20rpw_db_version;
-	$e20rpw_db_version = 2; // The current version of the DB schema
+	$e20rpw_db_version = 3; // The current version of the DB schema
 	
 	class Payment_Warning {
 		
@@ -315,7 +315,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// Clear cached values when discount code(s) get updated
 			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
 			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null );
+			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
 			
 			$util->log("Dropping the cache for delay & cron schedules due to a membership level being updated");
 		}
@@ -333,7 +333,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    // Clear cached values when discount code(s) get updated
 		    Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
 		    Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-		    update_option( 'e20r_pw_next_gateway_check', null );
+		    update_option( 'e20r_pw_next_gateway_check', null, 'no' );
 		    
 		    $util->log("Dropping the cache for delay & cron schedules due to Discount Code being updated");
 		}
@@ -984,7 +984,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 	        $utils->log("Current version of DB: {$installed_ver} vs needed version: {$e20rpw_db_version}");
 	        
 	        if ( $installed_ver < $e20rpw_db_version ) {
-	            $utils->log("Trigger database upgrade for version {$e20rpw_db_version}");
+	            $utils->log("Trigger database upgrade to version {$e20rpw_db_version} from {$installed_ver}");
 	            do_action( "e20rpw_trigger_database_upgrade_{$e20rpw_db_version}", $installed_ver );
             }
         }
@@ -1074,6 +1074,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$classes = array();
 			$classes[] = new Upgrades\Upgrade_2();
+			$classes[] = new Upgrades\Upgrade_3();
 			
 			return $classes;
 		}
