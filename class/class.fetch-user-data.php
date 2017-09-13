@@ -47,7 +47,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		/**
 		 * Handler for remote data fetch operation for subscriptions (background operation)
 		 *
-		 * @since 1.9.1 Didn't use the default method - get_all_user_records() - when loading member/user data
+		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
+		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
 		 */
 		public function get_remote_subscription_data() {
 			
@@ -65,8 +66,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
 			$util->log( "Grab all active PMPro Members" );
-			$this->active_members = null;
-			$this->get_all_user_records( 'recurring' );
+			$this->active_members = array();
+			
+			/**
+			 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
+			 */
+			if ( false === $this->get_all_user_records( 'recurring' ) ) {
+				$util->log("No records found for the remote payment data search");
+				$util->add_message( __( "No local records for expiring memberships found!", Payment_Warning::plugin_slug ), 'warning', 'backend' );
+				return;
+			}
 			
 			$data_count = count( $this->active_members );
 			
@@ -130,7 +139,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		/**
 		 * Handler for remote data fetch operation for payments (non-recurring payments in background operation)
 		 *
-		 * @since 1.9.1 Didn't use the default method - get_all_user_records() - when loading member/user data
+		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
+		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
 		 */
 		public function get_remote_payment_data() {
 			
@@ -148,9 +158,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			do_action( 'e20r_pw_addon_load_gateway' );
 			
 			$util->log( "Grab all active Members without subscription plans" );
-			$this->active_members = null;
+			$this->active_members = array();
 			
-			$this->get_all_user_records( 'expiring' );
+			/**
+			 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
+			 */
+			if ( false === $this->get_all_user_records( 'expiration' ) ) {
+				$util->log("No records found for the remote payment data search");
+				$util->add_message( __( "No local records for expiring memberships found!", Payment_Warning::plugin_slug ), 'warning', 'backend' );
+				return;
+			}
 			
 			$data_count = count( $this->active_members );
 			$util->log( "Process payment data for {$data_count} active members" );
@@ -239,7 +256,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$member_list = $wpdb->get_results( $active_sql );
 				$environment = pmpro_getOption( 'gateway_environment' );
 				
-				$utils->log( "Found " . count( $member_list ) . "active member records" );
+				$utils->log( "Found " . count( $member_list ) . "active member records for non-subscribers" );
 				
 				foreach ( $member_list as $member ) {
 					
@@ -308,6 +325,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		
 		/**
 		 * Fetch all active members with recurring payment subscriptions and their last order info from local DB (or cache)
+		 *
+		 * @return User_Data[]|bool
+		 *
+		 * @since v1.9.4 - BUG FIX: Return record list from set_active_subscription_members()
 		 */
 		public function set_active_subscription_members() {
 			
@@ -395,10 +416,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$record     = null;
 			$last_order = null;
+			
+			// @since v1.9.4 - BUG FIX: Return record list from set_active_subscription_members()
+			return $this->active_members;
 		}
 		
 		/**
 		 * Load all (PMPro) members who are currently active (on the local system)
+		 *
+		 * @return User_Data[]|bool
+		 *
+		 * @since v1.9.4 - BUG FIX: Return record list from set_all_active_members()
 		 */
 		public function set_all_active_members() {
 			
@@ -480,6 +508,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$record     = null;
 			$last_order = null;
+			
+			// @since v1.9.4 - BUG FIX: Return record list from set_all_active_members()
+			return $this->active_members;
 		}
 		
 		/**
@@ -540,13 +571,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @param string $type
 		 *
-		 * @return User_Data[]
+		 * @return User_Data[]|bool
 		 *
 		 * @since 1.9.2 BUG FIX: Didn't always load the required user records
+		 * @since 1.9.4 - BUG FIX: Would return whatever records were previously loaded if incorrect type was given!
 		 */
 		public function get_all_user_records( $type = 'ccexpiration' ) {
 			
 			$util = Utilities::get_instance();
+			
+			$this->active_members = array();
 			
 			if ( null === ( $this->active_members = Cache::get( "current_{$type}", Payment_Warning::cache_group ) ) ) {
 				
@@ -556,18 +590,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				switch ( $type ) {
 					case 'recurring':
-						$class->set_active_subscription_members();
+						$records = $class->set_active_subscription_members();
 						break;
 					case 'expiration':
-						$class->set_active_non_subscription_members();
+						$records = $class->set_active_non_subscription_members();
 						break;
 					case 'ccexpiration':
-						$class->set_all_active_members();
+						$records = $class->set_all_active_members();
 						break;
+					default:
+						// @since 1.9.4 - BUG FIX: Would return whatever records were previously loaded if incorrect type was given!
+						$util->log("ERROR: Incorrect record type requested ({$type})!");
+						$this->active_members = array();
+						return false;
 				}
-				
-				$records              = $this->active_members;
-				$this->active_members = array();
 				
 				if ( ! empty( $records ) ) {
 					
