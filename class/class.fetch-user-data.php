@@ -49,11 +49,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
+		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
 		 */
 		public function get_remote_subscription_data() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
+			
+			$mutex = intval( get_option( 'e20rpw_subscr_fetch_mutex', 0 ) );
+			
+			if ( 1 === $mutex ) {
+				
+				$util->log("Error: Remote subscription data fetch is already active. Not running!");
+				return;
+			}
 			
 			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
 				
@@ -112,6 +121,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
 				$handler->save()->dispatch();
+				update_option( 'e20rpw_subscr_fetch_mutex', 1, 'no' );
 				
 			} else {
 				
@@ -132,6 +142,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					}
 					$util->log( "Saved the data to process to the subscription handler & dispatching it" );
 					$sub_handler->save()->dispatch();
+					update_option( 'e20rpw_subscr_fetch_mutex', 1, 'no' );
 				}
 			}
 		}
@@ -141,11 +152,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
+		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_payment_data() from running more than once at a time
 		 */
 		public function get_remote_payment_data() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
+			
+			$mutex = intval( get_option( 'e20rpw_paym_fetch_mutex', 0 ) );
+			
+			if ( 1 === $mutex ) {
+				
+				$util->log("Error: Remote payment data fetch is already active. Stopping!");
+				return;
+			}
 			
 			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
 				
@@ -204,6 +224,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$util->log( "Saving and dispatching large number of payment workstreams in separate requests" );
 				$handler->save()->dispatch();
 				
+				update_option( 'e20rpw_paym_fetch_mutex', 1, 'no');
+				
 			} else {
 				
 				$run_gateway_fetch = $main->load_options( 'enable_gateway_fetch' );
@@ -223,6 +245,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$util->log( "Dispatch the background job for the payment data" );
 					$p_handler->save()->dispatch();
+					
+					update_option( 'e20rpw_paym_fetch_mutex', 1, 'no');
 				}
 			}
 		}
