@@ -305,6 +305,8 @@ class Cron_Handler {
 	
 	/**
 	 * Cron job handler for Fetching upstream Payment Gateway data
+	 *
+	 *  @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
 	 */
 	public function fetch_gateway_payment_info() {
 		
@@ -329,7 +331,6 @@ class Cron_Handler {
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
 		$override_schedule    = apply_filters( 'e20r_payment_warning_schedule_override', false );
-		$admin_triggered_cron = $util->get_variable( 'crontrol_name', null );
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
@@ -340,14 +341,16 @@ class Cron_Handler {
 			
 			$fetch_data = Fetch_User_Data::get_instance();
 			$fetch_data->get_remote_subscription_data();
-			$fetch_data->get_remote_payment_data();
 			$util->log( "Triggered remote subscription fetch configuration" );
+			$fetch_data->get_remote_payment_data();
+			$util->log( "Triggered remote payment (expiring memberships) fetch configuration" );
 			
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
 			$next_ts                         = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
 			
 			$util->log( "Calculating when to next run the gateway data fetch operation: {$next_ts}" );
 			
+			// @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
 			delete_option( 'e20r_pw_next_gateway_check' );
 			update_option( 'e20r_pw_next_gateway_check', $next_ts, 'no' );
 			
