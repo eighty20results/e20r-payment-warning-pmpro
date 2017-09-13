@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8.1
-    Stable tag: 1.9.3
+    Stable tag: 1.9.4
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,26 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.9.4
+
+* BUG FIX: Use appropriate autoload value for update_option()
+* BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
+* BUG FIX: Return record list from set_active_subscription_members()
+* BUG FIX: Return record list from set_all_active_members()
+* BUG FIX: Would return whatever records were previously loaded if incorrect type was given
+* BUG FIX: Prevented from saving end of membership date due to typo in variable name
+* BUG FIX: Typo in reminder_type supplied for non-recurring memberships
+* BUG FIX: Didn't force the reminder type (recurring) for the user data when processing
+* BUG FIX: Didn't force the reminder type (expiration) for the user data when processing
+* BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
+* ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
+* ENHANCEMENT: No longer declaring the type of data to save (recurring/payment)
+* ENHANCEMENT: No longer need to specify type of record being saved in save_to_db()
+* ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
+* ENHANCEMENT: Preventing get_remote_payment_data() from running more than once at a time
+* ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
+* ENHANCEMENT: Remove non-recurring payment data fetch lock w/error checking & messages to dashboard
 
 ###v1.9.3
 
