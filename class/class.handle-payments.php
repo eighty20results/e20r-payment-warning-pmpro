@@ -136,6 +136,8 @@ class Handle_Payments extends E20R_Background_Process {
 	 *
 	 * Override if applicable, but ensure that the below actions are
 	 * performed, or, call parent::complete().
+	 *
+	 * @since 1.9.4 - ENHANCEMENT: Remove Non-recurring payment data fetch lock w/error checking & messages to dashboard
 	 */
 	protected function complete() {
 		parent::complete();
