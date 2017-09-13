@@ -122,14 +122,22 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 *
 	 * Override if applicable, but ensure that the below actions are
 	 * performed, or, call parent::complete().
+	 *
+	 * @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
 	 */
 	protected function complete() {
 		
 		parent::complete();
 		
 		$this->clear_queue();
-		// Show notice to user or perform some other arbitrary task...
+		
 		$util = Utilities::get_instance();
+		
+		// @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
+		if ( false === delete_option( 'e20rpw_subscr_fetch_mutex' ) ) {
+			$util->add_message( __( 'Unable to clear lock after loading Subscription data', Payment_Warning::plugin_slug ), 'error', 'backend' );
+		}
+		
 		$util->log("Completed remote subscription data fetch for all active gateways");
 		// $util->add_message( __("Fetched payment data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
 	}
