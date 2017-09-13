@@ -152,6 +152,8 @@ class Handle_Messages extends E20R_Background_Process {
 	 * @return bool
 	 *
 	 * @access private
+	 *
+	 * @since 1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
 	 */
 	private function send_admin_notice( $type ) {
 		
@@ -209,8 +211,8 @@ class Handle_Messages extends E20R_Background_Process {
 		$user_list = '<div style="font-size: 11pt; font-style: italic;">';
 		
 		if ( ! empty( $users[ $today ] ) ) {
-			
-			$user_list .= implode( '<br/>', $users[ $today ] );
+			// @since 1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
+			$user_list .= implode( '<br/>', array_keys( $users[ $today ] ) );
 			
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
