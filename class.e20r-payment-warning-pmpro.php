@@ -315,7 +315,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// Clear cached values when discount code(s) get updated
 			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
 			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null );
+			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
 			
 			$util->log("Dropping the cache for delay & cron schedules due to a membership level being updated");
 		}
@@ -333,7 +333,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		    // Clear cached values when discount code(s) get updated
 		    Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
 		    Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-		    update_option( 'e20r_pw_next_gateway_check', null );
+		    update_option( 'e20r_pw_next_gateway_check', null, 'no' );
 		    
 		    $util->log("Dropping the cache for delay & cron schedules due to Discount Code being updated");
 		}

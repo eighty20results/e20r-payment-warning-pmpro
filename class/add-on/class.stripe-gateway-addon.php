@@ -838,7 +838,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
 			$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['is_active']}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], false );
+			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'no' );
 		}
 		
 		/**
