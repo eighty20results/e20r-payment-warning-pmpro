@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8.1
-    Stable tag: 1.9.1
+    Stable tag: 1.9.3
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,32 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.9.3
+
+* BUG FIX: Didn't update the version number for the DB after successfully upgraded
+* ENHANCEMENT: Adding DB v3 update
+
+###v1.9.2
+
+* BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
+* BUG FIX: Explicitly instantiate User_Data() class for expiration or recurring billing info when loading
+* BUG FIX: Didn't always load the required user records in get_all_user_records() method
+* BUG FIX: Make default reminder processing option be 'ccexpiration' (Credit Cards) since all other options explicitly set their data type (recurring, expiring)
+* BUG FIX: Make default user record type option be 'ccexpiration' (Credit Cards) since all other options explicitly set their data type (recurring, expiring)
+* BUG FIX: Didn't always set the level ID we should expect for the member
+* BUG FIX: DB uses MySQL date string, got timestamp from membership level setting (seconds since epoch)
+* BUG FIX: Didn't set the correct end of (active) membership date for non-recurring members
+* BUG FIX: Didn't return error if date is bad or empty in set_end_of_membership_date()
+* BUG FIX: Should process default send email action before anything that could modify it
+* BUG FIX: Would fail to send notifications for non-recurring members
+* BUG FIX: Wouldn't respect skip admin notice setting
+* ENHANCEMENT/FIX: Add end of membership date if subscription plan is cancelled
+* ENHANCEMENT: Use local membership enddate if no date is supplied to set_end_of_membership_date() method
+* ENHANCEMENT: Remove any instance of the charge or subscription record data
+* ENHANCEMENT: Force the reminder_type based on whether the membership (for the user) is recurring or not
+* ENHANCEMENT: More debug logging and status checks when clearing the background job queue for payment handler
+* ENHANCEMENT: Name add_local_order() more appropriately for something only processing subscriptions (add_local_subscription_order())
 
 ###v1.9.1
 

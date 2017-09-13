@@ -1,1 +1,2 @@
-BUG FIX: Didn't use the correct table name when updating the DB
+BUG FIX: Didn't update the version number for the DB after successfully upgraded
+ENHANCEMENT: Adding DB v3 update
