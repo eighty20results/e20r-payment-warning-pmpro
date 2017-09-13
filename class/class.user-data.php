@@ -314,13 +314,12 @@ class User_Data {
 	/**
 	 * Save the existing user data to the respective database table(s)
 	 *
-	 * @param string $type
-	 *
 	 * @return bool
 	 *
 	 * @since v1.9.1 ENHANCEMENT: Remove any instance of the charge or subscription record data
+	 * @since v1.9.4 ENHANCEMENT: No longer declaring the type of data to save (recurring/payment)
 	 */
-	public function save_to_db( $type = 'subscriptions' ) {
+	public function save_to_db() {
 		
 		global $wpdb;
 		$util      = Utilities::get_instance();
@@ -329,7 +328,7 @@ class User_Data {
 		$user_data = array();
 		$where     = array();
 		
-		$util->log( "Saving user data for {$this->user->ID}/type: {$type}" );
+		$util->log( "Saving user data for {$this->user->ID}" );
 		
 		if ( ! empty( $this->payment_currency ) && ( ! empty( $this->gateway_subscr_id ) || ! empty( $this->gateway_payment_id ) ) ) {
 			
@@ -673,6 +672,8 @@ class User_Data {
 	 * Configure the date when the membership access terminates for this user
 	 *
 	 * @param string $date A valid strtotime() date
+	 *
+	 * @since 1.9.4 - BUG FIX: Prevented from saving end of membership date due to typo in variable name
 	 */
 	public function set_end_of_membership_date( $date = null ) {
 		
@@ -698,12 +699,13 @@ class User_Data {
 		}
 		
 		// Test if $date is a valid date/time
-		if ( !empty($data) && false !== strtotime( $date, current_time( 'timestamp' ) ) ) {
+		// @since 1.9.4 - BUG FIX: Prevented from saving end of membership date due to typo in variable name
+		if ( !empty($date) && false !== strtotime( $date, current_time( 'timestamp' ) ) ) {
 			
-			$util->log("Saving {$date} as the enddate for this membership");
+			$util->log("Adding {$date} as the end-date for this membership");
 			$this->end_of_membership_date = $date;
 		} else {
-			$util->log( "Unable to save {$date} as the 'end of membership date' value" );
+			$util->log( "Unable to add {$date} as the 'end of membership date' value" );
 		}
 	}
 	
@@ -1078,6 +1080,7 @@ class User_Data {
 	 * @param bool $is_recurring
 	 *
 	 * @since 1.9.2 ENHANCEMENT: Force the reminder_type based on whether the membership (for the user) is recurring
+	 * @since 1.9.4 - BUG FIX: Typo in reminder_type supplied
 	 */
 	public function set_recurring_membership_status( $is_recurring = false ) {
 		
@@ -1091,8 +1094,9 @@ class User_Data {
 			$this->reminder_type = "recurring";
 		}
 		
+		// @since 1.9.4 - BUG FIX: Typo in reminder type supplied
 		if ( false === $this->has_local_recurring_membership ) {
-			$this->reminder_type = 'expiring';
+			$this->reminder_type = 'expiration';
 		}
 	}
 	
