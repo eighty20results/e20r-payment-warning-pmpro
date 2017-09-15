@@ -50,8 +50,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
+		 * @since 1.9.6 - ENHANCEMENT: Renamed get_remote_subscription_data() to configure_remote_subscription_data_fetch()
 		 */
-		public function get_remote_subscription_data() {
+		public function configure_remote_subscription_data_fetch() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
@@ -60,7 +61,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( 1 === $mutex ) {
 				
-				$util->log("Error: Remote subscription data fetch is already active. Not running!");
+				$util->log( "Error: Remote subscription data fetch is already active. Not running!" );
+				
 				return;
 			}
 			
@@ -81,8 +83,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
 			 */
 			if ( false === $this->get_all_user_records( 'recurring' ) ) {
-				$util->log("No records found for the remote payment data search");
+				$util->log( "No records found for the remote payment data search" );
 				$util->add_message( __( "No local records for expiring memberships found!", Payment_Warning::plugin_slug ), 'warning', 'backend' );
+				
 				return;
 			}
 			
@@ -153,8 +156,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_payment_data() from running more than once at a time
+		 * @since 1.9.6 - ENHANCEMENT: Renamed get_remote_payment_data() to configure_remote_payment_data_fetch()
 		 */
-		public function get_remote_payment_data() {
+		public function configure_remote_payment_data_fetch() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
@@ -163,7 +167,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( 1 === $mutex ) {
 				
-				$util->log("Error: Remote payment data fetch is already active. Stopping!");
+				$util->log( "Error: Remote payment data fetch is already active. Stopping!" );
+				
 				return;
 			}
 			
@@ -184,8 +189,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
 			 */
 			if ( false === $this->get_all_user_records( 'expiration' ) ) {
-				$util->log("No records found for the remote payment data search");
+				$util->log( "No records found for the remote payment data search" );
 				$util->add_message( __( "No local records for expiring memberships found!", Payment_Warning::plugin_slug ), 'warning', 'backend' );
+				
 				return;
 			}
 			
@@ -224,7 +230,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$util->log( "Saving and dispatching large number of payment workstreams in separate requests" );
 				$handler->save()->dispatch();
 				
-				update_option( 'e20rpw_paym_fetch_mutex', 1, 'no');
+				update_option( 'e20rpw_paym_fetch_mutex', 1, 'no' );
 				
 			} else {
 				
@@ -236,6 +242,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				if ( true === $run_gateway_fetch ) {
 					
 					$p_handler = $main->get_handler( 'payments' );
+					$p_handler->clear_queue();
 					
 					foreach ( $this->active_members as $user_data ) {
 						
@@ -246,7 +253,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$util->log( "Dispatch the background job for the payment data" );
 					$p_handler->save()->dispatch();
 					
-					update_option( 'e20rpw_paym_fetch_mutex', 1, 'no');
+					update_option( 'e20rpw_paym_fetch_mutex', 1, 'no' );
 				}
 			}
 		}
@@ -257,6 +264,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @return User_Data[]|bool
 		 *
 		 * @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members
+		 * @since v1.9.6 - ENHANCEMENT: Set cache timeout for active nonrecurring subscription data to 12 hours
 		 */
 		public function set_active_non_subscription_members() {
 			
@@ -284,7 +292,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$member_list = $wpdb->get_results( $active_sql );
 				$environment = pmpro_getOption( 'gateway_environment' );
 				
-				$utils->log( "Found " . count( $member_list ) . "active member records for non-subscribers" );
+				$utils->log( "Found " . count( $member_list ) . " active member records for non-subscribers" );
 				
 				foreach ( $member_list as $member ) {
 					
@@ -341,7 +349,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				// Save to cache
 				if ( ! empty( $this->active_members ) ) {
 					$utils->log( "Saving active member list to cache" );
-					Cache::set( 'active_norecurr_users', $this->active_members, HOUR_IN_SECONDS, Payment_Warning::cache_group );
+					Cache::set( 'active_norecurr_users', $this->active_members, 12 * 3600, Payment_Warning::cache_group );
 				}
 			}
 			
@@ -358,6 +366,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @since v1.9.4 - BUG FIX: Return record list from set_active_subscription_members()
 		 * @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future
+		 * @since v1.9.6 - ENHANCEMENT: Set cache duration to 12 hours for all_active_users
 		 */
 		public function set_active_subscription_members() {
 			
@@ -441,7 +450,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				// Save to cache
 				if ( ! empty( $this->active_members ) ) {
 					$utils->log( "Saving active member subscribers list to cache" );
-					Cache::set( 'active_subscr_users', $this->active_members, HOUR_IN_SECONDS, Payment_Warning::cache_group );
+					Cache::set( 'active_subscr_users', $this->active_members, 12 * 3600, Payment_Warning::cache_group );
 				}
 			}
 			
@@ -458,6 +467,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @return User_Data[]|bool
 		 *
 		 * @since v1.9.4 - BUG FIX: Return record list from set_all_active_members()
+		 * @since v1.9.6 - ENHANCEMENT: Set cache duration to last 12 hours
 		 */
 		public function set_all_active_members() {
 			
@@ -533,7 +543,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				// Save to cache
 				if ( ! empty( $this->active_members ) ) {
 					$utils->log( "Saving active member subscribers list to cache" );
-					Cache::set( 'all_active_users', $this->active_members, HOUR_IN_SECONDS, Payment_Warning::cache_group );
+					Cache::set( 'all_active_users', $this->active_members, 12 * 3600, Payment_Warning::cache_group );
 				}
 			}
 			
@@ -606,6 +616,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @since 1.9.2 BUG FIX: Didn't always load the required user records
 		 * @since 1.9.4 - BUG FIX: Would return whatever records were previously loaded if incorrect type was given!
+		 * @since v1.9.6 - ENHANCEMENT: Set cache duration to last 4 hours
 		 */
 		public function get_all_user_records( $type = 'ccexpiration' ) {
 			
@@ -615,24 +626,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( null === ( $this->active_members = Cache::get( "current_{$type}", Payment_Warning::cache_group ) ) ) {
 				
-				$util->log( "Loading {$type} records from DB" );
-				
-				$class = self::get_instance();
+				$util->log( "Loading {$type} records from Membership data" );
 				
 				switch ( $type ) {
 					case 'recurring':
-						$records = $class->set_active_subscription_members();
+						$records = $this->set_active_subscription_members();
 						break;
 					case 'expiration':
-						$records = $class->set_active_non_subscription_members();
+						$records = $this->set_active_non_subscription_members();
 						break;
 					case 'ccexpiration':
-						$records = $class->set_all_active_members();
+						$records = $this->set_all_active_members();
 						break;
 					default:
 						// @since 1.9.4 - BUG FIX: Would return whatever records were previously loaded if incorrect type was given!
-						$util->log("ERROR: Incorrect record type requested ({$type})!");
+						$util->log( "ERROR: Incorrect record type requested ({$type})!" );
 						$this->active_members = array();
+						
 						return false;
 				}
 				
@@ -673,11 +683,106 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				}
 				
 				if ( ! empty( $this->active_members ) ) {
-					Cache::set( "current_{$type}", $this->active_members, 5 * MINUTE_IN_SECONDS, Payment_Warning::cache_group );
+					Cache::set( "current_{$type}", $this->active_members, 4 * 3600, Payment_Warning::cache_group );
 				}
 			}
 			
 			return $this->active_members;
+		}
+		
+		/**
+		 * @param string $type
+		 *
+		 * @return bool|User_Data[]
+		 *
+		 * @since 1.9.6 - Add local fetch of user records
+		 */
+		public function get_local_user_data( $type = 'ccexpiration' ) {
+			global $wpdb;
+			
+			$utils     = Utilities::get_instance();
+			$user_list = array();
+			
+			$table_name  = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
+			$environment = pmpro_getOption( 'gateway_environment' );
+			
+			$utils->log( "Loading {$type} records from Membership data" );
+			
+			switch ( $type ) {
+				case 'recurring':
+					$sql = $wpdb->prepare( "
+							SELECT DISTINCT user_id, level_id, last_order_id
+								FROM {$table_name}
+								WHERE (user_payment_status = %s OR user_payment_status = %s) AND
+								reminder_type = %s AND
+								end_of_payment_period >= %s",
+						'active',
+						'success',
+						$type,
+						date_i18n( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
+					);
+					
+					break;
+				case 'expiration':
+					$sql = $wpdb->prepare( "
+							SELECT DISTINCT user_id, level_id, last_order_id
+								FROM {$table_name}
+								WHERE (user_payment_status = %s OR user_payment_status = %s) AND
+								reminder_type = %s AND
+								end_of_membership_date >= %s",
+						'active',
+						'success',
+						$type,
+						date_i18n( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
+					);
+					break;
+				case 'ccexpiration':
+					$utils->log( "WARNING: No processing to do for {$type} as of yet!" );
+					
+					return false;
+					break;
+				default:
+					
+					$utils->log( "ERROR: Incorrect record type requested ({$type})!" );
+					$this->active_members = array();
+					
+					return false;
+			}
+			
+			$members = $wpdb->get_results( $sql );
+			
+			$utils->log( "Processing local user data for {$type}" );
+			
+			foreach ( $members as $member ) {
+				
+				$user       = new \WP_User( $member->user_id );
+				$user       = self::set_membership_info( $user );
+				$last_order = new \MemberOrder();
+				
+				$last_order->getLastMemberOrder( $member->user_id, 'success', $member->level_id );
+				
+				if ( empty( $last_order->gateway_environment ) || ( isset( $last_order->gateway_environment ) && $environment !== $last_order->gateway_environment ) ) {
+					$utils->log( "Last order found used a different environment from the currently configured payment gateway environment ({$environment})" );
+					continue;
+				}
+				
+				if ( ! empty( $last_order->code ) ) {
+					$record = new User_Data( $user, $last_order, $type );
+					$record->maybe_load_from_db( $user->ID, $last_order->id,$member->level_id );
+					$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
+					
+				} else {
+					$record = new User_Data( $user, null, $type );
+					$record->maybe_load_from_db( $user->ID, null,$member->level_id );
+					$utils->log( "No pre-existing active order for {$user->ID}" );
+				}
+				
+				$user_list[] = $record;
+			}
+			
+			$utils->log( "Will have " . count( $user_list ) . " records to process for {$type} reminders" );
+			
+			return $user_list;
 		}
 		
 		/**
