@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 1.9.5
+Version: 1.9.6
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.9.5' );
+	define( 'E20R_PW_VERSION', '1.9.6' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -171,7 +171,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				add_action( 'e20r_pw_addon_activating_core', array( Cron_Handler::get_instance(), 'configure_cron_schedules' ), 10 );
 				add_action( 'e20r_pw_addon_deactivating_core', array( Cron_Handler::get_instance(), 'remove_cron_jobs' ), 10 );
 				
-				add_action( 'wp_mail_failed', 'E20R\Payment_Warning\Utilities\Email_Message::email_error_handler', 10 );
+				add_action( 'wp_mail_failed', 'E20R\Payment_Warning\Tools\Email_Message::email_error_handler', 10 );
 				
 				add_action( 'e20r_run_remote_data_update', array( Cron_Handler::get_instance(), 'fetch_gateway_payment_info') );
 				add_action( 'e20r_send_payment_warning_emails', array( Cron_Handler::get_instance(), 'send_reminder_messages' ) );
@@ -278,7 +278,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_action( 'wp_ajax_e20rpw_save_template', array( Editor::get_instance(), 'save_template' ) );
 			add_action( 'wp_ajax_e20rpw_reset_template', array( Editor::get_instance(), 'reset_template' ) );
 			
-			add_filter( 'e20r_pw_handler_substitution_variables', 'E20R\Payment_Warning\Utilities\Email_Message::default_variable_pairs', 10, 2);
+			add_filter( 'e20r_pw_message_substitution_variables',  'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3);
 			
 			$utils->log("Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons");
 			/** Add all module remote AJAX call actions */
@@ -287,8 +287,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// TODO: Testing actions (uncomment to include)
             if ( defined('WP_DEBUG') && true === WP_DEBUG ) {
 	         
-				add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'get_remote_subscription_data' ) );
-				add_action( 'wp_ajax_test_get_remote_payment', array( Fetch_User_Data::get_instance(), 'get_remote_payment_data' ) );
+				add_action( 'wp_ajax_test_get_remote_fetch', array( Fetch_User_Data::get_instance(), 'configure_remote_subscription_data_fetch' ) );
+				add_action( 'wp_ajax_test_get_remote_payment', array( Fetch_User_Data::get_instance(), 'configure_remote_payment_data_fetch' ) );
 				add_action( 'wp_ajax_test_fetch_remote_info', array( Cron_Handler::get_instance(), 'fetch_gateway_payment_info' ) );
 				add_action( 'wp_ajax_test_run_record_check', array( Payment_Reminder::get_instance(), 'process_reminders') );
 				add_action( 'wp_ajax_test_clear_cache', array( Fetch_User_Data::get_instance(), 'clear_member_cache') );
