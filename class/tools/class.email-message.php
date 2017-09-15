@@ -141,8 +141,14 @@ class Email_Message {
 				$data['payment_date'] = ! empty( $next_payment ) ? date_i18n( get_option( 'date_format' ), strtotime( $next_payment, current_time( 'timestamp' ) ) ) : 'Not found';
 				
 				$enddate = $this->user_info->get_end_of_membership_date();
-				$util->log( "Using {$enddate} as membership end date" );
-				$data['membership_ends'] = ( ! empty( $enddate ) ? $enddate : 'N/A' );
+				
+				if ( !empty( $enddate ) ) {
+					$formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
+					$util->log( "Using {$formatted_date} as membership end date" );
+					$data['membership_ends'] = $formatted_date;
+				} else {
+					$data['membership_ends'] = 'N/A';
+				}
 				
 				break;
 			
@@ -162,8 +168,14 @@ class Email_Message {
 				);
 				
 				$enddate = $this->user_info->get_end_of_membership_date();
-				$util->log( "Using {$enddate} as membership end date" );
-				$data['membership_ends'] = ! empty( $enddate ) ? $enddate : 'Not recorded';
+				
+				if ( !empty( $enddate ) ) {
+					$formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
+					$util->log( "Using {$formatted_date} as membership end date" );
+					$data['membership_ends'] = $formatted_date;
+				} else {
+					$data['membership_ends'] = 'Not recorded';
+				}
 				
 				break;
 			
@@ -321,6 +333,8 @@ class Email_Message {
 	 * @param string $type Message/Template type to send to the specified/defined user
 	 *
 	 * @return bool
+	 *
+	 * @since 1.9.6 - BUG FIX: Variable substitution for messages providing incorrect information
 	 */
 	public function send_message( $type ) {
 		
@@ -342,11 +356,12 @@ class Email_Message {
 		// Process possible message for user
 		if ( ! isset( $users[ $today ][ $to ] ) || ( isset( $users[ $today ][ $to ] ) && false == $users[ $today ][ $to ] ) ) {
 			
-			$variables = $this->configure_default_data( $type );
+			$variables = array();
 			
-			$this->set_variable_pairs( $variables, $type );
-			$util->log( "Using variables: " . print_r( $this->variables, true ) );
-			$this->replace_variable_text();
+			$variables = $this->configure_default_data( $type );
+			$util->log( "Using variables: " . print_r( $variables, true ) );
+			
+			$this->template_settings = $this->set_variable_pairs( $variables, $type );
 			$this->prepare_headers();
 			
 			$this->subject = apply_filters( 'e20r-payment-warning-email-subject', $this->template_settings['subject'], $type );
@@ -452,13 +467,52 @@ class Email_Message {
 	 *
 	 * @param array  $variables
 	 * @param string $type ( 'recurring' or 'expiration' )
+	 *
+	 * @return array
+	 *
+	 * @since 1.9.6 - ENHANCEMENT: Apply variable substitution via filter for template(s)/message type(s)
 	 */
 	public function set_variable_pairs( $variables, $type ) {
 		
-		$this->variables = apply_filters( 'e20r_pw_handler_substitution_variables', $variables, $type );
+		return apply_filters( 'e20r_pw_message_substitution_variables', $this->template_settings, $variables, $type );
 	}
 	
-	public static function default_variable_pairs( $variables, $type ) {
+	/**
+	 * The !!VARIABLE!! substitutions for the current template settings (body & subject of message)
+	 *
+	 * @param array $template_settings
+	 * @param array $variables
+	 * @param  string $type
+	 *
+	 * @return array
+	 *
+	 * @since 1.9.6 - ENHANCEMENT: Made replace_variable_text() function static & a filter hook
+	 */
+	public static function replace_variable_text( $template_settings, $variables, $type ) {
+		
+		$util = Utilities::get_instance();
+		$util->log( "Running the variable replacement process for the email messsage" );
+		
+		foreach ( $variables as $var => $value ) {
+			
+			$util->log( "Replacing !!{$var}!! with {$value}?" );
+			$template_settings['body']    = str_replace( "!!{$var}!!", $value, $template_settings['body'] );
+			$template_settings['subject'] = str_replace( "!!{$var}!!", $value, $template_settings['subject'] );
+		}
+		
+		return $template_settings;
+	}
+	
+	/**
+	 * Help text for supported message type specific substitution variables
+	 *
+	 * @param string $type
+	 *
+	 * @return array
+	 *
+	 * @since 1.9.6 - ENHANCEMENT: Added e20rpw_variable_help filter to result of default_variable_help()
+	 */
+	public static function default_variable_help( $type ) {
 		
 		$variables = array(
 			'name'                  => __( 'Display Name (User Profile setting) for the user receiving the message', Payment_Warning::plugin_slug ),
@@ -498,24 +552,9 @@ class Email_Message {
 				break;
 		}
 		
-		return $variables;
+		return apply_filters( 'e20rpw_variable_help', $variables, $type );
 	}
 	
-	/**
-	 * The !!VARIABLE!! substitutions for the current template body message
-	 */
-	public function replace_variable_text() {
-		
-		$util = Utilities::get_instance();
-		$util->log( "Running the variable replacement process for the email messsage" );
-		
-		foreach ( $this->variables as $var => $value ) {
-			
-			$util->log( "Replacing !!{$var}!! with {$value}?" );
-			$this->template_settings['body']    = str_replace( "!!{$var}!!", $value, $this->template_settings['body'] );
-			$this->template_settings['subject'] = str_replace( "!!{$var}!!", $value, $this->template_settings['subject'] );
-		}
-	}
 	
 	public function get_template_type() {
 		return $this->template_settings['type'];
