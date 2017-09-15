@@ -151,6 +151,8 @@ class User_Data {
 	 * @param null $order_id
 	 * @param null $level_id
 	 * @param bool $skip
+	 *
+	 * @since 1.9.6 - BUG FIX: Would load credit cards in an unexpected format causing double-save operations
 	 */
 	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null, $skip = false ) {
 		
@@ -221,7 +223,13 @@ class User_Data {
 			date( 'Y', current_time( 'timestamp' ) )
 		);
 		
-		$this->credit_card = $wpdb->get_results( $cc_sql, ARRAY_A );
+		// @since 1.9.6 - BUG FIX: Would load credit cards in an unexpected format causing double-save operations
+		$credit_cards = $wpdb->get_results( $cc_sql, ARRAY_A );
+		
+		foreach( $credit_cards as $card ) {
+			$this->add_card( $card['brand'], $card['last4'], $card['exp_month'], $card['exp_year'] );
+		}
+		
 		$util->log( "Loaded " . count( $this->credit_card ) . " credit card(s) for {$user_id}" );
 		
 		if ( isset( $this->modified ) ) {
@@ -448,14 +456,14 @@ class User_Data {
 			$util->log( "We " . ( empty( $exists ) ? 'inserted' : 'updated' ) . " the record for {$this->user->ID}." );
 		}
 		
-		$util->log( "Attempt to save payment info for {$this->user->ID}" );
+		$util->log( "Attempt to save payment source info for {$this->user->ID}? " . ( empty($this->credit_card) ? 'No' : 'Yes') );
 		
 		// Save credit card info for user
 		foreach ( $this->credit_card as $card_id => $card_data ) {
 			
 			if ( is_a( $card_data, 'stdClass' ) ) {
 				
-				$util->log( "Processing card for (" . $this->get_user_ID() . "): " . print_r( $card_data, true ) );
+				$util->log( "Processing card for (" . $this->get_user_ID() . ") - stdClass given" );
 				$last4 = isset( $card_data->last4 ) ? $card_data->last4 : $card_data->card_id;
 				
 				$cc_info = array(
@@ -475,7 +483,7 @@ class User_Data {
 			
 			if ( is_array( $card_data ) ) {
 				
-				$util->log( "Processing card for (" . $this->get_user_ID() . "): " . print_r( $card_data, true ) );
+				$util->log( "Processing card for (" . $this->get_user_ID() . ") - array given " );
 				$last4 = isset( $card_data['last4'] ) ? $card_data['last4'] : $card_data['card_id'];
 				
 				$cc_info = array(
@@ -724,6 +732,10 @@ class User_Data {
 	 * @return null|string
 	 */
 	public function get_end_of_membership_date() {
+		
+		$utils = Utilities::get_instance();
+		$utils->log("Using {$this->end_of_membership_date} as the end of membership date for {$this->user->ID}");
+		
 		return $this->end_of_membership_date;
 	}
 	
@@ -932,12 +944,14 @@ class User_Data {
 		$key  = preg_replace( '/\s/', '', $brand );
 		$util->log( "Saving {$key}_{$last4} info" );
 		
-		$this->credit_card["{$key}_{$last4}"] = array(
-			'brand'     => $brand,
-			'last4'     => $last4,
-			'exp_month' => $month,
-			'exp_year'  => $year,
-		);
+		if ( !in_array( $key, $this->credit_card ) ) {
+			$this->credit_card["{$key}_{$last4}"] = array(
+				'brand'     => $brand,
+				'last4'     => $last4,
+				'exp_month' => $month,
+				'exp_year'  => $year,
+			);
+		}
 	}
 	
 	/**
@@ -1180,8 +1194,8 @@ class User_Data {
 	
 	public function get_level_name() {
 		
-		if ( isset( $this->user->membership_level->name ) ) {
-			return $this->user->membership_level->name;
+		if ( isset( $this->user->current_membership_level->name ) ) {
+			return $this->user->current_membership_level->name;
 		}
 		
 		return null;
@@ -1418,11 +1432,11 @@ class User_Data {
 	 */
 	public function is_payment_paid( $status, $description ) {
 		
-		if ( $status == true ) {
+		if ( true === $status ) {
 			
 			$this->is_payment_paid     = true;
 			$this->is_delinquent       = false;
-			$this->user_payment_status = 'success';
+			$this->user_payment_status = 'active';
 			$this->failure_description = null;
 		} else {
 			$this->is_payment_paid     = false;
