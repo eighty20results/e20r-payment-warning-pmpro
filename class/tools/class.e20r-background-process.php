@@ -82,6 +82,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected $second_queue;
 		
 		/**
+		 * Lock duration for queue
+		 *
+		 * @var int
+		 */
+		protected $queue_lock_time = 60;
+		
+		/**
 		 * Initiate new background process
 		 */
 		public function __construct() {
@@ -132,12 +139,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		public function save() {
 			
 			$key = $this->generate_key();
+			$utils = Utilities::get_instance();
 			
 			if ( ! empty( $this->data ) ) {
 				
+				$utils->log("Found " . count( $this->data ) . " entries to process for {$key}");
 				$existing_data = get_option( $key );
 				
 				if ( ! empty( $existing_data ) ) {
+					$utils->log("Have to add " . count( $existing_data ) . " entries from {$key}");
 					$this->data = array_merge( $existing_data, $this->data );
 				}
 				
@@ -246,25 +256,37 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected function is_queue_empty() {
 			
 			global $wpdb;
+			$utils = Utilities::get_instance();
 			
 			$table  = $wpdb->options;
 			$column = 'option_name';
+			$value_column = 'option_value';
 			/*
 						if ( is_multisite() ) {
 							$table  = $wpdb->sitemeta;
 							$column = 'meta_key';
 						}
 			*/
-			$key = $this->identifier . '_batch_%';
+			$key = "{$this->identifier}_batch_%";
 			
-			$count = $wpdb->get_var( $wpdb->prepare( "
-			SELECT COUNT(*)
-				FROM {$table}
-				WHERE {$column} LIKE %s AND option_value != ''",
-				$key )
+			$utils->log("Checking for content in {$key} variable from {$table} in {$column} while looking for {$value_column}");
+			
+			$sql = $wpdb->prepare( "
+					SELECT COUNT(*)
+					FROM {$table}
+						WHERE {$column} LIKE %s
+						AND {$value_column} != ''",
+				$key
 			);
 			
-			return ( $count > 0 ) ? false : true;
+			$count = $wpdb->get_var( $sql	);
+			
+			$utils->log("Found {$count} entries" );
+			return ( intval($count ) > 0 ) ? false : true;
+		}
+		
+		public function get_active_queue() {
+			return $this->active_queue;
 		}
 		
 		/**
@@ -288,13 +310,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected function is_queue_active( $queue_id ) {
 			
 			global $wpdb;
-			$utils = \E20R\Utilities\Utilities::get_instance();
+			$utils = Utilities::get_instance();
 			
 			$lock_transient = "_transient_{$this->identifier}_process_lock";
+			$table  = $wpdb->options;
+			$column = 'option_name';
+			$value_column = 'option_value';
 			
 			$sql = $wpdb->prepare(
-				"SELECT option_value FROM {$wpdb->options}
-					WHERE option_name LIKE %s",
+				"SELECT {$column} FROM {$table}
+					WHERE {$column} LIKE %s",
 				$lock_transient
 			);
 			
@@ -356,7 +381,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		 */
 		protected function unlock_process() {
 			
-			delete_transient( "{$this->identifier}_process_lock" );
+			$utils = Utilities::get_instance();
+			
+			if ( false === delete_transient( "{$this->identifier}_process_lock" ) ) {
+				$utils->log("Unable to delete {$this->identifier}_process_lock!!!");
+			}
 			
 			return $this;
 		}
@@ -369,6 +398,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected function get_batch() {
 			
 			global $wpdb;
+			
+			$utils = Utilities::get_instance();
 			
 			$table        = $wpdb->options;
 			$column       = 'option_name';
@@ -392,11 +423,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 				$key )
 			);
 			
+			$utils->log("Will fetch batch: {$query->{$column}}");
+			
 			$batch       = new \stdClass();
 			$batch->key  = $query->{$column};
 			$batch->data = maybe_unserialize( $query->{$value_column} );
 			
 			$this->active_queue = substr( $batch->key, - 1 );
+			$utils->log("Using queue name: {$this->active_queue} and processing " . count( $batch->data ) . " batch entries");
 			$this->update_lock();
 			
 			return $batch;
@@ -411,6 +445,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected function handle() {
 			
 			$this->lock_process();
+			$utils = Utilities::get_instance();
 			
 			do {
 				$batch = $this->get_batch();
@@ -423,9 +458,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 						$batch->data[ $key ] = $task;
 					} else {
 						unset( $batch->data[ $key ] );
+						$utils->log( "Removed task with Key {$key} - We have " . count($batch->data) . " tasks left...");
 					}
 					
 					if ( $this->time_exceeded() || $this->memory_exceeded() ) {
+						$utils->log("We've exceeded the time or memory limits");
 						// Batch limits reached.
 						break;
 					}
@@ -439,7 +476,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 					$this->delete( $batch->key );
 				}
 				
-			} while ( ! $this->time_exceeded() && ! $this->memory_exceeded() && ! $this->is_queue_empty() );
+			} while ( ! $this->time_exceeded() && ! $this->memory_exceeded() && ! $this->is_queue_empty() && ! empty( $this->batch ) );
 			
 			$this->unlock_process();
 			
@@ -544,6 +581,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		 */
 		public function increase_lock_timeout( $lock_duration ) {
 			
+			$utils = Utilities::get_instance();
+			
 			$current_timeout    = intval( ini_get( 'max_execution_time' ) );
 			$default_time_limit = 20;
 			
@@ -562,6 +601,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 				$lock_duration = $default_time_limit;
 			}
 			
+			$utils->log("Setting lock duration to: {$lock_duration}");
+			
 			return $lock_duration;
 		}
 		
@@ -574,6 +615,31 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		protected function complete() {
 			// Unschedule the cron healthcheck.
 			$this->clear_scheduled_event();
+		}
+		
+		/**
+		 * Clear queue of entries for the handler
+		 */
+		public function clear_queue() {
+			
+			$utils = Utilities::get_instance();
+			
+			global $wpdb;
+			
+			$table  = $wpdb->options;
+			$column = 'option_name';
+			
+			if ( is_multisite() ) {
+				$table  = $wpdb->sitemeta;
+				$column = 'meta_key';
+			}
+			
+			$key = $this->identifier . "_batch_%";
+			$utils->log("Attempting to manually clear the job queue for {$key}. Has " . count( $this->data ) . " data/job entries left");
+			
+			if ( false === $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE {$column} LIKE %s", $key ) ) ) {
+				$utils->log("ERROR: Unable to clear the job queue for {$key}!");
+			}
 		}
 		
 		/**
