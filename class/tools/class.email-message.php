@@ -335,6 +335,7 @@ class Email_Message {
 	 * @return bool
 	 *
 	 * @since 1.9.6 - BUG FIX: Variable substitution for messages providing incorrect information
+	 * @since 1.9.7 - BUG FIX: Extra slashes in Subject
 	 */
 	public function send_message( $type ) {
 		
@@ -364,7 +365,8 @@ class Email_Message {
 			$this->template_settings = $this->set_variable_pairs( $variables, $type );
 			$this->prepare_headers();
 			
-			$this->subject = apply_filters( 'e20r-payment-warning-email-subject', $this->template_settings['subject'], $type );
+			/** @since 1.9.7 - BUG FIX: Extra slashes in subject */
+			$this->subject = apply_filters( 'e20r-payment-warning-email-subject', wp_unslash($this->template_settings['subject'] ), $type );
 			
 			$util->log( "Sending message to {$to} -> " . $this->subject );
 			$status = wp_mail( $to, $this->subject, wp_unslash( $this->template_settings['body'] ), $this->headers );
