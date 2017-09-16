@@ -713,7 +713,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				'value'         => null,
 				'email_field'   => "license_email",
 				'email_value'   => null,
-				'placeholder'   => sprintf( __( "Paste the purchased %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
+				'placeholder'   => sprintf( __( "Paste Payment Warning %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
 			);
 			
 			return $license_settings;
@@ -1623,7 +1623,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				'validation_callback' => array( $this, 'validate_settings' ),
 			);
 			
-			$utils->log( " Loading settings for..." . print_r( $settings, true ) );
+			// $utils->log( " Loading settings for..." . print_r( $settings, true ) );
 			
 			$settings['section'] = array(
 				array(

@@ -366,7 +366,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 		 *
 		 * @return array
 		 */
-		public function add_new_license_info( $license_settings ) {
+		public function add_new_license_info( $license_settings, $plugin_settings ) {
 			
 			global $e20r_pw_addons;
 			
@@ -390,7 +390,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\PayPal_Express_Gateway_Addon' )
 				'value'         => null,
 				'email_field'   => "license_email",
 				'email_value'   => null,
-				'placeholder'   => sprintf( __( "Paste the purchased Payment Warning: %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
+				'placeholder'   => sprintf( __( "Paste Payment Warning %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
 			);
 			
 			return $license_settings;

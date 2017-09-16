@@ -151,7 +151,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 				'value'         => null,
 				'email_field'   => "license_email",
 				'email_value'   => null,
-				'placeholder'   => sprintf( __( "Paste the purchased Payment Warning %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
+				'placeholder'   => sprintf( __( "Paste Payment Warning %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
 			);
 			
 			return $license_settings;
