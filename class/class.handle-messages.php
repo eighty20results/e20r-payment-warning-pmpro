@@ -101,7 +101,7 @@ class Handle_Messages extends E20R_Background_Process {
 				$send = $message->should_send( $check_date, $interval_day, $template_type );
 			}
 			
-			$util->log( "Should we send {$user_id} the {$template_type} email message? " . ( $send ? 'Yes' : 'No' ) );
+			$util->log( "Should we send {$user_id} the {$template_type} email message for the {$interval_day} interval? " . ( $send ? 'Yes' : 'No' ) );
 			
 			if ( true === $send ) {
 				$util->log( "Preparing the message to {$user_id}" );
@@ -122,15 +122,16 @@ class Handle_Messages extends E20R_Background_Process {
 	protected function complete() {
 		
 		parent::complete();
-		// Show notice to user or perform some other arbitrary task...
 		
 		$this->send_admin_notice( 'recurring' );
 		$this->send_admin_notice( 'expiration' );
 		// $this->send_admin_notice( 'creditcard' ); // TODO: Enable the admin notice for credit card expiration warnings
 		
 		$util = Utilities::get_instance();
-		$now  = date_i18n( 'H:i:s (m-d)', strtotime( get_option( 'timezone_string' ) ) );
+		$now  = date_i18n( 'H:i:s (m/d)', strtotime( get_option( 'timezone_string' ) ) );
 		$util->log( "Completed message transmission operations: {$now}" );
+		
+		$this->clear_queue();
 		
 		if ( true === apply_filters( 'e20rpw_show_completion_info_banner', false ) ) {
 			$util->add_message(

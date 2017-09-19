@@ -26,6 +26,7 @@ namespace E20R\Payment_Warning\Tools;
  * @package WP-Background-Processing
  *
  * @credit https://github.com/A5hleyRich/wp-background-processing
+ * @since 1.9.6 - ENHANCEMENT: Added fixes and updates from EWWW Image Optimizer code
  */
 if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 	/**
@@ -42,7 +43,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 		 * @var string
 		 * @access protected
 		 */
-		protected $prefix = 'e20r_ar';
+		protected $prefix = 'e20r';
 		/**
 		 * Action
 		 *
@@ -74,7 +75,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 		protected $query_url;
 		
 		protected $post_args;
-		
 		/**
 		 * Initiate new async request
 		 */
@@ -83,7 +83,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 			add_action( 'wp_ajax_' . $this->identifier, array( $this, 'maybe_handle' ) );
 			add_action( 'wp_ajax_nopriv_' . $this->identifier, array( $this, 'maybe_handle' ) );
 		}
-		
 		/**
 		 * Set data used during the request
 		 *
@@ -93,10 +92,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 		 */
 		public function data( $data ) {
 			$this->data = $data;
-			
 			return $this;
 		}
-		
 		/**
 		 * Dispatch the async request
 		 *
@@ -108,7 +105,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 			
 			return wp_remote_post( esc_url_raw( $url ), $args );
 		}
-		
 		/**
 		 * Get query args
 		 *
@@ -124,7 +120,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 				'nonce'  => wp_create_nonce( $this->identifier ),
 			);
 		}
-		
 		/**
 		 * Get query URL
 		 *
@@ -137,7 +132,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 			
 			return admin_url( 'admin-ajax.php' );
 		}
-		
 		/**
 		 * Get post args
 		 *
@@ -156,7 +150,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
 			);
 		}
-		
 		/**
 		 * Maybe handle
 		 *
@@ -166,23 +159,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 			// Don't lock up other requests while processing
 			session_write_close();
 			check_ajax_referer( $this->identifier, 'nonce' );
+			
 			$this->handle();
+			
 			wp_die();
 		}
-		
-		public function deactivate() {
-			
-			global $wpdb;
-			$table  = $wpdb->options;
-			$column = 'option_name';
-			if ( is_multisite() ) {
-				$table  = $wpdb->sitemeta;
-				$column = 'meta_key';
-			}
-			$sql = "DELETE FROM {$wpdb->options} WHERE {$column} LIKE '{$this->prefix}_%_batch_%'";
-			$wpdb->query( $sql );
-		}
-		
 		/**
 		 * Handle
 		 *

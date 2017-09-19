@@ -340,9 +340,9 @@ class Cron_Handler {
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
-			$fetch_data->get_remote_subscription_data();
+			$fetch_data->configure_remote_subscription_data_fetch();
 			$util->log( "Triggered remote subscription fetch configuration" );
-			$fetch_data->get_remote_payment_data();
+			$fetch_data->configure_remote_payment_data_fetch();
 			$util->log( "Triggered remote payment (expiring memberships) fetch configuration" );
 			
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );

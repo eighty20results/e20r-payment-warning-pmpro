@@ -214,7 +214,7 @@ class Editor {
 		
 		$util = Utilities::get_instance();
 		
-		$util->log( "Loading Message templates for {$template_name}:" );
+		$util->log( "Loading Message templates for {$template_name}" );
 		
 		// TODO: Load existing PMPro templates that apply for this editor
 		$pmpro_email_templates = apply_filters( 'pmproet_templates', array() );

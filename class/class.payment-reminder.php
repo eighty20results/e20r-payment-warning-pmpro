@@ -126,9 +126,9 @@ class Payment_Reminder {
 	/**
 	 * Task handler for Payment email reminders/notices
 	 *
-	 * @param string $type
+	 * @param string|null $type
 	 */
-	public function process_reminders( $type = 'ccexpiration' ) {
+	public function process_reminders( $type = null ) {
 		
 		$util = Utilities::get_instance();
 		
@@ -136,12 +136,24 @@ class Payment_Reminder {
 		
 		// Set the default type to recurring if not received
 		if ( empty( $type ) ) {
-			$type = 'recurring';
+			$type = 'ccexpiration';
+		}
+		
+		switch( $type ) {
+			case 'expiration':
+				$target_template = 'expiring';
+				break;
+			case 'recurring':
+				$target_template = 'recurring';
+				break;
+			case 'ccexpiration':
+				$target_template = 'ccexpiring';
+				break;
 		}
 		
 		$fetch           = Fetch_User_Data::get_instance();
 		$main            = Payment_Warning::get_instance();
-		$users           = $fetch->get_all_user_records( $type );
+		$users           = $fetch->get_local_user_data( $type );
 		$templates       = Editor::get_templates_of_type( $type );
 		$message_handler = $main->get_handler( 'messages' );
 		
@@ -149,6 +161,11 @@ class Payment_Reminder {
 		$this->set_users( $users );
 		
 		foreach ( $templates as $template_name ) {
+			
+			if ( false == preg_match( "/^{$target_template}_/", $template_name ) ) {
+				$util->log("Template {$template_name} doesn't belong to {$target_template}/{$type}. Nothing to do.");
+				continue;
+			}
 			
 			$this->template_name = $template_name;
 			

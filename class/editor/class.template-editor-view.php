@@ -20,6 +20,7 @@
 namespace E20R\Payment_Warning\Editor;
 
 use E20R\Payment_Warning\Payment_Warning;
+use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
 
 class Template_Editor_View {
@@ -251,6 +252,13 @@ class Template_Editor_View {
 		}
 	}
 	
+	/**
+     * Add Help info for Subsitution variables
+     *
+	 * @param string $type
+     *
+     * @since 1.9.6 - ENHANCEMENT: Uses static Email_Message::default_variable_help() function
+	 */
 	public static function add_placeholder_variables( $type ) {
 	    ?>
         <style>
@@ -259,7 +267,7 @@ class Template_Editor_View {
         </style>
         <dl>
             <?php
-            $variable_settings = apply_filters( 'e20r_pw_handler_substitution_variables', array(), $type );
+            $variable_settings = Email_Message::default_variable_help( $type );
             foreach( $variable_settings as $name => $description ) {
                 ?><dt>!!<?php esc_attr_e( $name ); ?>!!</dt>
                 <dd><?php esc_attr_e( $description ); ?></dd>

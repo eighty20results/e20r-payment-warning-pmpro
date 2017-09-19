@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8.1
-    Stable tag: 1.9.4
+    Stable tag: 1.9.7
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,63 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.9.7
+
+* ENHANCEMENT: Added array_isnt_empty() function which returns true if the array contains values (can still fail an '! empty()' call)
+* ENHANCEMENT: Simplify placeholder text for license input
+* BUG FIX: Problems when activating or managing multiple licenses from different plugin entities at the same time.
+* BUG FIX: Extra slashes in Subject
+* BUG FIX: Support new argument for e20r-license-add-new-licenses filter
+* BUG FIX: Would fail to save/activate valid licenses in certain situations
+
+###v1.9.6
+
+* BUG FIX: Didn't always appear to clear job from queue on successful save during payment processing
+* BUG FIX: Would sometimes double up the times it processed a non-recurring payment record
+* BUG FIX: Would load credit cards in an unexpected format causing double-save operations
+* BUG FIX: Doubly certain we won't attempt to save the CC info twice
+* BUG FIX: Didn't return the correct/a membership level name
+* BUG FIX: Didn't use a consistent user_payment_status value ('active')
+* BUG FIX: Variable substitution for messages providing incorrect information
+* BUG FIX: Would sometimes process same batch twice
+* BUG FIX: Queue lock time variable wasn't initialized anywhere
+* BUG FIX: Would load too many templates to process messages for
+* BUG FIX: Incorrect namespace for Email_Message class action handlers
+* ENHANCEMENT: Update debug enabled AJAX handler
+* ENHANCEMENT: Load data from local DB, _not_ upstream, when processing messages
+* ENHANCEMENT: Using new names for configure_remote_subscription_data_fetch() and configure_remote_payment_data_fetch() in Cron_Handler
+* ENHANCEMENT: Renamed get_remote_subscription_data() to configure_remote_subscription_data_fetch()
+* ENHANCEMENT: Renamed get_remote_payment_data() to configure_remote_payment_data_fetch()
+* ENHANCEMENT: Set cache timeout for active nonrecurring subscription data to 12 hours
+* ENHANCEMENT: Set cache duration to 12 hours for active_subscr_users
+* ENHANCEMENT: Set cache duration to 12 hours for all_active_users
+* ENHANCEMENT: Set cache duration to last 4 hours for current_{$type} (type specific) current records
+* ENHANCEMENT: Use local DB lookup (e20rpw_user_info table) for reminder/expiration notices
+* ENHANCEMENT: Refactor and move clear_queue() to parent class (E20R_Background_Process)
+* ENHANCEMENT: Refreshed Utilities tools/classes
+* ENHANCEMENT: Added fixes and updates from EWWW Image Optimizer code to background processing classes
+* ENHANCEMENT: Clear the message queue for the messages background handler
+* ENHANCEMENT: Refactor and move clear_queue() to parent class (E20R_Background_Process)
+* ENHANCEMENT: Transitioning to Utlities submodule (github) and License/Client_License classes for addon gateways
+* ENHANCEMENT: More descriptive placeholder for new license input
+* ENHANCEMENT: Uses static Email_Message::default_variable_help() function
+* ENHANCEMENT: Add PHPDoc for add_placeholder_variables()
+* ENHANCEMENT: Renamed get_remote_subscription_data() to configure_remote_subscription_data_fetch()
+* ENHANCEMENT: Renamed get_remote_payment_data() to configure_remote_payment_data_fetch()
+* ENHANCEMENT: Use configured date format for membership end date in email notices
+* ENHANCEMENT: Apply variable substitution via filter for template(s)/message type(s)
+* ENHANCEMENT: Made replace_variable_text() function static & a filter hook
+* ENHANCEMENT: Added e20rpw_variable_help filter to result of default_variable_help()
+* ENHANCEMENT: Add get_active_queue() method
+* ENHANCEMENT: Account for differences between single site & multisite columns in DB
+* ENHANCEMENT: Add error checking for unlock_process()
+* ENHANCEMENT: Add clear_queue() to core (parent) function
+
+###v1.9.5
+
+* BUG FIX: Only load active and non-recurring billing members
+* BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the futur
 
 ###v1.9.4
 
