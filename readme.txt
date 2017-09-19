@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.8.1
-Stable tag: 1.9.6
+Stable tag: 1.9.7
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,15 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.9.7 ==
+
+* ENHANCEMENT: Added array_isnt_empty() function which returns true if the array contains values (can still fail an '! empty()' call)
+* ENHANCEMENT: Simplify placeholder text for license input
+* BUG FIX: Problems when activating or managing multiple licenses from different plugin entities at the same time.
+* BUG FIX: Extra slashes in Subject
+* BUG FIX: Support new argument for e20r-license-add-new-licenses filter
+* BUG FIX: Would fail to save/activate valid licenses in certain situations
 
 == v1.9.6 ==
 
