@@ -313,6 +313,7 @@ class Cron_Handler {
 		$util = Utilities::get_instance();
 		
 		$not_first_run = get_option( 'e20r_pw_firstrun_gateway_check', false );
+		$schedule_next_run = 0;
 		
 		if ( false == $not_first_run ) {
 			$util->log( "Not running on startup!" );
@@ -324,13 +325,18 @@ class Cron_Handler {
 		$util->log( "Running remote data update handler (cron job)" );
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
-		if ( is_null( $next_run ) ) {
+		if ( empty( $next_run ) ) {
 			$util->log( "No next run value located in options. Checking scheduled cron jobs manually" );
-			$next_run = $this->configure_cron_schedules();
+			$schedule_next_run = $this->configure_cron_schedules();
 		}
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
 		$override_schedule    = apply_filters( 'e20r_payment_warning_schedule_override', false );
+		
+		if ( empty( $next_run ) && ( $schedule_next_run > ( current_time('timestamp') + DAY_IN_SECONDS ) ) ) {
+			$override_schedule = true;
+			$next_run = $schedule_next_run;
+		}
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
@@ -340,11 +346,16 @@ class Cron_Handler {
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
+			
+			// Trigger fetch of subscription data from Payment Gateways
 			$fetch_data->configure_remote_subscription_data_fetch();
 			$util->log( "Triggered remote subscription fetch configuration" );
+			
+			// Trigger fetch of one-time payment data from Payment Gateways
 			$fetch_data->configure_remote_payment_data_fetch();
 			$util->log( "Triggered remote payment (expiring memberships) fetch configuration" );
 			
+			// Configure when to run this job the next time
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
 			$next_ts                         = ( $this->next_scheduled( $default_data_collect_start_time ) - ( 60 * MINUTE_IN_SECONDS ) );
 			
