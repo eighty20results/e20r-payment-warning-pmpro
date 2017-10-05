@@ -1,6 +1,3 @@
-ENHANCEMENT: Added array_isnt_empty() function which returns true if the array contains values (can still fail an "! empty()" call)
-ENHANCEMENT: Simplify placeholder text for license input
-BUG FIX: Problems when activating or managing multiple licenses from different plugin entities at the same time.
-BUG FIX: Extra slashes in Subject
-BUG FIX: Support new argument for e20r-license-add-new-licenses filter
-BUG FIX: Would fail to save/activate valid licenses in certain situations
+ENHANCEMENT: Add monitoring for background data collection job
+ENHANCEMENT: Clear mutex (lock) options (if they exists) once the background jobs are done/have completed
+ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection status

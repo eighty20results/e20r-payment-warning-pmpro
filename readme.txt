@@ -2,8 +2,8 @@
 Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
-Tested up to: 4.8.1
-Stable tag: 1.9.7
+Tested up to: 4.8.2
+Stable tag: 1.9.9
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,17 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v1.9.9 ==
+
+* ENHANCEMENT: Add monitoring for background data collection job
+* ENHANCEMENT: Clear mutex (lock) options (if they exists) once the background jobs are done/have completed
+* ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection status
+
+== v1.9.8 ==
+
+* BUG FIX: Didn't trigger remote data update
+* ENHANCEMENT: Updated Utilities/Licensing modules
 
 == v1.9.7 ==
 
