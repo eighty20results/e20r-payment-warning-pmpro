@@ -307,6 +307,7 @@ class Cron_Handler {
 	 * Cron job handler for Fetching upstream Payment Gateway data
 	 *
 	 * @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
+	 * @since 1.9.11 - REFACTOR: Moved monitoring for background data collection job to fetch_gateway_payment_info action
 	 */
 	public function fetch_gateway_payment_info() {
 		
@@ -342,6 +343,15 @@ class Cron_Handler {
 		if ( empty( $next_run ) && ( $schedule_next_run > ( current_time( 'timestamp' ) + DAY_IN_SECONDS ) ) ) {
 			$override_schedule = true;
 			$next_run          = $schedule_next_run;
+		}
+		
+		/**
+		 * @since 1.9.11 REFACTOR: Moved monitoring for background data collection job to cron action
+		 */
+		if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
+			
+			$util->log("Adding mutext/job monitoring");
+			wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
 		}
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
