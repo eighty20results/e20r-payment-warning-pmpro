@@ -55,6 +55,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.9 - ENHANCEMENT: Add monitoring for background data collection job
 		 * @since 1.9.10 - ENHANCEMENT: Also add monitoring if the mutex is set
 		 * @since 1.9.10 - BUG FIX: Delay first execution of monitoring action
+		 * @since 1.9.11 - BUG FIX: Moved monitoring cron job scheduler to Cron_Handler class
 		 */
 		public function configure_remote_subscription_data_fetch() {
 			
@@ -64,24 +65,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( 1 === $mutex ) {
 				
-				// Make sure this isn't a carry-over that shouldn't be there
-				if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
-					
-					$util->log("Adding mutext/job monitoring");
-					wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
-				}
-				
 				$util->log( "Error: Remote subscription data fetch is already active. Refusing to run!" );
 				return;
-			}
-			
-			/**
-			 * @since 1.9.9 ENHANCEMENT: Add monitoring for background data collection job
-			 */
-			if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
-				
-				$util->log("Adding mutext/job monitoring");
-				wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
 			}
 			
 			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
