@@ -178,7 +178,7 @@ class Cron_Handler {
 		
 		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
 		
-		$message_when = $this->next_scheduled( $default_send_message_start_time, true);
+		$message_when = $this->next_scheduled( $default_send_message_start_time, true );
 		
 		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
 		
@@ -306,13 +306,13 @@ class Cron_Handler {
 	/**
 	 * Cron job handler for Fetching upstream Payment Gateway data
 	 *
-	 *  @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
+	 * @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
 	 */
 	public function fetch_gateway_payment_info() {
 		
 		$util = Utilities::get_instance();
 		
-		$not_first_run = get_option( 'e20r_pw_firstrun_gateway_check', false );
+		$not_first_run     = get_option( 'e20r_pw_firstrun_gateway_check', false );
 		$schedule_next_run = 0;
 		
 		if ( false == $not_first_run ) {
@@ -325,35 +325,42 @@ class Cron_Handler {
 		$util->log( "Running remote data update handler (cron job)" );
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
+		$util->log( "Next run value found in options? ({$next_run})" );
+		
 		if ( empty( $next_run ) ) {
 			$util->log( "No next run value located in options. Checking scheduled cron jobs manually" );
 			$schedule_next_run = $this->configure_cron_schedules();
 		}
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
-		$override_schedule    = apply_filters( 'e20r_payment_warning_schedule_override', false );
+		$override_schedule = apply_filters( 'e20r_payment_warning_schedule_override', false );
 		
-		if ( empty( $next_run ) && ( $schedule_next_run > ( current_time('timestamp') + DAY_IN_SECONDS ) ) ) {
+		/**
+		 * @since 1.9.8 - ENHANCEMENT: Trigger run if there isn't a scheduled 'next' time and we're more than
+		 *        24 hours away from the next calculated start time
+		 */
+		if ( empty( $next_run ) && ( $schedule_next_run > ( current_time( 'timestamp' ) + DAY_IN_SECONDS ) ) ) {
 			$override_schedule = true;
-			$next_run = $schedule_next_run;
+			$next_run          = $schedule_next_run;
 		}
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
 		// After the required amount of time has passed?
-		if ( $next_run <= current_time( 'timestamp' ) || true === $override_schedule ) {
+		if ( $next_run < current_time( 'timestamp' ) || true === $override_schedule ) {
 			
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
 			
 			// Trigger fetch of subscription data from Payment Gateways
+			$util->log( "Triggering remote subscription fetch configuration" );
 			$fetch_data->configure_remote_subscription_data_fetch();
-			$util->log( "Triggered remote subscription fetch configuration" );
+			
 			
 			// Trigger fetch of one-time payment data from Payment Gateways
+			$util->log( "Triggering remote payment (expiring memberships) fetch configuration" );
 			$fetch_data->configure_remote_payment_data_fetch();
-			$util->log( "Triggered remote payment (expiring memberships) fetch configuration" );
 			
 			// Configure when to run this job the next time
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
@@ -368,11 +375,63 @@ class Cron_Handler {
 			$is_now = intval( get_option( 'e20r_pw_next_gateway_check' ) );
 			
 			if ( $next_ts != $is_now ) {
-				$util->log("ERROR: Couldn't update the timestamp for the Next Gateway check operation! (Expected: {$next_ts}, received: {$is_now} ");
+				$util->log( "ERROR: Couldn't update the timestamp for the Next Gateway check operation! (Expected: {$next_ts}, received: {$is_now} " );
 			}
 		} else {
 			$util->log( "Not running. Cause: Not after the scheduled next-run time/date of {$next_run}" );
 		}
+	}
+	
+	/**
+	 * Monitor background data collection job(s) and remove stale mutex options if they're done
+	 * @since 1.9.9 - ENHANCEMENT: Clear mutex options (if they exists) once the background jobs are done/have ran
+	 */
+	public function clear_mutexes() {
+		
+		$utils = Utilities::get_instance();
+		
+		$payment_mutex = 'e20rpw_paym_fetch_mutex';
+		$subscription_mutext = 'e20rpw_subscr_fetch_mutex';
+		
+		if ( false === wp_next_scheduled( 'e20r_hp_process_payments_cron' ) ) {
+			$utils->log("Removing the Payment Collection mutex: {$payment_mutex}");
+			delete_option($payment_mutex );
+		}
+		
+		if ( false === wp_next_scheduled( 'e20r_hs_process_subscr_cron' ) ) {
+			$utils->log("Removing the Subscriptions Collection mutex: {$subscription_mutext}");
+			delete_option( $subscription_mutext );
+		}
+		
+		if ( false === wp_next_scheduled( 'e20r_hp_process_payments_cron' ) && false === wp_next_scheduled( 'e20r_hs_process_subscr_cron' ) ) {
+			$utils->log("None of the data fetch operations are running. Removing the monitoring job!");
+			wp_clear_scheduled_hook( 'e20r_check_job_status' );
+		} else {
+			$utils->log("One or more of the background data collection jobs are active");
+		}
+		
+		$utils->log("Done testing if mutexes are done...");
+	}
+	
+	/**
+	 * Create a Cron schedule to run every 30 minutes (for mutex checking)
+	 *
+	 * @param array $schedules
+	 *
+	 * @return array
+	 *
+	 * @since 1.9.9 - ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection status
+	 */
+	public function cron_schedules( $schedules ){
+
+		if(!isset($schedules["30min"])){
+
+			$schedules["30min"] = array(
+				'interval' => 30*60,
+				'display' => __('Once every 30 minutes'));
+		}
+		
+		return $schedules;
 	}
 	
 	/**
