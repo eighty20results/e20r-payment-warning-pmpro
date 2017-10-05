@@ -396,6 +396,7 @@ class Cron_Handler {
 	 * Monitor background data collection job(s) and remove stale mutex options if they're done
 	 *
 	 * @since 1.9.9 - ENHANCEMENT: Clear mutex options (if they exists) once the background jobs are done/have ran
+	 * @since 1.9.12 - ENHANCEMENT/FIX: Clear old temporary data/keys/values from options table
 	 */
 	public function clear_mutexes() {
 		
@@ -424,6 +425,18 @@ class Cron_Handler {
 		if ( false === $payment_job && false === $subscr_job && false === $batch_scheduler ) {
 			$utils->log("None of the data fetch operations are running. Removing the monitoring job!");
 			wp_clear_scheduled_hook( 'e20r_check_job_status' );
+			
+			global $wpdb;
+			
+			$sql = $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+				'e20r_ar_hp%batch_%', 'e20r_ar_hs%batch_%', 'e20r_ar_lhr%_batch_%' );
+			$wpdb->query( $sql );
+			
+			update_option( 'e20r_hp_process_payments_batch_a', '', 'no');
+			update_option( 'e20r_lhr_subscriptions_batch_a', '', 'no');
+			update_option( 'e20r_lhr_payments_batch_a', '', 'no');
+			
+			$utils->log("Cleared options and temporary data");
 		} else {
 			$utils->log("One or more of the background data collection jobs are active");
 		}
