@@ -384,6 +384,7 @@ class Cron_Handler {
 	
 	/**
 	 * Monitor background data collection job(s) and remove stale mutex options if they're done
+	 *
 	 * @since 1.9.9 - ENHANCEMENT: Clear mutex options (if they exists) once the background jobs are done/have ran
 	 */
 	public function clear_mutexes() {
@@ -393,17 +394,24 @@ class Cron_Handler {
 		$payment_mutex = 'e20rpw_paym_fetch_mutex';
 		$subscription_mutext = 'e20rpw_subscr_fetch_mutex';
 		
-		if ( false === wp_next_scheduled( 'e20r_hp_process_payments_cron' ) ) {
+		/**
+		 * @since 1.9.10 - ENHANCEMENT: Faster completion of scheduled job checks
+		 */
+		$subscr_job = wp_next_scheduled( 'e20r_hs_process_subscr_cron' );
+		$payment_job = wp_next_scheduled( 'e20r_hp_process_payments_cron' );
+		$batch_scheduler = wp_next_scheduled( 'e20r_lhr_payments_cron' );
+		
+		if ( false === $payment_job && false === $batch_scheduler ) {
 			$utils->log("Removing the Payment Collection mutex: {$payment_mutex}");
 			delete_option($payment_mutex );
 		}
 		
-		if ( false === wp_next_scheduled( 'e20r_hs_process_subscr_cron' ) ) {
+		if ( false === $subscr_job && false === $batch_scheduler ) {
 			$utils->log("Removing the Subscriptions Collection mutex: {$subscription_mutext}");
 			delete_option( $subscription_mutext );
 		}
 		
-		if ( false === wp_next_scheduled( 'e20r_hp_process_payments_cron' ) && false === wp_next_scheduled( 'e20r_hs_process_subscr_cron' ) ) {
+		if ( false === $payment_job && false === $subscr_job && false === $batch_scheduler ) {
 			$utils->log("None of the data fetch operations are running. Removing the monitoring job!");
 			wp_clear_scheduled_hook( 'e20r_check_job_status' );
 		} else {
@@ -427,8 +435,8 @@ class Cron_Handler {
 		if(!isset($schedules["30min"])){
 
 			$schedules["30min"] = array(
-				'interval' => 30*60,
-				'display' => __('Once every 30 minutes'));
+				'interval' => 30 * MINUTE_IN_SECONDS,
+				'display' => __('Every 30 minutes'));
 		}
 		
 		return $schedules;
