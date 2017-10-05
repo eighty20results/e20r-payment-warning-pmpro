@@ -53,11 +53,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
 		 * @since 1.9.6 - ENHANCEMENT: Renamed get_remote_subscription_data() to configure_remote_subscription_data_fetch()
 		 * @since 1.9.9 - ENHANCEMENT: Add monitoring for background data collection job
+		 * @since 1.9.10 - ENHANCEMENT: Also add monitoring if the mutex is set
+		 * @since 1.9.10 - BUG FIX: Delay first execution of monitoring action
 		 */
 		public function configure_remote_subscription_data_fetch() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
+			$mutex = intval( get_option( 'e20rpw_subscr_fetch_mutex', 0 ) );
+			
+			if ( 1 === $mutex ) {
+				
+				// Make sure this isn't a carry-over that shouldn't be there
+				if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
+					
+					$util->log("Adding mutext/job monitoring");
+					wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
+				}
+				
+				$util->log( "Error: Remote subscription data fetch is already active. Refusing to run!" );
+				return;
+			}
 			
 			/**
 			 * @since 1.9.9 ENHANCEMENT: Add monitoring for background data collection job
@@ -65,16 +81,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
 				
 				$util->log("Adding mutext/job monitoring");
-				wp_schedule_event( current_time('timestamp'), '30min', 'e20r_check_job_status');
-			}
-			
-			$mutex = intval( get_option( 'e20rpw_subscr_fetch_mutex', 0 ) );
-			
-			if ( 1 === $mutex ) {
-				
-				$util->log( "Error: Remote subscription data fetch is already active. Refusing to run!" );
-				
-				return;
+				wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
 			}
 			
 			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
