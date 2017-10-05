@@ -20,6 +20,7 @@
 namespace E20R\Payment_Warning;
 
 
+use E20R\Payment_Warning\Tools\Cron_Handler;
 use E20R\Utilities\Cache;
 use E20R\Utilities\Utilities;
 
@@ -51,17 +52,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
 		 * @since 1.9.6 - ENHANCEMENT: Renamed get_remote_subscription_data() to configure_remote_subscription_data_fetch()
+		 * @since 1.9.9 - ENHANCEMENT: Add monitoring for background data collection job
 		 */
 		public function configure_remote_subscription_data_fetch() {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
+			/**
+			 * @since 1.9.9 ENHANCEMENT: Add monitoring for background data collection job
+			 */
+			if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
+				
+				$util->log("Adding mutext/job monitoring");
+				wp_schedule_event( current_time('timestamp'), '30min', 'e20r_check_job_status');
+			}
+			
 			$mutex = intval( get_option( 'e20rpw_subscr_fetch_mutex', 0 ) );
 			
 			if ( 1 === $mutex ) {
 				
-				$util->log( "Error: Remote subscription data fetch is already active. Not running!" );
+				$util->log( "Error: Remote subscription data fetch is already active. Refusing to run!" );
 				
 				return;
 			}
