@@ -29,6 +29,7 @@ use E20R\Utilities\Utilities;
  *
  * @credit  A5hleyRich at https://github.com/A5hleyRich/wp-background-processing
  * @since v1.9.6 - ENHANCEMENT: Added fixes and updates from EWWW Image Optimizer code
+ * @since 1.9.13 - BUG FIX: Would sometimes double up on the entry count in the queue
  */
 if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 	/**
@@ -132,9 +133,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 		}
 		
 		/**
-		 * Save queue
+		 * Save and clear queue
 		 *
 		 * @return $this
+		 *
+		 * @since 1.9.13 - BUG FIX: Would sometimes double up on the entry count in the queue
 		 */
 		public function save() {
 			
@@ -143,17 +146,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 			
 			if ( ! empty( $this->data ) ) {
 				
-				$utils->log("Found " . count( $this->data ) . " entries to process for {$key}");
+				$utils->log("Found " . count( $this->data ) . " items in the queue to save/process for {$key}");
+				/*
 				$existing_data = get_option( $key );
 				
 				if ( ! empty( $existing_data ) ) {
 					$utils->log("Have to add " . count( $existing_data ) . " entries from {$key}");
 					$this->data = array_merge( $existing_data, $this->data );
 				}
-				
+				*/
+				delete_option( $key );
 				update_option( $key, $this->data, 'no' );
 			}
 			
+			// Clear the data list (will load before processing anyway)
 			$this->data = array();
 			
 			return $this;
@@ -706,7 +712,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Background_Process' ) ) {
 			
 			$util = Utilities::get_instance();
 			
-			if ( ! wp_next_scheduled( $this->cron_hook_identifier ) ) {
+			if ( false === wp_next_scheduled( $this->cron_hook_identifier ) ) {
 				
 				$util->log( "Scheduling {$this->cron_hook_identifier} to run:  {$this->cron_interval_identifier}" );
 				wp_schedule_event( current_time( 'timestamp' ), $this->cron_interval_identifier, $this->cron_hook_identifier );
