@@ -1,3 +1,7 @@
-ENHANCEMENT: Faster completion of scheduled job checks
-ENHANCEMENT: Also add monitoring if the mutex is set
-BUG FIX: Delay first execution of monitoring action
+BUG FIX: Didn't always load active recurring payment member data
+BUG FIX: Didn't load previously recurring membership records that are now expiring
+BUG FIX: Should always set status to 'recurring' in set_active_subscription_members()
+BUG FIX: Handle situations where user has a recurring level and we have to auto-detect
+ENHANCEMENT: Simplified config of non-recurring payment status (always active based on what PMPro believes)
+ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+ENHANCEMENT: Reduce debug logging levels
