@@ -153,6 +153,7 @@ class User_Data {
 	 * @param bool $skip
 	 *
 	 * @since 1.9.6 - BUG FIX: Would load credit cards in an unexpected format causing double-save operations
+	 * @since 1.9.14 - ENHANCEMENT: Reduce debug logging levels
 	 */
 	public function maybe_load_from_db( $user_id = null, $order_id = null, $level_id = null, $skip = false ) {
 		
@@ -209,7 +210,7 @@ class User_Data {
 				
 				foreach ( $data as $field => $value ) {
 					
-					$util->log( "Loading {$field} = {$value}" );
+					//$util->log( "Loading {$field} = {$value}" );
 					$this->{$field} = $this->maybe_bool( $field, $value );
 				}
 			}
@@ -1095,13 +1096,14 @@ class User_Data {
 	 *
 	 * @since 1.9.2 ENHANCEMENT: Force the reminder_type based on whether the membership (for the user) is recurring
 	 * @since 1.9.4 - BUG FIX: Typo in reminder_type supplied
+	 * @since 1.9.14 - BUG FIX: Handle situations where user has a recurring level and we have to auto-detect
 	 */
-	public function set_recurring_membership_status( $is_recurring = false ) {
+	public function set_recurring_membership_status( $is_recurring = null ) {
 		
-		if ( true === $is_recurring ) {
-			$this->has_local_recurring_membership = $is_recurring;
-		} else {
+		if ( null === $is_recurring ) {
 			$this->has_local_recurring_membership = pmpro_isLevelRecurring( $this->user->current_membership_level );
+		} else {
+			$this->has_local_recurring_membership = $is_recurring;
 		}
 		
 		if ( true === $this->has_local_recurring_membership ) {
