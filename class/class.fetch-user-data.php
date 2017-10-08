@@ -268,6 +268,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 *
 		 * @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members
 		 * @since v1.9.6 - ENHANCEMENT: Set cache timeout for active nonrecurring subscription data to 12 hours
+		 * @since v1.9.14 - ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+		 * @since v1.9.14 - BUG FIX: Didn't load previously recurring membership records that are now expiring
 		 */
 		public function set_active_non_subscription_members() {
 			
@@ -282,15 +284,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
-				/* @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members */
-				// Locate active member records without recurring payment configured (cycle_number is 0 or NULL).
-				$active_sql = "
+				/**
+				 * Locate active membership records that will expire
+				 *
+				 * @since v1.9.5 - BUG FIX: Only load active and non-recurring billing members
+				 * @since v1.9.14 - BUG FIX: Didn't load previously recurring membership records that are now expiring
+				 */
+				$active_sql = $wpdb->prepare( "
 						SELECT DISTINCT *
-						FROM {$wpdb->pmpro_memberships_users} AS mu
-						WHERE mu.status = 'active'
-						AND ( mu.cycle_number = 0 OR mu.cycle_number IS NULL )
-						AND ( mu.enddate IS NOT NULL AND mu.enddate != '0000-00-00 00:00:00' )
-						ORDER BY mu.user_id ASC";
+						 	FROM {$wpdb->pmpro_memberships_users} AS mu
+						 	WHERE mu.status = 'active'
+						 	AND (
+						 		mu.enddate IS NOT NULL
+						 		AND mu.enddate != '0000-00-00 00:00:00'
+						 		AND mu.enddate >= %s
+					        )
+					        ORDER by mu.user_id ASC",
+					date('Y-m-d 00:00:00' ) // Midnight today
+				);
 				
 				$member_list = $wpdb->get_results( $active_sql );
 				$environment = pmpro_getOption( 'gateway_environment' );
@@ -314,24 +325,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						
 						$record = new User_Data( $user, $last_order, 'expiration' );
 						$record->set_recurring_membership_status( false );
+						
 						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( false === $record->get_recurring_membership_status() ? 'No' : 'Yes' ) );
 					} else {
 						$record = new User_Data( $user, null, 'expiration' );
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					}
 					
+					/**
+					 * @since v1.9.14 - ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+					 */
 					$utils->log( "Setting member status: {$member->status}" );
-					
-					if ( 'active' === $member->status ) {
-						$record->set_membership_status( true );
-					} else {
-						$record->set_membership_status( false );
-					}
+					$record->set_membership_status( true );
 					
 					$cust_id = apply_filters( 'e20r_pw_addon_get_user_customer_id', null, $last_order->gateway, $record );
 					
 					$utils->log( "User ID for {$last_order->gateway} ({$last_order->gateway_environment}): {$cust_id}/" . $record->get_user_ID() );
 					
+					// Add record if it's no longer recurring
 					if ( ! empty( $cust_id ) && false === $record->get_recurring_membership_status() ) {
 						
 						$record->set_gateway_customer_id( $cust_id );
@@ -344,7 +355,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						
 					} else {
 						
-						$utils->log( "Is using a recurring payment for the '{$last_order->gateway}' gateway ({$member->user_id})" );
+						$utils->log( "Uses recurring payment for the '{$last_order->gateway}' gateway ({$member->user_id})" );
 						continue;
 					}
 				}
@@ -370,6 +381,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since v1.9.4 - BUG FIX: Return record list from set_active_subscription_members()
 		 * @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future
 		 * @since v1.9.6 - ENHANCEMENT: Set cache duration to 12 hours for all_active_users
+		 * @since v1.9.14 - BUG FIX: Didn't always load active recurring payment member data
+		 * @since v1.9.14 - ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+		 * @since v1.9.14 - BUG FIX: Should always set status to 'recurring' in set_active_subscription_members()
 		 */
 		public function set_active_subscription_members() {
 			
@@ -385,15 +399,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$utils->log( "Have to refresh since cache is invalid/empty" );
 				
-				/* @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future */
-				// Only load records where the user's cycle_number is greater or equal to 1 (has a recurring payment membership)
+				/**
+				 * @since v1.9.5 - BUG FIX: Load all recurring payment records that are active (and w/o enddate) or have an enddate in the future
+				 * @since v1.9.14 - BUG FIX: Didn't always load active recurring payment member data
+				 */
 				$active_sql = "
 						SELECT DISTINCT *
-						FROM {$wpdb->pmpro_memberships_users} AS mu
-						WHERE mu.status = 'active'
-						AND ( mu.cycle_number >= 1 AND mu.cycle_period IS NOT NULL )
-						AND ( mu.enddate IS NULL OR mu.enddate = '0000-00-00 00:00:00' OR mu.enddate >= NOW())
-						ORDER BY mu.user_id ASC";
+							FROM {$wpdb->pmpro_memberships_users} AS mu
+							WHERE mu.status = 'active'
+							AND mu.billing_amount != '0.00'
+							AND ( mu.enddate IS NULL OR mu.enddate = '0000-00-00 00:00:00')
+							ORDER BY mu.user_id ASC";
 				
 				$member_list = $wpdb->get_results( $active_sql );
 				
@@ -412,24 +428,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						continue;
 					}
 					
+					$is_recurring = true;
+					
 					if ( ! empty( $last_order->code ) ) {
 						$record = new User_Data( $user, $last_order, 'recurring' );
-						$record->set_recurring_membership_status();
-						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
-						
 					} else {
 						$record = new User_Data( $user, null, 'recurring' );
-						$record->set_recurring_membership_status();
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					}
 					
-					$utils->log( "Setting member status: {$member->status}" );
+					/**
+					 * @since v1.9.14 - BUG FIX: Should always set status to 'recurring' in set_active_subscription_members()
+					 */
+					$record->set_recurring_membership_status( true );
+					$utils->log( "Found existing order object for {$user->ID}? ({$last_order->code}). Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
 					
-					if ( $member->status == 'active' ) {
-						$record->set_membership_status( true );
-					} else {
-						$record->set_membership_status( false );
-					}
+					
+					/**
+					 * @since v1.9.14 - ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+					 */
+					$utils->log( "Setting member status: {$member->status}" );
+					$record->set_membership_status( true );
 					
 					$cust_id = apply_filters( 'e20r_pw_addon_get_user_customer_id', null, $last_order->gateway, $record );
 					
