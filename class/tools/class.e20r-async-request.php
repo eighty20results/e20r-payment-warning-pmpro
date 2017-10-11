@@ -100,7 +100,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Tools\E20R_Async_Request' ) ) {
 		 * @return array|\WP_Error
 		 */
 		public function dispatch() {
-			$url  = add_query_arg( $this->get_query_args(), $this->get_query_url() );
+			$url  = esc_url( add_query_arg( $this->get_query_args(), $this->get_query_url() ) );
 			$args = $this->get_post_args();
 			
 			return wp_remote_post( esc_url_raw( $url ), $args );
