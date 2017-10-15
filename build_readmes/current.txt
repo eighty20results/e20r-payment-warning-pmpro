@@ -1,12 +1,1 @@
-ENHANCEMENT: Move E20R_Async_Request class to Utilities submodule
-ENHANCEMENT: Move E20R_Background_Process class to Utilities submodule
-ENHANCEMENT: Remove unused namespaces from Fetch_User_Data class
-ENHANCEMENT: Rename PayPal Gateway add-on module
-ENHANCEMENT: Add OAuth2 Client Secret and Key settings to PayPal add-on settings
-ENHANCEMENT: Move the PayPal REST API SDK library to libraries/
-ENHANCEMENT: Upgraded Utilities submodule to include the Background processing library
-BUG FIX: Didn't include Handle_Messages in move of Background Processing to Utilities module
-BUG FIX: Didn't start the background job when we expected it to
-BUG FIX: Fatal error if unexpected module/class file is present in add-on directory
-BUG FIX: Didn't handle Stripe API errors well
-BUG FIX: Report error if no transaction ID is found for Stripe charge/invoice
+ENHANCEMENT: Security update
