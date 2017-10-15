@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.8.2
-    Stable tag: 1.9.14
+    Stable tag: 1.9.15
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,21 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.9.15
+
+* ENHANCEMENT: Move E20R_Async_Request class to Utilities submodule
+* ENHANCEMENT: Move E20R_Background_Process class to Utilities submodule
+* ENHANCEMENT: Remove unused namespaces from Fetch_User_Data class
+* ENHANCEMENT: Rename PayPal Gateway add-on module
+* ENHANCEMENT: Add OAuth2 Client Secret and Key settings to PayPal add-on settings
+* ENHANCEMENT: Move the PayPal REST API SDK library to libraries/
+* ENHANCEMENT: Upgraded Utilities submodule to include the Background processing library
+* BUG FIX: Didn't include Handle_Messages in move of Background Processing to Utilities module
+* BUG FIX: Didn't start the background job when we expected it to
+* BUG FIX: Fatal error if unexpected module/class file is present in add-on directory
+* BUG FIX: Didn't handle Stripe API errors well
+* BUG FIX: Report error if no transaction ID is found for Stripe charge/invoice
 
 ###v1.9.14
 
