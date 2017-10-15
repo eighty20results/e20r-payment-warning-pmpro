@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 1.9.14
+Version: 1.9.15
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.9.14' );
+	define( 'E20R_PW_VERSION', '1.9.15' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -505,6 +505,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 								require_once( $path );
 								
 								$class = $e20r_pw_addons[ $class_name ][ $var_name ];
+								
+								if ( empty( $class ) ) {
+								    $utils->log("Expected class {$class_name} was not found!");
+								    continue;
+                                }
+                                
 								$class = "E20R\\Payment_Warning\\Addon\\{$class}";
 								
                                 $utils->log( "Checking if {$class} add-on is enabled?" );
