@@ -28,6 +28,7 @@ use E20R\Utilities\Licensing\Licensing;
 use Stripe\Account;
 use Stripe\Charge;
 use Stripe\Customer;
+use Stripe\Error\Api;
 use Stripe\Event;
 use Stripe\Invoice;
 use Stripe\Stripe;
@@ -282,11 +283,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			try {
 				
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
-				$data = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
+				$data = Customer::retrieve( $cust_id );
 				
-			} catch ( \Exception $exeption ) {
+			} catch ( Api $exception ) {
 				
-				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
+				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
 				
 				$user_data->set_active_subscription( false );
@@ -447,7 +448,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$last_order    = $user_data->get_last_pmpro_order();
 			$last_order_id = ! empty( $last_order->payment_transaction_id ) ? $last_order->payment_transaction_id : null;
-			
+   
 			if ( empty( $cust_id ) ) {
 				
 				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
@@ -455,14 +456,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				return false;
 			}
 			
+			if ( empty( $last_order_id ) ) {
+				$utils->log("Unexpected: There's no Transaction ID for " . $user_data->get_user_ID() . " / {$cust_id}");
+				return false;
+			}
+			
 			try {
 				
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
-				$customer = Customer::retrieve( $cust_id, array( 'include' => array( 'total_count' ) ) );
+				$customer = Customer::retrieve( $cust_id );
 				
-			} catch ( \Exception $exeption ) {
+			} catch ( Api $exception ) {
 				
-				$utils->log( "Error fetching customer data: " . $exeption->getMessage() );
+				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				
 				// $utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
 				
@@ -473,19 +479,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "User ID ({$cust_id}) on stripe.com has {$customer->subscriptions->total_count} subscription plans. Skipping payment/charge processing" );
 				
-				return $user_data;
+				return false;
 			}
 			
 			$user_email = $user_data->get_user_email();
 			
 			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'in_' ) ) {
+			    
+			    $utils->log("Local order saved a Stripe Invoice ID, not a Charge ID");
+			    
 				try {
 					$inv = Invoice::retrieve( $last_order_id );
 					
 					if ( ! empty( $inv ) ) {
 						$last_order_id = $inv->charge;
 					}
-				} catch ( \Exception $exception ) {
+				} catch ( Api $exception ) {
 					$utils->log( "Error fetching invoice info: " . $exception->getMessage() );
 					
 					return false;
@@ -498,7 +507,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					$utils->log( "Loading charge data for {$last_order_id}" );
 					$charge = Charge::retrieve( $last_order_id );
 					
-				} catch ( \Exception $exception ) {
+				} catch ( Api $exception ) {
 					$utils->log( "Error fetching charge/payment: " . $exception->getMessage() );
 					
 					return false;

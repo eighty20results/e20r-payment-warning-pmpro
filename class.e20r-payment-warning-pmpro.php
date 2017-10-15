@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 1.9.7
+Version: 1.9.16
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '1.9.7' );
+	define( 'E20R_PW_VERSION', '1.9.16' );
 }
 
 if ( !defined ( 'E20R_PW_DIR' ) ) {
@@ -225,6 +225,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 *
 		 * @access public
 		 * @since  1.0
+         * @since 1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
 		 */
 		public function plugins_loaded() {
 			
@@ -251,10 +252,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			add_action( 'init', array( $this, 'load_translation' ) );
 			
+			/**
+			 * Add 30 minute cron job schedule
+             *
+             * @since v1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
+             */
+			add_filter( 'cron_schedules',array( Cron_Handler::get_instance(), 'cron_schedules' ), 10, 1);
+			
+			/**
+			 * Add hook to monitor background job mutext settings
+             *
+             * @since v1.9.9 - ENHANCEMENT: WP_Cron hook that monitors background data collection jobs
+             */
+			add_action( 'e20r_check_job_status', array( Cron_Handler::get_instance(), 'clear_mutexes' ) );
+			
+			// Load the admin & settings menu
 			add_action( 'admin_menu', array( $this, 'load_admin_settings_page' ), 10 );
 			add_action( 'admin_menu', array( Editor::get_instance(), 'load_tools_menu_item' ) );
 			
+			// Show any licensing warnings
 			add_action( 'admin_init', array( $this, 'check_license_warnings' ) );
+			
 			
 			if ( ! empty ( $GLOBALS['pagenow'] )
 			     && ( 'options-general.php' === $GLOBALS['pagenow']
@@ -487,6 +505,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 								require_once( $path );
 								
 								$class = $e20r_pw_addons[ $class_name ][ $var_name ];
+								
+								if ( empty( $class ) ) {
+								    $utils->log("Expected class {$class_name} was not found!");
+								    continue;
+                                }
+                                
 								$class = "E20R\\Payment_Warning\\Addon\\{$class}";
 								
                                 $utils->log( "Checking if {$class} add-on is enabled?" );

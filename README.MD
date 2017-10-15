@@ -3,8 +3,8 @@ E20R Payment Warning for PMPro
     Contributors: eighty20results
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
-    Tested up to: 4.8.1
-    Stable tag: 1.9.7
+    Tested up to: 4.8.2
+    Stable tag: 1.9.16
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -44,6 +44,66 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v1.9.16
+
+* ENHANCEMENT: Security update
+
+###v1.9.15
+
+* ENHANCEMENT: Move E20R_Async_Request class to Utilities submodule
+* ENHANCEMENT: Move E20R_Background_Process class to Utilities submodule
+* ENHANCEMENT: Remove unused namespaces from Fetch_User_Data class
+* ENHANCEMENT: Rename PayPal Gateway add-on module
+* ENHANCEMENT: Add OAuth2 Client Secret and Key settings to PayPal add-on settings
+* ENHANCEMENT: Move the PayPal REST API SDK library to libraries/
+* ENHANCEMENT: Upgraded Utilities submodule to include the Background processing library
+* BUG FIX: Didn't include Handle_Messages in move of Background Processing to Utilities module
+* BUG FIX: Didn't start the background job when we expected it to
+* BUG FIX: Fatal error if unexpected module/class file is present in add-on directory
+* BUG FIX: Didn't handle Stripe API errors well
+* BUG FIX: Report error if no transaction ID is found for Stripe charge/invoice
+
+###v1.9.14
+
+* BUG FIX: Didn't always load active recurring payment member data
+* BUG FIX: Didn't load previously recurring membership records that are now expiring
+* BUG FIX: Should always set status to 'recurring' in set_active_subscription_members()
+* BUG FIX: Handle situations where user has a recurring level and we have to auto-detect
+* ENHANCEMENT: Simplified config of non-recurring payment status (always active based on what PMPro believes)
+* ENHANCEMENT: Simplified config of status (always active based on what PMPro believes)
+* ENHANCEMENT: Reduce debug logging levels
+
+
+###v1.9.13
+
+* BUG FIX: Would sometimes double up on the entry count in the queue
+
+###v1.9.12
+
+* ENHANCEMENT/FIX: Clear old temporary data/keys/values from options table
+
+###v1.9.11
+
+* REFACTOR: Moved monitoring for background data collection job to fetch_gateway_payment_info action
+* BUG FIX: Moved monitoring cron job scheduler to Cron_Handler class
+
+###v1.9.10
+
+* ENHANCEMENT: Faster completion of scheduled job checks
+* ENHANCEMENT: Also add monitoring if the mutex is set
+* BUG FIX: Delay first execution of monitoring action
+
+###v1.9.9
+
+* ENHANCEMENT: Add monitoring for background data collection job
+* ENHANCEMENT: Clear mutex (lock) options (if they exists) once the background jobs are done/have completed
+* ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection status
+
+###v1.9.8
+
+* BUG FIX: Didn't trigger remote data update
+* ENHANCEMENT: Updated Utilities/Licensing modules
 
 ###v1.9.7
 

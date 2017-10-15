@@ -20,7 +20,7 @@
 namespace E20R\Payment_Warning;
 
 
-use E20R\Payment_Warning\Tools\E20R_Background_Process;
+use E20R\Utilities\E20R_Background_Process;
 use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
 
