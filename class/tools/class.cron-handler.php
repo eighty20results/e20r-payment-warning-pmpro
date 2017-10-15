@@ -307,7 +307,8 @@ class Cron_Handler {
 	 * Cron job handler for Fetching upstream Payment Gateway data
 	 *
 	 * @since 1.9.4 - BUG FIX: Didn't update the e20r_pw_next_gateway_check option value
-	 * @since 1.9.11 - REFACTOR: Moved monitoring for background data collection job to fetch_gateway_payment_info action
+	 * @since 1.9.11 - REFACTOR: Moved monitoring for background data collection job to fetch_gateway_payment_info
+	 *        action
 	 */
 	public function fetch_gateway_payment_info() {
 		
@@ -324,13 +325,14 @@ class Cron_Handler {
 		}
 		
 		$util->log( "Running remote data update handler (cron job)" );
-		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
+		$next_run = intval( get_option( 'e20r_pw_next_gateway_check', null ) );
 		
 		$util->log( "Next run value found in options? ({$next_run})" );
 		
 		if ( empty( $next_run ) ) {
 			$util->log( "No next run value located in options. Checking scheduled cron jobs manually" );
 			$schedule_next_run = $this->configure_cron_schedules();
+			$next_run          = $schedule_next_run;
 		}
 		
 		$util->log( "The next time we'll allow this job to trigger is: {$next_run}" );
@@ -348,16 +350,21 @@ class Cron_Handler {
 		/**
 		 * @since 1.9.11 REFACTOR: Moved monitoring for background data collection job to cron action
 		 */
-		if ( false === wp_next_scheduled('e20r_check_job_status' ) ) {
+		if ( false === wp_next_scheduled( 'e20r_check_job_status' ) ) {
 			
-			$util->log("Adding mutext/job monitoring");
-			wp_schedule_event( ( current_time('timestamp') + 90 ), 'hourly', 'e20r_check_job_status');
+			$util->log( "Adding mutext/job monitoring" );
+			wp_schedule_event( ( current_time( 'timestamp' ) + 90 ), 'hourly', 'e20r_check_job_status' );
 		}
 		
 		$util->log( "Schedule override is: " . ( $override_schedule ? 'True' : 'False' ) );
 		
+		$now      = intval( current_time( 'timestamp' ) );
+		$next_run = intval( $next_run );
+		
+		$util->log( "Next Run: {$next_run} < {$now}? " . ( $next_run < $now ? 'Yes' : 'No' ) );
+		
 		// After the required amount of time has passed?
-		if ( $next_run < current_time( 'timestamp' ) || true === $override_schedule ) {
+		if ( ( $next_run < intval( $now ) ) || ( true === $override_schedule ) ) {
 			
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
@@ -402,28 +409,28 @@ class Cron_Handler {
 		
 		$utils = Utilities::get_instance();
 		
-		$payment_mutex = 'e20rpw_paym_fetch_mutex';
+		$payment_mutex       = 'e20rpw_paym_fetch_mutex';
 		$subscription_mutext = 'e20rpw_subscr_fetch_mutex';
 		
 		/**
 		 * @since 1.9.10 - ENHANCEMENT: Faster completion of scheduled job checks
 		 */
-		$subscr_job = wp_next_scheduled( 'e20r_hs_process_subscr_cron' );
-		$payment_job = wp_next_scheduled( 'e20r_hp_process_payments_cron' );
+		$subscr_job      = wp_next_scheduled( 'e20r_hs_process_subscr_cron' );
+		$payment_job     = wp_next_scheduled( 'e20r_hp_process_payments_cron' );
 		$batch_scheduler = wp_next_scheduled( 'e20r_lhr_payments_cron' );
 		
 		if ( false === $payment_job && false === $batch_scheduler ) {
-			$utils->log("Removing the Payment Collection mutex: {$payment_mutex}");
-			delete_option($payment_mutex );
+			$utils->log( "Removing the Payment Collection mutex: {$payment_mutex}" );
+			delete_option( $payment_mutex );
 		}
 		
 		if ( false === $subscr_job && false === $batch_scheduler ) {
-			$utils->log("Removing the Subscriptions Collection mutex: {$subscription_mutext}");
+			$utils->log( "Removing the Subscriptions Collection mutex: {$subscription_mutext}" );
 			delete_option( $subscription_mutext );
 		}
 		
 		if ( false === $payment_job && false === $subscr_job && false === $batch_scheduler ) {
-			$utils->log("None of the data fetch operations are running. Removing the monitoring job!");
+			$utils->log( "None of the data fetch operations are running. Removing the monitoring job!" );
 			wp_clear_scheduled_hook( 'e20r_check_job_status' );
 			
 			global $wpdb;
@@ -432,16 +439,16 @@ class Cron_Handler {
 				'e20r_ar_hp%batch_%', 'e20r_ar_hs%batch_%', 'e20r_ar_lhr%_batch_%' );
 			$wpdb->query( $sql );
 			
-			update_option( 'e20r_hp_process_payments_batch_a', '', 'no');
-			update_option( 'e20r_lhr_subscriptions_batch_a', '', 'no');
-			update_option( 'e20r_lhr_payments_batch_a', '', 'no');
+			update_option( 'e20r_hp_process_payments_batch_a', '', 'no' );
+			update_option( 'e20r_lhr_subscriptions_batch_a', '', 'no' );
+			update_option( 'e20r_lhr_payments_batch_a', '', 'no' );
 			
-			$utils->log("Cleared options and temporary data");
+			$utils->log( "Cleared options and temporary data" );
 		} else {
-			$utils->log("One or more of the background data collection jobs are active");
+			$utils->log( "One or more of the background data collection jobs are active" );
 		}
 		
-		$utils->log("Done testing if mutexes are done...");
+		$utils->log( "Done testing if mutexes are done..." );
 	}
 	
 	/**
@@ -451,15 +458,17 @@ class Cron_Handler {
 	 *
 	 * @return array
 	 *
-	 * @since 1.9.9 - ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection status
+	 * @since 1.9.9 - ENHANCEMENT: Added Cron schedule for 30 minute repeating check of background data collection
+	 *        status
 	 */
-	public function cron_schedules( $schedules ){
-
-		if(!isset($schedules["30min"])){
-
+	public function cron_schedules( $schedules ) {
+		
+		if ( ! isset( $schedules["30min"] ) ) {
+			
 			$schedules["30min"] = array(
 				'interval' => 30 * MINUTE_IN_SECONDS,
-				'display' => __('Every 30 minutes'));
+				'display'  => __( 'Every 30 minutes' ),
+			);
 		}
 		
 		return $schedules;
