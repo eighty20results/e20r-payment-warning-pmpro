@@ -606,7 +606,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				array( $this, 'render_global_settings_text', ),
 				'e20r-payment-warning-settings'
 			);
-			
+   
 			add_settings_field(
 				'e20r_pw_global_reset',
 				__( "Reset data on deactivation", Payment_Warning::plugin_slug ),
@@ -765,9 +765,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * Render description for the global plugin settings
 		 */
 		public function render_global_settings_text() {
-			?>
+			$next_run = get_option( 'e20r_pw_next_gateway_check', null );
+			
+			if ( empty( $next_run ) ) {
+			    $next_run = wp_next_scheduled( 'e20r_run_remote_data_update' );
+            }
+		    ?>
             <p class="e20r-pw-global-settings-text">
 				<?php _e( "Configure plugin settings", Payment_Warning::plugin_slug ); ?>
+            </p>
+            <p class="e20r-pw-global-settings-info">
+                <?php printf( __( '%1$sNext scheduled data fetch from the payment gateway(s) will happen on or after %2$s%3$s', Payment_Warning::plugin_slug ),
+                    '<span class="e20r-pw-gateway-fetch-status">',
+                    date_i18n( get_option( 'date_format' ), $next_run ),
+                    '</span>'
+                ); ?>
             </p>
 			<?php
 		}
@@ -1077,14 +1089,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$locale = apply_filters( "plugin_locale", get_locale(), Payment_Warning::plugin_slug );
 			$mo     = Payment_Warning::plugin_slug . "-{$locale}.mo";
 
-// Paths to local (plugin) and global (WP) language files
+            // Paths to local (plugin) and global (WP) language files
 			$local_mo  = plugin_dir_path( __FILE__ ) . "/languages/{$mo}";
 			$global_mo = WP_LANG_DIR . "/" . Payment_Warning::plugin_slug . "/{$mo}";
 
-// Load global version first
+            // Load global version first
 			load_textdomain( Payment_Warning::plugin_slug, $global_mo );
 
-// Load local version second
+            // Load local version second
 			load_textdomain( Payment_Warning::plugin_slug, $local_mo );
 			
 		}
