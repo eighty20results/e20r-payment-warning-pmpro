@@ -99,12 +99,17 @@ class Cron_Handler {
 		$util = Utilities::get_instance();
 		
 		$shortest_delay        = $this->find_shortest_recurring_period();
-		$timezone              = get_option( 'timezone_string' );
+		/**
+		 * @since 1.9.17 - BUG FIX: Set default timezone if none is defined in the WordPress settings
+		 */
+		$timezone              = get_option( 'timezone_string', 'Europe/London' );
 		$default_delay_divisor = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
 		$next_scheduled_run    = "{$default_time} {$timezone}";
 		$delay_config          = ! empty( $shortest_delay ) ? array_shift( $shortest_delay ) : 9999;
 		$delay_config          = ( ! empty( $delay_config ) ? $delay_config : "1" );
 		$days                  = ceil( ( $delay_config / $default_delay_divisor ) );
+		
+		$util->log( "Timezone configured as: {$timezone}");
 		
 		while ( $days > 7 ) {
 			// Increment the divisor and retry the calculation (should minimally check the payment gateway once per week)
@@ -113,15 +118,24 @@ class Cron_Handler {
 		
 		$util->log( "Delay config: {$days}" );
 		
-		// Calculate when the next interval is to happen
-		if ( false === $instant ) {
-			$util->log( "Configure next interval based on configured days: {$days}" );
-			$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
-			$interval = new \DateInterval( "P{$days}D" );
-			$time->add( $interval );
-		} else {
-			$util->log( "Using next scheduled run value: {$next_scheduled_run}" );
-			$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+		try {
+			
+			// Calculate when the next interval is to happen
+			if ( false === $instant ) {
+				$util->log( "Configure next interval based on configured days: {$days}" );
+				
+				$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+				$interval = new \DateInterval( "P{$days}D" );
+				$time->add( $interval );
+			} else {
+				$util->log( "Using next scheduled run value: {$next_scheduled_run}" );
+				$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+			}
+			
+		} catch (\Exception $exception ) {
+			$util->log("DateTime Error: " . $exception->getMessage() );
+			// Default to 'now' in the GMT timezone
+			return current_time('timestamp', true );
 		}
 		
 		$util->log( "Next scheduled (based on {$default_time} and whether or not to run without delay (" . ( $instant ? 'yes' : 'no' ) . "): " . $time->getTimestamp() );
