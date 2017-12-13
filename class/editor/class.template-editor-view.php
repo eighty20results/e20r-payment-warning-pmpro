@@ -17,10 +17,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace E20R\Payment_Warning\Editor;
+namespace E20R\Utilities\Editor;
 
-use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Tools\Email_Message;
+
+use E20R\Utilities\Editor\Editor;
 use E20R\Utilities\Utilities;
 
 class Template_Editor_View {
@@ -28,12 +28,12 @@ class Template_Editor_View {
 	public static function editor( $template_settings ) {
 		
 		if ( ! current_user_can( apply_filters( 'e20rpw_min_settings_capabilities', 'manage_options' ) ) ) {
-			wp_die( __( "You do not have sufficient permissions to access this page", Payment_Warning::plugin_slug ) );
+			wp_die( __( "You do not have sufficient permissions to access this page", Editor::plugin_slug ) );
 		}
 		
 		$util = Utilities::get_instance();
 		?>
-        <h2><?php _e( 'Edit: Payment Warning Message Templates', Payment_Warning::plugin_slug ); ?></h2>
+        <h2><?php _e( 'Edit: Payment Warning Message Templates', Editor::plugin_slug ); ?></h2>
         <table class="form-table">
             <thead>
             <tr class="status e20r-start-hidden">
@@ -48,12 +48,12 @@ class Template_Editor_View {
             <tbody>
             <tr>
                 <th scope="row" valign="top">
-                    <label for="e20r-message-templates"><?php _e( "Message Template", Payment_Warning::plugin_slug ); ?></label>
+                    <label for="e20r-message-templates"><?php _e( "Message Template", Editor::plugin_slug ); ?></label>
                 </th>
                 <td>
                     <select name="e20r-message-templates" id="e20r-message-templates">
                         <option value="-1" selected="selected">
-							<?php printf( '--- %s ---', __( 'Select a Message template to Edit', Payment_Warning::plugin_slug ) ); ?>
+							<?php printf( '--- %s ---', __( 'Select a Message template to Edit', Editor::plugin_slug ) ); ?>
                         </option>
 						<?php foreach ( $template_settings as $template_name => $template ) { ?>
                             <option value="<?php esc_attr_e( $template_name ); ?>">
@@ -61,7 +61,7 @@ class Template_Editor_View {
                             </option>
 						<?php } ?>
                         <option value="new">
-							<?php printf( '*** %s ***', __( 'Add new Message template', Payment_Warning::plugin_slug ) ); ?>
+							<?php printf( '*** %s ***', __( 'Add new Message template', Editor::plugin_slug ) ); ?>
                         </option>
                     </select>
                     <img src="<?php echo admin_url( 'images/wpspin_light.gif' ); ?>" id="e20r-busy-image"
@@ -76,7 +76,7 @@ class Template_Editor_View {
                         <tbody>
                         <form action="" method="post" enctype="multipart/form-data"
                               id="e20r-message-templates-form_<?php esc_attr_e( $template_name ); ?>">
-							<?php wp_nonce_field( Payment_Warning::plugin_prefix, 'message_template' ); ?>
+							<?php wp_nonce_field( Editor::plugin_prefix, 'message_template' ); ?>
 							<?php
 							foreach ( $template_settings as $template_name => $template ) {
 								self::add_template_entry( $template_name, $template );
@@ -93,12 +93,12 @@ class Template_Editor_View {
                 <td>
                     <p class="submit">
                         <input id="save-template-data" name="save-message-template" type="button" class="button-primary"
-                               value="<?php _e( 'Save Template Settings', Payment_Warning::plugin_slug ); ?>"/>
+                               value="<?php _e( 'Save Template Settings', Editor::plugin_slug ); ?>"/>
                         <input id="reset-template-data" name="reset-message-template" type="button" class="button"
-                               value="<?php _e( 'Reset', Payment_Warning::plugin_slug ); ?>"/>
+                               value="<?php _e( 'Reset', Editor::plugin_slug ); ?>"/>
                         <!--
                         <input id="add-new-template" name="add-message-template" type="button" class="button"
-                               value="<?php _e( 'Add New Template', Payment_Warning::plugin_slug ); ?>"/>
+                               value="<?php _e( 'Add New Template', Editor::plugin_slug ); ?>"/>
                         -->
                     </p>
 
@@ -127,22 +127,22 @@ class Template_Editor_View {
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>">
             <th scope="row" valign="top" class="e20r-message-template-col">
                 <label for="e20r-message-type_<?php esc_attr_e( $template_name ); ?>">
-					<?php _e( 'Message type', Payment_Warning::plugin_slug ); ?>
+					<?php _e( 'Message type', Editor::plugin_slug ); ?>
                 </label>
             </th>
             <td class="e20r-message-template-col">
                 <select id="e20r-message-type_<?php esc_attr_e( $template_name ); ?>" name="e20r_message_template-type">
                     <option value="-1" <?php selected( $template['type'], null ); ?>>
-						<?php _e( 'Header/Footer', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Header/Footer', Editor::plugin_slug ); ?>
                     </option>
                     <option value="expiration" <?php selected( $template['type'], 'expiration' ); ?>>
-						<?php _e( 'Expiration Message', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Expiration Message', Editor::plugin_slug ); ?>
                     </option>
                     <option value="recurring" <?php selected( $template['type'], 'recurring' ); ?>>
-						<?php _e( 'Recurring Payment', Payment_Warning::plugin_slug ); ?>
+						<?php _e( 'Recurring Payment', Editor::plugin_slug ); ?>
                     </option>
                     <option value="ccexpiration" <?php selected( $template['type'], 'ccexpiration' ); ?>>
-		                <?php _e( 'Credit Card Expiration', Payment_Warning::plugin_slug ); ?>
+		                <?php _e( 'Credit Card Expiration', Editor::plugin_slug ); ?>
                     </option>
 
                 </select>
@@ -151,7 +151,7 @@ class Template_Editor_View {
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?> e20r-message-schedule-info">
             <th scope="row" valign="top" class="e20r-message-template-col">
                 <label for="e20r-message-schedule_<?php esc_attr_e( $template_name ); ?>">
-					<?php _e( 'Send schedule', Payment_Warning::plugin_slug ); ?>
+					<?php _e( 'Send schedule', Editor::plugin_slug ); ?>
                 </label>
             </th>
             <td class="e20r-message-template-col">
@@ -164,20 +164,20 @@ class Template_Editor_View {
                                    value="<?php esc_attr_e( $days ); ?>"
                                    class="e20r-message-schedule"/>&nbsp;
                             <span class="e20r-message-schedule-label">
-                                                        <?php _e( 'days before event', Payment_Warning::plugin_slug ); ?>
+                                                        <?php _e( 'days before event', Editor::plugin_slug ); ?>
                                                     </span>
                             <span class="e20r-message-schedule-remove">
                                                         <input type="button"
-                                                               value="<?php _e( "Remove", Payment_Warning::plugin_slug ); ?>"
+                                                               value="<?php _e( "Remove", Editor::plugin_slug ); ?>"
                                                                class="e20r-delete-schedule-entry button-secondary"/>
                                                     </span>
                         </div>
 					<?php }
 					?>
-                    <button class="button-secondary e20r-add-new-schedule"><?php _e( "Add new schedule entry", Payment_Warning::plugin_slug ); ?></button><?php
+                    <button class="button-secondary e20r-add-new-schedule"><?php _e( "Add new schedule entry", Editor::plugin_slug ); ?></button><?php
 				} else {
 					if ( in_array( $template_name, array( 'messagefooter', 'messageheader' ) ) ) {
-						_e( "No schedule needed/defined", Payment_Warning::plugin_slug );
+						_e( "No schedule needed/defined", Editor::plugin_slug );
 					}
 				} ?>
             </td>
@@ -185,7 +185,7 @@ class Template_Editor_View {
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>">
             <th scope="row" valign="top" class="e20r-message-template-col">
                 <label for="e20r-message-template-subject_<?php esc_attr_e( $template_name ); ?>">
-					<?php _e( 'Message subject', Payment_Warning::plugin_slug ); ?>
+					<?php _e( 'Message subject', Editor::plugin_slug ); ?>
                 </label>
             </th>
             <td class="e20r-message-template-col">
@@ -197,7 +197,7 @@ class Template_Editor_View {
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>">
             <th scope="row" valign="top" class="e20r-message-template-col">
                 <label for="e20r-message-template-body_<?php esc_attr_e( $template_name ); ?>">
-					<?php _e( 'Body', Payment_Warning::plugin_slug ); ?>
+					<?php _e( 'Body', Editor::plugin_slug ); ?>
                 </label>
             </th>
             <td class="e20r-message-template-col">
@@ -208,7 +208,7 @@ class Template_Editor_View {
 					} else {
 						?>
                         <!-- <div id="wp-e20r-message-body_new-media-buttons" class="wp-media-buttons"> -->
-                            <button id="e20r-load-media-btn" type="button" class="button insert-media add_media" data-editor="e20r-message-body_new"><span class="wp-media-buttons-icon"></span><?php _e("Add Media", Payment_Warning::plugin_slug ); ?></button>
+                            <button id="e20r-load-media-btn" type="button" class="button insert-media add_media" data-editor="e20r-message-body_new"><span class="wp-media-buttons-icon"></span><?php _e("Add Media", Editor::plugin_slug ); ?></button>
                         <!-- </div> -->
                         <textarea name="e20r-message-body_new" id="e20r-message-body_new"></textarea><?php
 					} ?>
@@ -222,20 +222,20 @@ class Template_Editor_View {
                        name="e20r_message_template-active" type="checkbox"
                        value="1" <?php checked( $template['active'], 0 ); ?> />
                 <label>
-                    <span id="e20r-message-disabled-label"><?php _e( 'Disable this template?', Payment_Warning::plugin_slug ); ?></span>
+                    <span id="e20r-message-disabled-label"><?php _e( 'Disable this template?', Editor::plugin_slug ); ?></span>
                 </label>
                 <p class="description small">
-					<?php _e( 'This template will not be used or sent.', Payment_Warning::plugin_slug ); ?>
+					<?php _e( 'This template will not be used or sent.', Editor::plugin_slug ); ?>
                 </p>
             </td>
         </tr>
         <tr class="e20r-start-hidden e20r-message-template-name_<?php esc_attr_e( $template_name ); ?>" valign="top" scope="row">
             <th class="e20r-message-template-col">
-                <label for="variable_references"><?php _e('Placeholder Reference', Payment_Warning::plugin_slug ); ?>:</label>
+                <label for="variable_references"><?php _e('Placeholder Reference', Editor::plugin_slug ); ?>:</label>
             </th>
             <td>
                 <div class="template_reference" style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
-                    <p><em><?php _e('Insert these variables in editor window above.', Payment_Warning::plugin_slug ); ?></em></p>
+                    <p><em><?php _e('Insert these variables in editor window above.', Editor::plugin_slug ); ?></em></p>
 			        <?php self::add_placeholder_variables( $template['type'] ); ?>
                 </div>
             </td>

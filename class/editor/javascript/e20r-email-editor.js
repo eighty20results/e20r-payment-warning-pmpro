@@ -93,8 +93,8 @@ var e20r_editor = {};
                 });
 
                 self.reset_btn.unbind('click').on('click', function () {
-                    // TODO: Implement reset logic
-                    console.log("TODO: Implement template reset (load default template if available)");
+                    console.log("Load default template if available");
+                    self.reset_template_settings();
                 });
 
                 // Add another schedule entry to the template definition
@@ -157,7 +157,7 @@ var e20r_editor = {};
                 var self = this;
 
                 event.preventDefault();
-                var $new_entry = e20r_pw_editor.data.new_template;
+                var $new_entry = e20r_email_editor.data.new_template;
 
                 window.console.log("Generating empty template row/column");
                 var $last_row = $('table.e20r-message-settings > tbody tr:last-child');
@@ -360,13 +360,13 @@ var e20r_editor = {};
                 if ($type === 'input') {
                     $html += '\t<div class="e20r-schedule-entry">\n';
                     $html += '\t\t<input name="e20r_message_template-schedule[]" type="number" value class="e20r-message-schedule" />&nbsp;\n';
-                    $html += '\t\t<span class="e20r-message-schedule-label">' + e20r_pw_editor.lang.period_label + '</span>\n';
+                    $html += '\t\t<span class="e20r-message-schedule-label">' + e20r_email_editor.lang.period_label + '</span>\n';
                     $html += '\t\t<span class="e20r-message-schedule-remove">\n';
                     $html += '\t\t\t<input type="button" value="Remove" class="e20r-delete-schedule-entry button-secondary">\n';
                     $html += '\t\t</span>\n';
                     $html += '\t</div>\n';
                 } else {
-                    $html += e20r_pw_editor.lang.no_schedule;
+                    $html += e20r_email_editor.lang.no_schedule;
                 }
 
                 return $html;
@@ -379,7 +379,7 @@ var e20r_editor = {};
 
                 if (true === include_input) {
                     $html += self.add_schedule_div('input');
-                    $html += '\t<button class="button-secondary e20r-add-new-schedule">' + e20r_pw_editor.lang.period_btn_label + '</button>\n';
+                    $html += '\t<button class="button-secondary e20r-add-new-schedule">' + e20r_email_editor.lang.period_btn_label + '</button>\n';
                 } else {
                     $html += self.add_schedule_div(null);
                 }
@@ -415,8 +415,8 @@ var e20r_editor = {};
                 };
 
                 $.ajax({
-                    url: e20r_pw_editor.config.save_url,
-                    timeout: e20r_pw_editor.config.timeout,
+                    url: e20r_email_editor.config.save_url,
+                    timeout: e20r_email_editor.config.timeout,
                     type: 'POST',
                     data: data,
                     success: function (info) {
@@ -453,7 +453,7 @@ var e20r_editor = {};
                     if (isNaN(parseInt(value))) {
 
                         save_btn.attr("disabled", false);
-                        alert(e20r_pw_editor.lang.invalid_schedule_error + value);
+                        alert(e20r_email_editor.lang.invalid_schedule_error + value);
                         throw new Error();
                     }
 
@@ -488,8 +488,8 @@ var e20r_editor = {};
                 data['e20r_message_template-schedule'] = schedule;
 
                 $.ajax({
-                    url: e20r_pw_editor.config.save_url,
-                    timeout: e20r_pw_editor.config.timeout,
+                    url: e20r_email_editor.config.save_url,
+                    timeout: e20r_email_editor.config.timeout,
                     type: 'POST',
                     data: data,
                     success: function (response) {

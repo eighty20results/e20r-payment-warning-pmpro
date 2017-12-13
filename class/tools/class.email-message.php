@@ -19,9 +19,10 @@
 
 namespace E20R\Payment_Warning\Tools;
 
+use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
-use E20R\Payment_Warning\Editor\Editor;
+use E20R\Utilities\Editor\Editor;
 use E20R\Utilities\Utilities;
 
 class Email_Message {
@@ -71,7 +72,7 @@ class Email_Message {
 		$this->template_name = $template_name;
 		
 		// Load the template settings and it's body content
-		$this->template_settings = Editor::get_template_by_name( $this->template_name, true );
+		$this->template_settings = Reminder_Editor::get_template_by_name( $this->template_name, true );
 		
 		$this->site_name  = get_option( 'blogname' );
 		$this->login_link = wp_login_url();

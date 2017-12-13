@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace E20R\Payment_Warning\Editor;
+namespace E20R\Utilities\Editor;
 
 
 use E20R\Utilities\Licensing\Licensing;
@@ -25,52 +25,52 @@ use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
 
-class Editor {
+abstract class Editor {
 	
 	/**
-	 * @var string
+	 * The email editor 'slug' (language/translation)
 	 */
-	private $option_name = 'e20r_pw_templates';
+	const plugin_slug = 'e20r-email-editor';
 	
+	/**
+	 * The Email Editor 'prefix' (for actions/nonces, etc).
+	 */
+	const plugin_prefix = 'e20r_ee_';
+	
+	/**
+	 * The Custom Post Type (name)
+	 */
+	const cpt_type = 'e20r_email_message';
+	
+	/**
+	 * Version number for the edition of the Email Editor we're loading
+	 */
+	const version = '1.0';
 	/**
 	 * @var null|Editor
 	 */
 	private static $instance = null;
 	
 	/**
+	 * @var string
+	 */
+	protected $option_name = 'e20r_email_message_templates';
+	
+	/**
 	 * Editor constructor.
+	 *
+	 * @access private
 	 */
 	public function __construct() {
 		
-		$util = Utilities::get_instance();
-		$util->log("Loading editor hooks in constructor");
-		$this->load_hooks();
-	}
-	
-	/**
-	 * Class instance
-	 *
-	 * @return Editor|null
-	 */
-	public static function get_instance() {
-		
-		$util = Utilities::get_instance();
-		
 		if ( is_null( self::$instance ) ) {
-			
-			self::$instance = new self;
+			self::$instance = $this;
 		}
 		
-		return self::$instance;
-	}
-	
-	/**
-	 * Add the WP_User content to the email object
-	 *
-	 * @param \WP_User $user
-	 */
-	public function set_user( \WP_User $user ) {
-		$this->user_data = $user;
+		$util = Utilities::get_instance();
+		$util->log( "Loading editor hooks in constructor" );
+		
+		$this->load_hooks();
 	}
 	
 	/**
@@ -90,202 +90,6 @@ class Editor {
 	}
 	
 	/**
-	 * Load scripts and styles (front and back-end as needed)
-	 */
-	public function enqueue() {
-		
-		$util = Utilities::get_instance();
-		
-		// In backend
-		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-payment-warning-templates' === $_REQUEST['page'] ) {
-			
-			global $post;
-			
-			wp_enqueue_editor();
-			
-			if ( !empty( $post->ID ) ) {
-				wp_enqueue_media( $post->ID );
-			}
-			
-			$util->log("Loading style(s) for Payment Warning plugin");
-			
-			wp_enqueue_style( 'e20r-payment-warning-pmpro-admin', plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', E20R_PW_DIR ), null, Payment_Warning::version );
-			
-			wp_enqueue_script( 'e20r-payment-warning-pmpro-admin', plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', E20R_PW_DIR ), array( 'jquery', 'editor' ), Payment_Warning::version, true );
-			
-			wp_register_script( 'e20r-payment-warning-editor', plugins_url( 'javascript/e20r-payment-warning-editor.js', E20R_PW_DIR ), array( 'jquery', 'editor' ), Payment_Warning::version, true );
-			
-			$new_row_settings = self::default_template_settings( 'new' );
-			$new_rows         = Template_Editor_View::add_template_entry( 'new', $new_row_settings, true );
-			
-			wp_localize_script( 'e20r-payment-warning-editor', 'e20r_pw_editor',
-				array(
-					'lang'   => array(
-						'period_label'           => __( 'days before event', Payment_Warning::plugin_slug ),
-						'period_btn_label'       => __( 'Add new schedule entry', Payment_Warning::plugin_slug ),
-						'no_schedule'            => __( 'No schedule needed/defined', Payment_Warning::plugin_slug ),
-						'invalid_schedule_error' => __( "Invalid data in send schedule", Payment_Warning::plugin_slug ),
-					),
-					'config' => array(
-						'save_url'     => admin_url( 'admin-ajax.php' ),
-						'ajax_timeout' => apply_filters( 'e20r_payment_warming_ajax_timeout', 15000 ),
-					),
-					'data'   => array(
-						'new_template' => $new_rows,
-					),
-				)
-			);
-			
-			wp_enqueue_script( 'e20r-payment-warning-editor' );
-		}
-	}
-	
-	/**
-	 * Add Edit function to WordPress Tools menu
-	 */
-	public function load_tools_menu_item() {
-		
-		add_management_page(
-			__( "Payment Warning Message Templates", Payment_Warning::plugin_slug ),
-			__( "E20R Templates", Payment_Warning::plugin_slug ),
-			apply_filters( 'e20rpw_min_settings_capabilities', 'manage_options' ),
-			'e20r-payment-warning-templates',
-			array( $this, 'load_message_template_page' )
-		);
-	}
-	
-	/**
-	 * Load the template editor page (html)
-	 */
-	public function load_message_template_page() {
-		
-		$all_template_settings = $this->load_template_settings( 'all', true );
-		
-		Template_Editor_View::editor( $all_template_settings );
-	}
-	
-	/**
-	 * Set/select the default reminder schedule based on the type of reminder
-	 *
-	 * @param string $type
-	 *
-	 * @return array
-	 */
-	public function default_schedule( $type = 'recurring' ) {
-		
-		$schedule = array();
-		
-		switch ( $type ) {
-			case 'recurring':
-				
-				$schedule = array_keys( apply_filters( 'pmpro_upcoming_recurring_payment_reminder', array(
-					7  => 'membership_recurring'
-				) ) );
-				$schedule = apply_filters( 'e20r-payment-warning-recurring-reminder-schedule', $schedule );
-				break;
-			
-			case 'expiring':
-				$schedule = array_keys( apply_filters( 'pmproeewe_email_frequency_and_templates', array(
-					30 => 'membership_expiring',
-					60 => 'membership_expiring',
-					90 => 'membership_expiring',
-				) ) );
-				$schedule = apply_filters( 'e20r-payment-warning-expiration-schedule', $schedule );
-				break;
-			
-			default:
-				$schedule = array( 7, 15, 30 );
-		}
-		
-		return $schedule;
-	}
-	
-	/**
-	 * Return the current settings for the specified message template
-	 *
-	 * @param string $template_name
-	 * @param bool   $load_body
-	 *
-	 * @return array
-	 *
-	 * @access private
-	 */
-	private function load_template_settings( $template_name, $load_body = false ) {
-		
-		$util = Utilities::get_instance();
-		
-		$util->log( "Loading Message templates for {$template_name}" );
-		
-		// TODO: Load existing PMPro templates that apply for this editor
-		$pmpro_email_templates = apply_filters( 'pmproet_templates', array() );
-		
-		$template_info = get_option( $this->option_name, $this->default_templates() );
-		
-		if ( 'all' === $template_name ) {
-			
-			if ( true === $load_body ) {
-				
-				foreach ( $template_info as $name => $settings ) {
-					
-					if ( empty( $name ) ) {
-						unset( $template_info[$name] );
-						continue;
-					}
-					
-					$util->log( "Loading body for {$name}" );
-					
-					if ( empty( $settings['body'] ) ) {
-						
-						$util->log( "Body has no content, so loading from default template: {$name}" );
-						$settings['body']       = $this->load_default_template_body( $name );
-						$template_info[ $name ] = $settings;
-					}
-				}
-			}
-			
-			return $template_info;
-		}
-		
-		// Specified template settings not found so have to return the default settings
-		if ( $template_name !== 'all' && ! isset( $template_info[ $template_name ] ) ) {
-			
-			$template_info[ $template_name ] = $this->default_template_settings( $template_name );
-			
-			// Save the new template info
-			update_option( $this->option_name, $template_info, 'no' );
-		}
-		
-		if ( $template_name !== 'all' && true === $load_body && empty( $template_info[ $template_name ]['body'] ) ) {
-			
-			$template_info[ $template_name ]['body'] = $this->load_default_template_body( $template_name );
-		}
-		
-		return $template_info[ $template_name ];
-	}
-	
-	/**
-	 * Default settings for any new template(s)
-	 *
-	 * @param string $template_name
-	 *
-	 * @return array
-	 */
-	private function default_template_settings( $template_name ) {
-		
-		return array(
-			'subject'        => null,
-			'active'         => false,
-			'type'           => 'recurring',
-			'body'           => null,
-			'data_variables' => array(),
-			'schedule'       => $this->default_schedule( 'recurring' ),
-			'description'    => null,
-			'file_name'      => "{$template_name}.html",
-			'file_path'      => dirname( E20R_PW_DIR ) . '/templates',
-		);
-	}
-	
-	/**
 	 * Return all templates of the specified template type
 	 *
 	 * @param $type
@@ -294,11 +98,12 @@ class Editor {
 	 */
 	public static function get_templates_of_type( $type ) {
 		
-		$util  = Utilities::get_instance();
+		$util = Utilities::get_instance();
 		$util->log( "Loading templates for type: {$type}" );
 		
 		if ( empty( self::$instance ) ) {
-			$util->log("Error attempting to load myself!");
+			$util->log( "Error attempting to load myself!" );
+			
 			return array();
 		}
 		
@@ -318,6 +123,18 @@ class Editor {
 		
 		return $template_keys;
 	}
+	
+	/**
+	 * Return the current settings for the specified message template
+	 *
+	 * @param string $template_name
+	 * @param bool   $load_body
+	 *
+	 * @return array
+	 *
+	 * @access private
+	 */
+	abstract public function load_template_settings( $template_name, $load_body = false );
 	
 	/**
 	 * Return the specified template (by name)
@@ -340,72 +157,190 @@ class Editor {
 	}
 	
 	/**
+	 * Class instance
+	 *
+	 * @return Editor|null
+	 */
+	public static function get_instance() {
+		
+		if ( ! is_null( self::$instance ) ) {
+			
+			return self::$instance;
+		}
+		
+		wp_die( __( "Cannot use the Editor class directly. Your developer must extend from it!", Editor::plugin_slug ) );
+	}
+	
+	abstract public function convert_messages();
+	
+	/**
+	 * Add the WP_User content to the email object
+	 *
+	 * @param \WP_User $user
+	 */
+	public function set_user( \WP_User $user ) {
+		$this->user_data = $user;
+	}
+	
+	/**
+	 * Load scripts and styles (front and back-end as needed)
+	 */
+	public function enqueue() {
+		
+		$util = Utilities::get_instance();
+		
+		// In backend
+		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-editor-templates' === $_REQUEST['page'] ) {
+			
+			global $post;
+			
+			wp_enqueue_editor();
+			
+			if ( ! empty( $post->ID ) ) {
+				wp_enqueue_media( $post->ID );
+			}
+			
+			$util->log( "Loading style(s) for Email Editor plugin" );
+			
+			wp_enqueue_style( 'e20r-email-editor-admin', plugins_url( 'css/e20r-email-editor-admin.css', __FILE__ ), null, Editor::version );
+			
+			wp_enqueue_script( 'e20r-email-editor-admin', plugins_url( 'javascript/e20r-email-editor-admin.js', __FILE__ ), array(
+				'jquery',
+				'editor',
+			), Editor::version, true );
+			
+			wp_register_script( 'e20r-email-editor', plugins_url( 'javascript/e20r-email-editor.js', __FILE__ ), array(
+				'jquery',
+				'editor',
+			), Editor::version, true );
+			
+			$new_row_settings = self::default_template_settings( 'new' );
+			$new_rows         = Template_Editor_View::add_template_entry( 'new', $new_row_settings, true );
+			
+			wp_localize_script( 'e20r-email-editor', 'e20r_email_editor',
+				array(
+					'lang'   => array(
+						'period_label'           => __( 'days before event', Editor::plugin_slug ),
+						'period_btn_label'       => __( 'Add new schedule entry', Editor::plugin_slug ),
+						'no_schedule'            => __( 'No schedule needed/defined', Editor::plugin_slug ),
+						'invalid_schedule_error' => __( "Invalid data in send schedule", Editor::plugin_slug ),
+					),
+					'config' => array(
+						'save_url'     => admin_url( 'admin-ajax.php' ),
+						'ajax_timeout' => apply_filters( 'e20r_email_editor_ajax_timeout', 15000 ),
+					),
+					'data'   => array(
+						'new_template' => $new_rows,
+					),
+				)
+			);
+			
+			wp_enqueue_script( 'e20r-email-editor' );
+		}
+	}
+	
+	/**
+	 * Default settings for any new template(s)
+	 *
+	 * @param string $template_name
+	 *
+	 * @return array
+	 */
+	abstract function default_template_settings( $template_name );
+	
+	/**
+	 * Set/select the default reminder schedule based on the type of reminder
+	 *
+	 * @param array  $schedule
+	 * @param string $type
+	 * @param string $slug
+	 *
+	 * @return array
+	 */
+	public function default_schedule( $schedule, $type = 'recurring', $slug = Editor::plugin_slug ) {
+		
+		$schedule = apply_filters( 'e20r-email-editor-default-schedules', $schedule, $type, $slug );
+		
+		return $schedule;
+	}
+	
+	/**
+	 * Add Edit function to WordPress Tools menu
+	 */
+	public function load_tools_menu_item() {
+		
+		add_management_page(
+			__( "Email Message Templates", Editor::plugin_slug ),
+			__( "E20R Templates", Editor::plugin_slug ),
+			apply_filters( 'e20ree_min_settings_capabilities', 'manage_options' ),
+			'e20r-email-message-templates',
+			array( $this, 'load_message_template_page' )
+		);
+	}
+	
+	/**
+	 * Load the template editor page (html)
+	 */
+	public function load_message_template_page() {
+		
+		$all_template_settings = $this->load_template_settings( 'all', true );
+		
+		Template_Editor_View::editor( $all_template_settings );
+	}
+	
+	/**
+	 * Return the
+	 *
+	 * @param string $template_name
+	 *
+	 * @return string
+	 */
+	public function load_default_template_body( $template_name ) {
+		
+		$util = Utilities::get_instance();
+		
+		$default_templates = $this->default_templates();
+		$location          = apply_filters( 'e20r-email-editor-template-location', 'e20r-payment-warning' );
+		$body              = "";
+		$file              = false;
+		
+		$util->log( "Path? " . "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" );
+		
+		// Load the template to use
+		if ( ! empty( $default_templates[ $template_name ]['body'] ) ) {
+			$util->log( "Loading from default template body" );
+			$body = $default_templates[ $template_name ]['body'];
+			
+		} else if ( file_exists( get_stylesheet_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
+			$util->log( "Loading child theme override template" );
+			$file = get_stylesheet_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}";
+			
+		} else if ( file_exists( get_template_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
+			$util->log( "Loading theme override template" );
+			$file = get_template_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}";
+			
+		} else if ( file_exists( "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" ) ) {
+			$util->log( "Loading from plugin" );
+			$file = "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}";
+		}
+		
+		$util->log( "Loading body of template from {$file}" );
+		if ( ! empty( $file ) && empty( $body ) ) {
+			
+			ob_start();
+			require_once( $file );
+			$body = ob_get_clean();
+		}
+		
+		return $body;
+	}
+	
+	/**
 	 * Return the default templates with per template settings
 	 *
 	 * @return array
 	 */
-	public function default_templates() {
-		
-		$templates = array(
-			'messageheader'      => array(
-				'subject'        => null,
-				'active'         => true,
-				'type'           => null,
-				'body'           => null,
-				'schedule'       => array(),
-				'data_variables' => array(),
-				'description'    => __( 'Standard Header for Messages', Payment_Warning::plugin_slug ),
-				'file_name'      => 'messageheader.html',
-				'file_path'      => apply_filters( 'e20r-payment-warning-template-path', E20R_WP_TEMPLATES ),
-			),
-			'messagefooter'      => array(
-				'subject'        => null,
-				'active'         => true,
-				'type'           => null,
-				'body'           => null,
-				'data_variables' => array(),
-				'schedule'       => array(),
-				'description'    => __( 'Standard Footer for Messages', Payment_Warning::plugin_slug ),
-				'file_name'      => 'messagefooter.html',
-				'file_path'      => apply_filters( 'e20r-payment-warning-template-path', E20R_WP_TEMPLATES ),
-			),
-			'recurring_default'  => array(
-				'subject'        => sprintf( __( "Your upcoming recurring membership payment for %s", Payment_Warning::plugin_slug ), '!!sitename!!' ),
-				'active'         => true,
-				'type'           => 'recurring',
-				'body'           => null,
-				'data_variables' => array(),
-				'schedule'       => $this->default_schedule( 'recurring' ),
-				'description'    => __( 'Recurring Payment Reminder', Payment_Warning::plugin_slug ),
-				'file_name'      => 'recurring.html',
-				'file_path'      => apply_filters( 'e20r-payment-warning-template-path', E20R_WP_TEMPLATES ),
-			),
-			'expiring_default'   => array(
-				'subject'        => sprintf( __( "Your membership at %s will end soon", Payment_Warning::plugin_slug ), get_option( "blogname" ) ),
-				'active'         => true,
-				'type'           => 'expiration',
-				'body'           => null,
-				'data_variables' => array(),
-				'schedule'       => $this->default_schedule( 'expiration' ),
-				'description'    => __( 'Membership Expiration Warning', Payment_Warning::plugin_slug ),
-				'file_name'      => 'expiring.html',
-				'file_path'      => apply_filters( 'e20r-payment-warning-template-path', E20R_WP_TEMPLATES ),
-			),
-			'ccexpiring_default' => array(
-				'subject'        => sprintf( __( "Credit Card on file at %s expiring soon", Payment_Warning::plugin_slug ), get_option( "blogname" ) ),
-				'active'         => true,
-				'type'           => 'ccexpiration',
-				'body'           => null,
-				'data_variables' => array(),
-				'schedule'       => $this->default_schedule( 'expiration' ),
-				'description'    => __( 'Credit Card Expiration', Payment_Warning::plugin_slug ),
-				'file_name'      => 'ccexpiring.html',
-				'file_path'      => apply_filters( 'e20r-payment-warning-template-path', E20R_WP_TEMPLATES ),
-			),
-		);
-		
-		return apply_filters( 'e20r_pw_default_email_templates', $templates );
-	}
+	abstract public function default_templates();
 	
 	/**
 	 * AJAX request handle for 'save template' action
@@ -417,7 +352,7 @@ class Editor {
 		$reload      = false;
 		$is_new      = false;
 		
-		check_ajax_referer( Payment_Warning::plugin_prefix, 'message_template' );
+		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
 		
 		$template_name = $util->get_variable( 'e20r_message_template-key', null );
 		$util->log( "Nonce is OK for template: {$template_name}" );
@@ -490,14 +425,14 @@ class Editor {
 						
 						if ( $var_name == 'description' && true === $is_new ) {
 							
-							$t_type = !empty( $template_settings[$template_name]['type'] ) ? $template_settings[$template_name]['type'] : __( 'Custom', Payment_Warning::plugin_slug );
+							$t_type = ! empty( $template_settings[ $template_name ]['type'] ) ? $template_settings[ $template_name ]['type'] : __( 'Custom', Editor::plugin_slug );
 							
-							$t_daylist = !empty( $template_settings[$template_name]['schedule'] ) ?  $template_settings[$template_name]['schedule'] : null;
+							$t_daylist = ! empty( $template_settings[ $template_name ]['schedule'] ) ? $template_settings[ $template_name ]['schedule'] : null;
 							
-							$value = sprintf( __( "Custom %s Template", Payment_Warning::plugin_slug ), ucwords( $t_type ) );
+							$value = sprintf( __( "Custom %s Template", Editor::plugin_slug ), ucwords( $t_type ) );
 							
-							if ( !empty( $t_daylist ) ) {
-								$value .= sprintf( __( " for days %s", Payment_Warning::plugin_slug ), implode( ', ', $t_daylist ) );
+							if ( ! empty( $t_daylist ) ) {
+								$value .= sprintf( __( " for days %s", Editor::plugin_slug ), implode( ', ', $t_daylist ) );
 							}
 						}
 						
@@ -515,13 +450,13 @@ class Editor {
 			
 			$util->log( "Saving template settings" );
 			wp_send_json_success( array(
-				'message' => sprintf( __( '%s message template saved', Payment_Warning::plugin_slug ), $description ),
+				'message' => sprintf( __( '%s message template saved', Editor::plugin_slug ), $description ),
 				'reload'  => $reload,
 			) );
 			wp_die();
 		}
 		
-		wp_send_json_error( array( 'message' => __( "Invalid attempt at saving the Message Template", Payment_Warning::plugin_slug ) ) );
+		wp_send_json_error( array( 'message' => __( "Invalid attempt at saving the Message Template", Editor::plugin_slug ) ) );
 		wp_die();
 	}
 	
@@ -560,20 +495,23 @@ class Editor {
 	}
 	
 	/**
-	 *
+	 * Reset to the default template for the specified message_template
 	 */
 	public function reset_template() {
 		
-		check_ajax_referer( Payment_Warning::plugin_prefix, 'message_template' );
+		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
 		$util = Utilities::get_instance();
 		
-		$template_name = $util->get_variable( 'e20r_template_to_reset', null );
+		$template_name = $util->get_variable( 'message_template', null );
 		
 		if ( ! empty( $template_name ) ) {
-		
+			
+			
+			wp_send_json_success();
+			wp_die();
 		}
 		
-		wp_send_json_error( array( 'message' => __( 'Unable to locate the message template to reset!', Payment_Warning::plugin_slug ) ) );
+		wp_send_json_error( array( 'message' => sprintf( __( 'Could not locate the "%s" template.', Editor::plugin_slug ), $template_name ) ) );
 		wp_die();
 	}
 	
@@ -581,7 +519,95 @@ class Editor {
 	 * TODO: Register email template content as Custom Post Type (Use Taxonomy)
 	 */
 	public function register_template_entry() {
+		
+		$default_slug = apply_filters( 'e20r-email-editor-cpt-slug', get_option( 'e20r_email_editor_slug', Editor::plugin_slug ) );
+		$post_type    = Editor::cpt_type;
+		$utils        = Utilities::get_instance();
+		
+		$this->create_email_taxonomy( $post_type, $default_slug );
+		
+		$labels = array(
+			'name'               => __( 'Email Messages', Editor::plugin_slug ),
+			'singular_name'      => __( 'Email Message', Editor::plugin_slug ),
+			'slug'               => Editor::plugin_slug,
+			'add_new'            => __( 'New Email Message', Editor::plugin_slug ),
+			'add_new_item'       => __( 'New Email Message', Editor::plugin_slug ),
+			'edit'               => __( 'Edit Email Message', Editor::plugin_slug ),
+			'edit_item'          => __( 'Edit Email Message', Editor::plugin_slug ),
+			'new_item'           => __( 'Add New', Editor::plugin_slug ),
+			'view'               => __( 'View Email Message', Editor::plugin_slug ),
+			'view_item'          => __( 'View This Email Message', Editor::plugin_slug ),
+			'search_items'       => __( 'Search Email Messages', Editor::plugin_slug ),
+			'not_found'          => __( 'No Email Message Found', Editor::plugin_slug ),
+			'not_found_in_trash' => __( 'No Email Message Found In Trash', Editor::plugin_slug ),
+		);
+		
+		$error = register_post_type( $post_type,
+			array(
+				'labels'             => apply_filters( 'e20r-email-editor-cpt-labels', $labels ),
+				'public'             => true,
+				'show_ui'            => true,
+				'show_in_menu'       => true,
+				'publicly_queryable' => true,
+				'hierarchical'       => true,
+				'supports'           => array( 'title', 'editor', 'thumbnail', 'custom-fields', 'author', 'excerpt' ),
+				'can_export'         => true,
+				'show_in_nav_menus'  => true,
+				'rewrite'            => array(
+					'slug'       => $default_slug,
+					'with_front' => false,
+				),
+				'has_archive'        => apply_filters( 'e20r-email-editor-cpt-archive-slug', 'sequences' ),
+			)
+		);
+		
+		if ( ! is_wp_error( $error ) ) {
+			return true;
+		} else {
+			$utils->log( 'Error creating post type: ' . $error->get_error_message() );
+			wp_die( $error->get_error_message() );
+			
+			return false;
+		}
+	}
 	
+	/**
+	 * Create Taxonomy for E20R Sequences
+	 *
+	 * @param string $post_type
+	 * @param string $slug
+	 */
+	private function create_email_taxonomy( $post_type, $slug ) {
+		
+		$taxonomy_labels = array(
+			'name'              => __( 'Email Type', $slug ),
+			'singular_name'     => __( 'Email Type', $slug ),
+			'menu_name'         => _x( 'Email Types', 'Admin menu name', $slug ),
+			'search_items'      => __( 'Search Email Type', $slug ),
+			'all_items'         => __( 'All Email Types', $slug ),
+			'parent_item'       => __( 'Parent Email Type', $slug ),
+			'parent_item_colon' => __( 'Parent Email Type:', $slug ),
+			'edit_item'         => __( 'Edit Email Type', $slug ),
+			'update_item'       => __( 'Update Email Type', $slug ),
+			'add_new_item'      => __( 'Add New Email Type', $slug ),
+			'new_item_name'     => __( 'New Email Type Name', $slug ),
+		);
+		
+		register_taxonomy( 'e20r_email_type', $post_type, array(
+				'hierarchical'      => true,
+				'label'             => __( 'Email Type', $slug ),
+				'labels'            => $taxonomy_labels,
+				'show_ui'           => true,
+				'show_admin_column' => true,
+				'show_in_nav_menus' => true,
+				'query_var'         => true,
+				'rewrite'           => array(
+					'slug'         => 'e20r-email-type',
+					'with_front'   => false,
+					'hierarchical' => true,
+				),
+			)
+		);
 	}
 	
 	/**
@@ -590,53 +616,6 @@ class Editor {
 	public function replace_email_data( \PMProEmail $email_obj ) {
 		
 		$defaults = $this->default_templates();
-	}
-	
-	/**
-	 * Return the
-	 *
-	 * @param string $template_name
-	 *
-	 * @return string
-	 */
-	public function load_default_template_body( $template_name ) {
-		
-		$util = Utilities::get_instance();
-		
-		$default_templates = $this->default_templates();
-		
-		$body = "";
-		$file = false;
-		
-		$util->log( "Path? " . "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" );
-		
-		// Load the template to use
-		if ( ! empty( $default_templates[ $template_name ]['body'] ) ) {
-			$util->log( "Loading from default template body" );
-			$body = $default_templates[ $template_name ]['body'];
-			
-		} else if ( file_exists( get_stylesheet_directory() . "/e20r-payment-warning-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading child theme override template" );
-			$file = get_stylesheet_directory() . "/e20r-payment-warning-templates/{$default_templates[ $template_name ]['file_name']}";
-			
-		} else if ( file_exists( get_template_directory() . "/e20r-payment-warning-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading theme override template" );
-			$file = get_template_directory() . "/e20r-payment-warning-templates/{$default_templates[ $template_name ]['file_name']}";
-			
-		} else if ( file_exists( "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading from plugin" );
-			$file = "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}";
-		}
-		
-		$util->log( "Loading body of template from {$file}" );
-		if ( ! empty( $file ) && empty( $body ) ) {
-			
-			ob_start();
-			require_once( $file );
-			$body = ob_get_clean();
-		}
-		
-		return $body;
 	}
 	
 	/**
