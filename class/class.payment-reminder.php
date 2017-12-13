@@ -20,7 +20,8 @@
 namespace E20R\Payment_Warning;
 
 
-use E20R\Payment_Warning\Editor\Editor;
+use E20R\Payment_Warning\Editor\Reminder_Editor;
+use E20R\Utilities\Editor\Editor;
 use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
 use DateTime;
@@ -154,7 +155,7 @@ class Payment_Reminder {
 		$fetch           = Fetch_User_Data::get_instance();
 		$main            = Payment_Warning::get_instance();
 		$users           = $fetch->get_local_user_data( $type );
-		$templates       = Editor::get_templates_of_type( $type );
+		$templates       = Reminder_Editor::get_templates_of_type( $type );
 		$message_handler = $main->get_handler( 'messages' );
 		
 		$util->log( "Will process {$type} messages for " . count( $users ) . " members/users" );
@@ -213,7 +214,7 @@ class Payment_Reminder {
 	 */
 	private function load_schedule() {
 		
-		$this->settings = Editor::get_template_by_name( $this->template_name, false );
+		$this->settings = Reminder_Editor::get_template_by_name( $this->template_name, false );
 		$this->schedule = $this->settings['schedule'];
 		
 		return $this->schedule;
