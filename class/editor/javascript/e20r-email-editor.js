@@ -410,7 +410,7 @@ var e20r_editor = {};
                 var $row_selector = 'tr.e20r-message-template-name_' + $template_name;
 
                 var data = {
-                    action: 'e20rpw_reset_template',
+                    action: 'e20r_util_reset_template',
                     message_template: $($row_selector + ' input[name="message_template"]').val()
                 };
 
@@ -440,7 +440,7 @@ var e20r_editor = {};
                 var $body_content = tinyMCE.get('e20r-message-body_' + $template_name).getContent();
                 var schedule = [];
                 var data = {
-                    action: 'e20rpw_save_template',
+                    action: 'e20r_util_save_template',
                     message_template: $('#message_template').val()
                 };
 

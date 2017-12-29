@@ -19,10 +19,10 @@
 
 namespace E20R\Utilities\Editor;
 
+use E20R\Sequences\Tools\EMail;
+use E20R\Utilities\Editor\Template_Editor_View;
 
 use E20R\Utilities\Licensing\Licensing;
-use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
 
 abstract class Editor {
@@ -41,6 +41,11 @@ abstract class Editor {
 	 * The Custom Post Type (name)
 	 */
 	const cpt_type = 'e20r_email_message';
+	
+	/**
+	 * The taxonomy
+	 */
+	const taxonomy = 'e20r_email_type';
 	
 	/**
 	 * Version number for the edition of the Email Editor we're loading
@@ -67,26 +72,10 @@ abstract class Editor {
 			self::$instance = $this;
 		}
 		
-		$util = Utilities::get_instance();
-		$util->log( "Loading editor hooks in constructor" );
+		// $utils = Utilities::get_instance();
+		// $utils->log( "Loading editor hooks in constructor" );
 		
-		$this->load_hooks();
-	}
-	
-	/**
-	 * Load all hooks & filters for Editor Class
-	 */
-	public function load_hooks() {
-		
-		$util = Utilities::get_instance();
-		
-		$util->log( "Loading Hooks and Filters" );
-		
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
-		
-		// Load Custom Post Type for Email Body message
-		add_action( 'init', array( $this, 'register_template_entry' ) );
+		// $this->load_hooks();
 	}
 	
 	/**
@@ -98,11 +87,11 @@ abstract class Editor {
 	 */
 	public static function get_templates_of_type( $type ) {
 		
-		$util = Utilities::get_instance();
-		$util->log( "Loading templates for type: {$type}" );
+		$utils = Utilities::get_instance();
+		$utils->log( "Loading templates for type: {$type}" );
 		
 		if ( empty( self::$instance ) ) {
-			$util->log( "Error attempting to load myself!" );
+			$utils->log( "Error attempting to load myself!" );
 			
 			return array();
 		}
@@ -113,13 +102,13 @@ abstract class Editor {
 		foreach ( $templates as $template_name => $template ) {
 			
 			if ( ! empty( $template['type'] ) && $template['type'] == $type && true == $template['active'] ) {
-				$util->log( "Adding template {$template_name} to the list" );
+				$utils->log( "Adding template {$template_name} to the list" );
 				$template_keys[] = $template_name;
 			}
 		}
 		
-		$util->log( "Returning " . count( $template_keys ) . " templates of type: {$type}" );
-		$util->log( "Returned: " . print_r( $template_keys, true ) );
+		$utils->log( "Returning " . count( $template_keys ) . " templates of type: {$type}" );
+		$utils->log( "Returned: " . print_r( $template_keys, true ) );
 		
 		return $template_keys;
 	}
@@ -132,7 +121,7 @@ abstract class Editor {
 	 *
 	 * @return array
 	 *
-	 * @access private
+	 * @access public
 	 */
 	abstract public function load_template_settings( $template_name, $load_body = false );
 	
@@ -156,6 +145,19 @@ abstract class Editor {
 		return null;
 	}
 	
+	public function display_message_metabox() {
+		
+		$types = apply_filters( 'e20r-email-editor-message-types', array() );
+		Template_Editor_View::add_type_metabox( $types );
+	}
+	
+	/**
+	 * Save the message specific metadata (from child class)
+	 *
+	 * @param int $post_id
+	 */
+	abstract public function save_message_meta( $post_id );
+	
 	/**
 	 * Class instance
 	 *
@@ -171,7 +173,161 @@ abstract class Editor {
 		wp_die( __( "Cannot use the Editor class directly. Your developer must extend from it!", Editor::plugin_slug ) );
 	}
 	
-	abstract public function convert_messages();
+	/**
+	 * Help text for supported message type specific substitution variables
+	 *
+	 * @param string $type
+	 *
+	 * @return array
+	 *
+	 * @since 1.9.6 - ENHANCEMENT: Added e20rpw_variable_help filter to result of default_variable_help()
+	 */
+	public static function default_variable_help( $variables, $type ) {
+		
+		return apply_filters( 'e20r-email-editor-variable-help', $variables, $type );
+	}
+	
+	/**
+	 * Load all hooks & filters for Editor Class
+	 */
+	public function load_hooks() {
+		
+		$utils = Utilities::get_instance();
+		
+		$utils->log( "Loading Hooks and Filters" );
+		
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
+		
+		// Load Custom Post Type for Email Body message
+		add_action( 'init', array( $this, 'register_template_entry' ) );
+		add_action( 'admin_menu', array( $this, 'load_tools_menu_item' ), 10 );
+		// add_action( 'admin_menu', array( self::$instance, 'load_custom_css_input' ), 10 );
+		
+		$save_action = "save_post_" . Editor::cpt_type;
+		
+		add_action( $save_action, array( $this, 'save_metadata' ), 10, 1 );
+		
+		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
+	}
+	
+	public function save_metadata( $post_id ) {
+		
+		// post_meta key: _e20r_editor_custom_css
+		
+		global $post;
+		
+		$utils = Utilities::get_instance();
+		
+		// Check that the function was called correctly. If not, just return
+		if ( empty( $post_id ) ) {
+			
+			$utils->log( 'No message ID supplied...' );
+			
+			return false;
+		}
+		
+		if ( wp_is_post_revision( $post_id ) ) {
+			return $post_id;
+		}
+		
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return $post_id;
+		}
+		
+		if ( ! isset( $post->post_type ) || ( Editor::cpt_type != $post->post_type ) ) {
+			return $post_id;
+		}
+		
+		if ( 'trash' == get_post_status( $post_id ) ) {
+			return $post_id;
+		}
+		
+		if ( !isset( $_REQUEST['e20r-editor-custom-css'] ) ) {
+			return $post_id;
+		}
+		
+		$message_css = isset( $_REQUEST['e20r-editor-custom-css'] ) ? trim( wp_filter_nohtml_kses( wp_strip_all_tags( $_REQUEST['e20r-editor-custom-css'] ) ) ) : null;
+		
+		if ( ! empty( $message_css ) ) {
+			update_post_meta( $post_id, '_e20r_editor_custom_css', $message_css );
+		}
+	}
+	
+	/**
+	* Sanitize URLs used in CSS properties
+	*
+	* @param string $check_url
+	* @param string $property
+	*
+	* @return string
+	*/
+	public function sanitize_urls_in_css_properties( $check_url, $property ) {
+		
+		$allowed_props = array( 'background', 'background-image', 'border-image', 'content', 'cursor', 'list-style', 'list-style-image' );
+ 	    $allowed_proto  = array( 'http', 'https' );
+ 	 
+ 	    // Clean up the string
+ 	    $check_url = trim( $check_url, "' \" \r \n" );
+ 	    
+ 	    // Check against whitelist for properties allowed to have URL values
+ 	    if ( ! in_array( trim( $property ), $allowed_props, true ) ) {
+			// trim() is because multiple properties with the same name are stored with
+	        // additional trailing whitespace so they don't overwrite each other in the hash.
+		    return '';
+	    }
+		
+		$check_url = wp_kses_bad_protocol_once( $check_url, $allowed_proto );
+ 	   
+	    if ( empty( $check_url ) ) {
+			return '';
+	    }
+	    
+	    return "url('" . str_replace( "'", "\\'", $check_url ) . "')";
+ 	}
+	
+	/**
+	 * Add Custom CSS input box on Editor edit page
+	 */
+	public function load_custom_css_input() {
+		
+		$utils = Utilities::get_instance();
+		$utils->log("Loading message-specific CSS textarea");
+		
+		add_meta_box(
+			'e20r_message_css',
+			__( 'Message Specific CSS', Editor::plugin_slug ),
+			array( $this, "display_custom_css_input" ),
+			Editor::cpt_type,
+			'normal',
+			'high'
+		);
+	}
+	
+	/**
+	 * Load the Metabox for the Email Message specific Custom CSS
+	 */
+	public function display_custom_css_input() {
+		
+		Template_Editor_View::add_css_metabox();
+	}
+	
+	/**
+	 * Filter handler to load the Editor Email Notice content
+	 *
+	 * @filter 'e20r-email-editor-notice-content'
+	 *
+	 * @param string $content
+	 * @param string $template_slug
+	 *
+	 * @return string|null
+	 */
+	abstract public function load_template_content( $content, $template_slug );
+	
+	/**
+	 * Install custom Taxonomy for child Editor class
+	 */
+	abstract public function install_taxonomy();
 	
 	/**
 	 * Add the WP_User content to the email object
@@ -187,7 +343,7 @@ abstract class Editor {
 	 */
 	public function enqueue() {
 		
-		$util = Utilities::get_instance();
+		$utils = Utilities::get_instance();
 		
 		// In backend
 		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-editor-templates' === $_REQUEST['page'] ) {
@@ -200,7 +356,7 @@ abstract class Editor {
 				wp_enqueue_media( $post->ID );
 			}
 			
-			$util->log( "Loading style(s) for Email Editor plugin" );
+			$utils->log( "Loading style(s) for Email Editor plugin" );
 			
 			wp_enqueue_style( 'e20r-email-editor-admin', plugins_url( 'css/e20r-email-editor-admin.css', __FILE__ ), null, Editor::version );
 			
@@ -237,6 +393,18 @@ abstract class Editor {
 			
 			wp_enqueue_script( 'e20r-email-editor' );
 		}
+		
+		global $post;
+		
+		if ( is_admin() && isset( $post->post_type ) && Editor::cpt_type == $post->post_type ) {
+			
+			wp_enqueue_style(
+				'e20r-email-editor-admin',
+				plugins_url( 'css/e20r-email-editor-admin.css', __FILE__ ),
+				null,
+				Editor::version
+			);
+		}
 	}
 	
 	/**
@@ -246,7 +414,7 @@ abstract class Editor {
 	 *
 	 * @return array
 	 */
-	abstract function default_template_settings( $template_name );
+	abstract public function default_template_settings( $template_name );
 	
 	/**
 	 * Set/select the default reminder schedule based on the type of reminder
@@ -276,6 +444,17 @@ abstract class Editor {
 			'e20r-email-message-templates',
 			array( $this, 'load_message_template_page' )
 		);
+		
+		do_action( 'e20r-editor-load-message-meta' );
+	}
+	
+	
+	/**
+	 * Load the child metabox to set message type ( For the _e20r_sequence_message_type post meta )
+	 */
+	public function load_message_metabox() {
+		
+		Template_Editor_View::add_type_metabox();
 	}
 	
 	/**
@@ -283,9 +462,9 @@ abstract class Editor {
 	 */
 	public function load_message_template_page() {
 		
-		$all_template_settings = $this->load_template_settings( 'all', true );
+		$all_settings = $this->load_template_settings( 'all', true );
 		
-		Template_Editor_View::editor( $all_template_settings );
+		Template_Editor_View::editor( $all_settings );
 	}
 	
 	/**
@@ -297,42 +476,42 @@ abstract class Editor {
 	 */
 	public function load_default_template_body( $template_name ) {
 		
-		$util = Utilities::get_instance();
+		$utils = Utilities::get_instance();
 		
-		$default_templates = $this->default_templates();
-		$location          = apply_filters( 'e20r-email-editor-template-location', 'e20r-payment-warning' );
-		$body              = "";
-		$file              = false;
+		$default_templ = $this->default_templates();
+		$location      = apply_filters( 'e20r-email-editor-template-location', plugin_dir_path( __FILE__ ) );
+		$content_body  = null;
+		$file_name     = false;
 		
-		$util->log( "Path? " . "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" );
+		$utils->log( "Path? " . "{$default_templ[$template_name]['file_path']}/{$default_templ[ $template_name ]['file_name']}" );
 		
 		// Load the template to use
-		if ( ! empty( $default_templates[ $template_name ]['body'] ) ) {
-			$util->log( "Loading from default template body" );
-			$body = $default_templates[ $template_name ]['body'];
+		if ( ! empty( $default_templ[ $template_name ]['body'] ) ) {
+			$utils->log( "Loading from default template body" );
+			$content_body = $default_templ[ $template_name ]['body'];
 			
-		} else if ( file_exists( get_stylesheet_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading child theme override template" );
-			$file = get_stylesheet_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}";
+		} else if ( file_exists( get_stylesheet_directory() . "/{$location}-templates/{$default_templ[ $template_name ]['file_name']}" ) ) {
+			$utils->log( "Loading child theme override template" );
+			$file_name = get_stylesheet_directory() . "/{$location}-templates/{$default_templ[ $template_name ]['file_name']}";
 			
-		} else if ( file_exists( get_template_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading theme override template" );
-			$file = get_template_directory() . "/{$location}-templates/{$default_templates[ $template_name ]['file_name']}";
+		} else if ( file_exists( get_template_directory() . "/{$location}-templates/{$default_templ[ $template_name ]['file_name']}" ) ) {
+			$utils->log( "Loading theme override template" );
+			$file_name = get_template_directory() . "/{$location}-templates/{$default_templ[ $template_name ]['file_name']}";
 			
-		} else if ( file_exists( "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}" ) ) {
-			$util->log( "Loading from plugin" );
-			$file = "{$default_templates[$template_name]['file_path']}/{$default_templates[ $template_name ]['file_name']}";
+		} else if ( file_exists( "{$default_templ[$template_name]['file_path']}/{$default_templ[ $template_name ]['file_name']}" ) ) {
+			$utils->log( "Loading from plugin" );
+			$file_name = "{$default_templ[$template_name]['file_path']}/{$default_templ[ $template_name ]['file_name']}";
 		}
 		
-		$util->log( "Loading body of template from {$file}" );
-		if ( ! empty( $file ) && empty( $body ) ) {
+		$utils->log( "Loading body of template from {$file_name}" );
+		if ( ! empty( $file_name ) && empty( $content_body ) ) {
 			
 			ob_start();
-			require_once( $file );
-			$body = ob_get_clean();
+			require_once( $file_name );
+			$content_body = ob_get_clean();
 		}
 		
-		return $body;
+		return $content_body;
 	}
 	
 	/**
@@ -343,31 +522,40 @@ abstract class Editor {
 	abstract public function default_templates();
 	
 	/**
+	 * Return the Message templates for the specified type
+	 *
+	 * @param string $type - The type of template to return
+	 *
+	 * @return array
+	 */
+	abstract public function configure_cpt_templates( $type );
+	
+	/**
 	 * AJAX request handle for 'save template' action
 	 */
 	public function save_template() {
 		
-		$util        = Utilities::get_instance();
+		$utils       = Utilities::get_instance();
 		$description = null;
 		$reload      = false;
 		$is_new      = false;
 		
 		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
 		
-		$template_name = $util->get_variable( 'e20r_message_template-key', null );
-		$util->log( "Nonce is OK for template: {$template_name}" );
+		$template_name = $utils->get_variable( 'e20r_message_template-key', null );
+		$utils->log( "Nonce is OK for template: {$template_name}" );
 		
 		if ( ! empty( $template_name ) && 'new' === $template_name ) {
 			
 			$is_new   = true;
-			$type     = $util->get_variable( 'e20r_message_template-type', null );
-			$schedule = $util->get_variable( 'e20r_message_template-schedule', array() );
+			$type     = $utils->get_variable( 'e20r_message_template-type', null );
+			$schedule = $utils->get_variable( 'e20r_message_template-schedule', array() );
 			
 			if ( ! empty( $type ) && ! empty( $schedule ) ) {
 				
 				$schedule      = implode( '_', $schedule );
 				$template_name = "{$type}_{$schedule}";
-				$util->log( "New template name: {$template_name}" );
+				$utils->log( "New template name: {$template_name}" );
 			}
 		}
 		
@@ -379,7 +567,7 @@ abstract class Editor {
 			unset( $_REQUEST["e20r_message_template-body_{$template_name}"] );
 			
 			// Get status for template (active/inactive)
-			$is_active = $util->get_variable( 'e20r_message_template-active', 0 );
+			$is_active = $utils->get_variable( 'e20r_message_template-active', 0 );
 			
 			if ( 0 == $is_active ) {
 				$template_settings[ $template_name ]['active'] = $is_active;
@@ -393,7 +581,7 @@ abstract class Editor {
 					
 					if ( $key !== 'e20r_message_template-key' ) {
 						
-						$value    = $util->get_variable( $key, null );
+						$value    = $utils->get_variable( $key, null );
 						$var_name = $tmp[ ( count( $tmp ) - 1 ) ];
 						
 						if ( $var_name == 'description' ) {
@@ -401,10 +589,10 @@ abstract class Editor {
 						}
 						
 						if ( $var_name === 'active' && $value === 'true' ) {
-							$util->log( "Setting active to 'no'" );
+							$utils->log( "Setting active to 'no'" );
 							$value = 0;
 						} else if ( $var_name === 'active' ) {
-							$util->log( "Setting active to 'yes'" );
+							$utils->log( "Setting active to 'yes'" );
 							$value = 1;
 						}
 						
@@ -414,7 +602,7 @@ abstract class Editor {
 						
 						if ( $var_name == 'schedule' && is_array( $value ) && false === $this->is_sorted( $value ) ) {
 							
-							$util->log( "Need to sort schedule array" );
+							$utils->log( "Need to sort schedule array" );
 							$reload = true;
 							sort( $value );
 						}
@@ -436,7 +624,7 @@ abstract class Editor {
 							}
 						}
 						
-						$util->log( "Saving to {$var_name}: " . print_r( $value, true ) );
+						$utils->log( "Saving to {$var_name}: " . print_r( $value, true ) );
 						$template_settings[ $template_name ][ $var_name ] = $value;
 					}
 				}
@@ -448,7 +636,7 @@ abstract class Editor {
 			
 			update_option( $this->option_name, $template_settings, 'no' );
 			
-			$util->log( "Saving template settings" );
+			$utils->log( "Saving template settings" );
 			wp_send_json_success( array(
 				'message' => sprintf( __( '%s message template saved', Editor::plugin_slug ), $description ),
 				'reload'  => $reload,
@@ -470,7 +658,7 @@ abstract class Editor {
 	private function is_sorted( $array ) {
 		
 		$is_sorted = true;
-		$util      = Utilities::get_instance();
+		$utils     = Utilities::get_instance();
 		
 		$first  = array_shift( $array );
 		$second = array_shift( $array );
@@ -500,9 +688,9 @@ abstract class Editor {
 	public function reset_template() {
 		
 		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
-		$util = Utilities::get_instance();
+		$utils = Utilities::get_instance();
 		
-		$template_name = $util->get_variable( 'message_template', null );
+		$template_name = $utils->get_variable( 'message_template', null );
 		
 		if ( ! empty( $template_name ) ) {
 			
@@ -516,7 +704,7 @@ abstract class Editor {
 	}
 	
 	/**
-	 * TODO: Register email template content as Custom Post Type (Use Taxonomy)
+	 * Register email template content as Custom Post Type (Use Taxonomy)
 	 */
 	public function register_template_entry() {
 		
@@ -527,19 +715,19 @@ abstract class Editor {
 		$this->create_email_taxonomy( $post_type, $default_slug );
 		
 		$labels = array(
-			'name'               => __( 'Email Messages', Editor::plugin_slug ),
-			'singular_name'      => __( 'Email Message', Editor::plugin_slug ),
+			'name'               => __( 'Email Notices', Editor::plugin_slug ),
+			'singular_name'      => __( 'Email Notice', Editor::plugin_slug ),
 			'slug'               => Editor::plugin_slug,
-			'add_new'            => __( 'New Email Message', Editor::plugin_slug ),
-			'add_new_item'       => __( 'New Email Message', Editor::plugin_slug ),
-			'edit'               => __( 'Edit Email Message', Editor::plugin_slug ),
-			'edit_item'          => __( 'Edit Email Message', Editor::plugin_slug ),
+			'add_new'            => __( 'New Email Notice', Editor::plugin_slug ),
+			'add_new_item'       => __( 'New Email Notice', Editor::plugin_slug ),
+			'edit'               => __( 'Edit Email Notice', Editor::plugin_slug ),
+			'edit_item'          => __( 'Edit Email Notice', Editor::plugin_slug ),
 			'new_item'           => __( 'Add New', Editor::plugin_slug ),
-			'view'               => __( 'View Email Message', Editor::plugin_slug ),
-			'view_item'          => __( 'View This Email Message', Editor::plugin_slug ),
-			'search_items'       => __( 'Search Email Messages', Editor::plugin_slug ),
-			'not_found'          => __( 'No Email Message Found', Editor::plugin_slug ),
-			'not_found_in_trash' => __( 'No Email Message Found In Trash', Editor::plugin_slug ),
+			'view'               => __( 'View Email Notice', Editor::plugin_slug ),
+			'view_item'          => __( 'View This Email Notice', Editor::plugin_slug ),
+			'search_items'       => __( 'Search Email Notices', Editor::plugin_slug ),
+			'not_found'          => __( 'No Email Notice Found', Editor::plugin_slug ),
+			'not_found_in_trash' => __( 'No Email Notice Found In Trash', Editor::plugin_slug ),
 		);
 		
 		$error = register_post_type( $post_type,
@@ -557,7 +745,7 @@ abstract class Editor {
 					'slug'       => $default_slug,
 					'with_front' => false,
 				),
-				'has_archive'        => apply_filters( 'e20r-email-editor-cpt-archive-slug', 'sequences' ),
+				'has_archive'        => apply_filters( 'e20r-email-editor-cpt-archive-slug', Editor::plugin_slug . "-archive" ),
 			)
 		);
 		
@@ -572,7 +760,7 @@ abstract class Editor {
 	}
 	
 	/**
-	 * Create Taxonomy for E20R Sequences
+	 * Create Taxonomy for E20R Editor
 	 *
 	 * @param string $post_type
 	 * @param string $slug
@@ -593,7 +781,7 @@ abstract class Editor {
 			'new_item_name'     => __( 'New Email Type Name', $slug ),
 		);
 		
-		register_taxonomy( 'e20r_email_type', $post_type, array(
+		register_taxonomy( Editor::taxonomy, $post_type, array(
 				'hierarchical'      => true,
 				'label'             => __( 'Email Type', $slug ),
 				'labels'            => $taxonomy_labels,
@@ -602,7 +790,7 @@ abstract class Editor {
 				'show_in_nav_menus' => true,
 				'query_var'         => true,
 				'rewrite'           => array(
-					'slug'         => 'e20r-email-type',
+					'slug'         => str_replace( '_', '-', Editor::taxonomy ),
 					'with_front'   => false,
 					'hierarchical' => true,
 				),
@@ -611,12 +799,12 @@ abstract class Editor {
 	}
 	
 	/**
-	 * @param \PMProEmail $email_obj
+	 * @param array $variable_list
+	 * @param mixed $type
+	 *
+	 * @return array
 	 */
-	public function replace_email_data( \PMProEmail $email_obj ) {
-		
-		$defaults = $this->default_templates();
-	}
+	abstract public function default_data_variables( $variable_list, $type );
 	
 	/**
 	 * Trigger as part of plugin deactivation

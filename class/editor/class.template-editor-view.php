@@ -33,7 +33,7 @@ class Template_Editor_View {
 		
 		$util = Utilities::get_instance();
 		?>
-        <h2><?php _e( 'Edit: Payment Warning Message Templates', Editor::plugin_slug ); ?></h2>
+        <h2><?php _e( 'Edit: Message Templates', Editor::plugin_slug ); ?></h2>
         <table class="form-table">
             <thead>
             <tr class="status e20r-start-hidden">
@@ -253,11 +253,60 @@ class Template_Editor_View {
 	}
 	
 	/**
-     * Add Help info for Subsitution variables
+	 * Add the type of message metabox on the editor screen for Email Notices (e20r_email_message)
+	 *
+	 * @param array $types
+	 */
+	public static function add_type_metabox( $types = array() ) {
+		
+		global $post_ID;
+		?>
+		<div class="submitbox" id="e20r-editor-postmeta">
+			<div id="minor-publishing">
+				<div id="e20r-editor-configure-types">
+					<label for="e20r-editor-type-select"><?php _e( 'Type:', Editor::plugin_slug ); ?></label>
+					<select id="e20r-editor-type-select" name="e20r-editor-type">
+					<?php
+						foreach( $types as $type_key => $message_type ) {
+							$current_type_setting = get_post_meta( $post_ID, $message_type['meta_key'], true );
+							printf(
+								'<option value="%1$s" %2$s>%3$s</option>',
+								$type_key,
+								selected( $current_type_setting, $type_key, false ),
+								$message_type['label']
+							);
+						}
+					?>
+					</select>
+				</div>
+			</div>
+		</div><?php
+	}
+	
+	/**
+	 * Allow user to add custom CSS for the email message
+	 */
+	public static function add_css_metabox() {
+		global $post_ID;
+		
+		$custom_css = get_post_meta( $post_ID, '_e20r_editor_custom_css', true );
+		?>
+		<div class="submitbox" id="e20r-editor-custom-css">
+			<div id="minor-publishing">
+				<div id="e20r-editor-configure-css">
+					<label for="e20r-editor-custom-css-input"><?php _e( 'Add Custom CSS:', Editor::plugin_slug ); ?></label>
+					<textarea id="e20r-editor-custom-css-input" class="e20r-editor-css" name="e20r-editor-custom-css"><?php echo $custom_css; ?></textarea>
+				</div>
+			</div>
+		</div><?php
+	}
+	
+	/**
+     * Add Help info for Substitution variables
      *
 	 * @param string $type
      *
-     * @since 1.9.6 - ENHANCEMENT: Uses static Email_Message::default_variable_help() function
+     * @since 1.0 - ENHANCEMENT: Uses static Editor::default_variable_help() function
 	 */
 	public static function add_placeholder_variables( $type ) {
 	    ?>
@@ -267,8 +316,8 @@ class Template_Editor_View {
         </style>
         <dl>
             <?php
-            $variable_settings = Email_Message::default_variable_help( $type );
-            foreach( $variable_settings as $name => $description ) {
+            $variables = Editor::default_variable_help( array(), $type );
+            foreach( $variables as $name => $description ) {
                 ?><dt>!!<?php esc_attr_e( $name ); ?>!!</dt>
                 <dd><?php esc_attr_e( $description ); ?></dd>
             <?php } ?>
