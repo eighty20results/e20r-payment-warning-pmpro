@@ -296,7 +296,7 @@ class Template_Editor_View {
 		<div id="minor-publishing">
 			<div id="e20r-editor-configure-types">
 				<p class="e20r-editor-default-message">
-					<?php _e('Please specify a Title (the email "Subject"), add some content (the body of the email message) and an excerpt (summary information for the email client), then select the EMail Type (type of email notice).', Editor::plugin_slug ); ?>
+					<?php _e('Please specify a Title (the email "Subject"), add some content (the body of the email message) and an excerpt (summary information for the email client), then select the EMail Type (type of email notice.', Editor::plugin_slug ); ?>
 				</p>
 				<p class="e20r-editor-default-message">
 					<?php printf( __( '%sThen save this message and then configure it%s.', Editor::plugin_slug ), '<strong>', '</strong>' ); ?>
