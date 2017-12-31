@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.0
+ * @version 1.1
  */
 
 namespace E20R\Utilities\Editor;
@@ -283,6 +283,28 @@ class Template_Editor_View {
 			</div>
 		</div>
 		</div><?php
+	}
+	
+	/**
+	 * Add the type of message metabox on the editor screen for Email Notices (e20r_email_message)
+	 *
+	 * @param array $types
+	 */
+	public static function add_default_metabox() {
+		
+		ob_start();
+		?>
+		<div class="submitbox" id="e20r-editor-postmeta">
+		<div id="minor-publishing">
+			<div id="e20r-editor-configure-types">
+				<p class="e20r-editor-default-message">
+					<?php _e("Please define a Message Title (subject), add some content and an excerpt, then select the EMail Type. Next save this message and configure it.", Editor::plugin_slug ); ?>
+				</p>
+			</div>
+		</div>
+		</div><?php
+		
+		return ob_get_clean();
 	}
 	
 	/**
