@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.4
+ * @version 1.5
  */
 
 namespace E20R\Utilities\Editor;
@@ -267,36 +267,36 @@ abstract class Editor {
 	}
 	
 	/**
-	* Sanitize URLs used in CSS properties
-	*
-	* @param string $check_url
-	* @param string $property
-	*
-	* @return string
-	*/
+	 * Sanitize URLs used in CSS properties
+	 *
+	 * @param string $check_url
+	 * @param string $property
+	 *
+	 * @return string
+	 */
 	public function sanitize_urls_in_css_properties( $check_url, $property ) {
 		
 		$allowed_props = array( 'background', 'background-image', 'border-image', 'content', 'cursor', 'list-style', 'list-style-image' );
- 	    $allowed_proto  = array( 'http', 'https' );
- 	 
- 	    // Clean up the string
- 	    $check_url = trim( $check_url, "' \" \r \n" );
- 	    
- 	    // Check against whitelist for properties allowed to have URL values
- 	    if ( ! in_array( trim( $property ), $allowed_props, true ) ) {
+		$allowed_proto  = array( 'http', 'https' );
+		
+		// Clean up the string
+		$check_url = trim( $check_url, "' \" \r \n" );
+		
+		// Check against whitelist for properties allowed to have URL values
+		if ( ! in_array( trim( $property ), $allowed_props, true ) ) {
 			// trim() is because multiple properties with the same name are stored with
-	        // additional trailing whitespace so they don't overwrite each other in the hash.
-		    return '';
-	    }
+			// additional trailing whitespace so they don't overwrite each other in the hash.
+			return '';
+		}
 		
 		$check_url = wp_kses_bad_protocol_once( $check_url, $allowed_proto );
- 	   
-	    if ( empty( $check_url ) ) {
+		
+		if ( empty( $check_url ) ) {
 			return '';
-	    }
-	    
-	    return "url('" . str_replace( "'", "\\'", $check_url ) . "')";
- 	}
+		}
+		
+		return "url('" . str_replace( "'", "\\'", $check_url ) . "')";
+	}
 	
 	/**
 	 * Add Custom CSS input box on Editor edit page
@@ -407,8 +407,9 @@ abstract class Editor {
 				Editor::version
 			);
 			
-			wp_enqueue_script( 'e20r-email-editor-admin', plugins_url( 'javascript/e20r-email-editor-admin.js', __FILE__ ), array( 'jquery' ), Editor::version, true );
-			
+			if ( file_exists( plugin_dir_path('javascript/e20r-email-editor-admin.js' ) ) ) {
+				wp_enqueue_script( 'e20r-email-editor-admin', plugins_url( 'javascript/e20r-email-editor-admin.js', __FILE__ ), array( 'jquery' ), Editor::version, true );
+			}
 			
 			wp_register_script( 'e20r-email-editor', plugins_url( 'javascript/e20r-email-editor.js', __FILE__ ), array(
 				'jquery',
@@ -816,6 +817,24 @@ abstract class Editor {
 		if ( true === $clear_options ) {
 			delete_option( $this->option_name );
 		}
+	}
+	
+	/**
+	 * Return arguments to use for Taxonomy/Term searches
+	 *
+	 * @param string $term_slug
+	 *
+	 * @return array
+	 */
+	protected function get_term_args( $term_slug ) {
+		
+		return array(
+			'fields' => 'all',
+			'slug' => $term_slug,
+			'hide_empty' => false,
+			'orderby' => 'slug',
+			'taxonomy' => self::taxonomy
+		);
 	}
 	
 	/**
