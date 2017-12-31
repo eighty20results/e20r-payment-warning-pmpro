@@ -206,29 +206,29 @@ abstract class Editor {
 		
 		// Load Custom Post Type for Email Body message
 		add_action( 'init', array( $this, 'register_template_entry' ) );
-		// add_action( 'admin_menu', array( $this, 'load_tools_menu_item' ), 10 );
-		// add_action( 'admin_menu', array( self::$instance, 'load_custom_css_input' ), 10 );
+		add_action( 'admin_menu', array( $this, 'load_tools_menu_item' ), 10 );
 		
 		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_default_metaboxes' ), 10, 1 );
+		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
 		
 		$save_action = "save_post_" . Editor::cpt_type;
 		
 		add_action( $save_action, array( $this, 'save_metadata' ), 10, 1 );
-		
-		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
 	}
 	
-	
-	public function load_default_metaboxes( $term_type ) {
+	/**
+	 * @param string|int|null $term_type
+	 */
+	public function load_default_metaboxes( $term_type = null ) {
 		
-		if ( $term_type !== 'default' ) {
+		if ( $term_type !== 'default' && ! is_null( $term_type ) ) {
 			return;
 		}
 		
 		add_meta_box(
 			'e20r-editor-settings',
 			__( 'Email Notice Type', Editor::plugin_slug ),
-			Template_Editor_View::add_default_metabox(),
+			'E20R\Utilities\Editor\Template_Editor_View::add_default_metabox',
 			Editor::cpt_type,
 			'side',
 			'high'
@@ -484,6 +484,7 @@ abstract class Editor {
 		global $post;
 		global $post_ID;
 		
+		$utils = Utilities::get_instance();
 		$current_post_id = null;
 		
 		// Find the post ID (numeric)
@@ -495,13 +496,9 @@ abstract class Editor {
 			$current_post_id = $post->ID;
 		}
 		
-		if ( empty( $current_post_id ) ) {
-			return false;
-		}
-		
 		$terms = wp_get_post_terms( $current_post_id, Editor::taxonomy );
 		
-		if ( empty( $terms ) ) {
+		if ( empty( $current_post_id ) || empty( $terms ) ) {
 			$terms = array( 'slug' => 'default' );
 		}
 		
