@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.6
+ * @version 1.7
  */
 
 namespace E20R\Utilities\Editor;
@@ -209,11 +209,30 @@ abstract class Editor {
 		// add_action( 'admin_menu', array( $this, 'load_tools_menu_item' ), 10 );
 		// add_action( 'admin_menu', array( self::$instance, 'load_custom_css_input' ), 10 );
 		
+		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_default_metaboxes' ), 10, 1 );
+		
 		$save_action = "save_post_" . Editor::cpt_type;
 		
 		add_action( $save_action, array( $this, 'save_metadata' ), 10, 1 );
 		
 		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
+	}
+	
+	
+	public function load_default_metaboxes( $term_type ) {
+		
+		if ( $term_type !== 'default' ) {
+			return;
+		}
+		
+		add_meta_box(
+			'e20r-editor-settings',
+			__( 'Email Notice Type', Editor::plugin_slug ),
+			Template_Editor_View::add_default_metabox(),
+			Editor::cpt_type,
+			'side',
+			'high'
+		);
 	}
 	
 	/**
@@ -461,26 +480,36 @@ abstract class Editor {
 	 * Add Edit function to WordPress Tools menu
 	 */
 	public function load_tools_menu_item() {
-		/*
-		add_management_page(
-			__( "Email Message Templates", Editor::plugin_slug ),
-			__( "E20R Templates", Editor::plugin_slug ),
-			apply_filters( 'e20ree_min_settings_capabilities', 'manage_options' ),
-			'e20r-email-message-templates',
-			array( $this, 'load_message_template_page' )
-		);
-		*/
-		do_action( 'e20r-editor-load-message-meta' );
-	}
-	
-	
-	/**
-	 * Load the child metabox to set message type ( For the _e20r_sequence_message_type post meta )
-	 */
-	public function load_message_metabox() {
 		
-		Template_Editor_View::add_type_metabox();
+		global $post;
+		global $post_ID;
+		
+		$current_post_id = null;
+		
+		// Find the post ID (numeric)
+		if ( empty( $post ) && empty( $post_ID ) && ! empty( $_REQUEST['post'] ) ) {
+			$current_post_id = intval( $_REQUEST['post'] );
+		} else if ( ! empty( $post_ID ) ) {
+			$current_post_id = $post_ID;
+		} else if ( ! empty( $post->ID ) ) {
+			$current_post_id = $post->ID;
+		}
+		
+		if ( empty( $current_post_id ) ) {
+			return false;
+		}
+		
+		$terms = wp_get_post_terms( $current_post_id, Editor::taxonomy );
+		
+		if ( empty( $terms ) ) {
+			$terms = array( 'slug' => 'default' );
+		}
+		
+		foreach ( $terms as $term ) {
+			do_action( 'e20r-editor-load-message-meta', $term->slug );
+		}
 	}
+	
 	
 	/**
 	 * Load the template editor page (html)
@@ -847,7 +876,7 @@ abstract class Editor {
 	/**
 	 * Verify if the child function is processing this term
 	 *
-	 * @param $type
+	 * @param null|int|string $type
 	 *
 	 * @return bool
 	 */
@@ -911,4 +940,9 @@ abstract class Editor {
 	 * @return string|null
 	 */
 	abstract public function load_template_content( $content, $template_slug );
+	
+	/**
+	 * Load the child metabox to set message type ( For the _e20r_sequence_message_type post meta )
+	 */
+	abstract public function load_message_metabox( $term_type );
 }
