@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.8
+ * @version 2.0
  */
 
 namespace E20R\Utilities\Editor;
@@ -155,7 +155,7 @@ abstract class Editor {
 	public function display_message_metabox() {
 		
 		$types = apply_filters( 'e20r-email-editor-message-types', array() );
-		Template_Editor_View::add_type_metabox( $types );
+		Editor_View::add_type_metabox( $types );
 	}
 	
 	/**
@@ -228,7 +228,7 @@ abstract class Editor {
 		add_meta_box(
 			'e20r-editor-settings',
 			__( 'Email Notice Type', Editor::plugin_slug ),
-			'E20R\Utilities\Editor\Template_Editor_View::add_default_metabox',
+			'E20R\Utilities\Editor\Editor_View::add_default_metabox',
 			Editor::cpt_type,
 			'side',
 			'high'
@@ -340,7 +340,7 @@ abstract class Editor {
 	 */
 	public function display_custom_css_input() {
 		
-		Template_Editor_View::add_css_metabox();
+		Editor_View::add_css_metabox();
 	}
 	
 	/**
@@ -436,7 +436,7 @@ abstract class Editor {
 			), Editor::version, true );
 			
 			$new_row_settings = $this->default_template_settings( 'new' );
-			$new_rows         = Template_Editor_View::add_template_entry( 'new', $new_row_settings, true );
+			$new_rows         = Editor_View::add_template_entry( 'new', $new_row_settings, true );
 			
 			wp_localize_script( 'e20r-email-editor', 'e20r_email_editor',
 				array(
@@ -515,7 +515,7 @@ abstract class Editor {
 		
 		$all_settings = $this->load_template_settings( 'all', true );
 		
-		Template_Editor_View::editor( $all_settings );
+		Editor_View::editor( $all_settings );
 	}
 	
 	/**

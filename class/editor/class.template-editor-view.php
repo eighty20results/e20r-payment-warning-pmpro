@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 1.2
+ * @version 2.0
  */
 
 namespace E20R\Utilities\Editor;
@@ -25,7 +25,7 @@ namespace E20R\Utilities\Editor;
 use E20R\Utilities\Editor\Editor;
 use E20R\Utilities\Utilities;
 
-class Template_Editor_View {
+class Editor_View {
 	
 	public static function editor( $template_settings ) {
 		
@@ -33,7 +33,6 @@ class Template_Editor_View {
 			wp_die( __( "You do not have sufficient permissions to access this page", Editor::plugin_slug ) );
 		}
 		
-		$util = Utilities::get_instance();
 		?>
 		<h2><?php _e( 'Edit: Message Templates', Editor::plugin_slug ); ?></h2>
 		<table class="form-table">
