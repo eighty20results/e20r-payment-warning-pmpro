@@ -16,19 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 2.0
+ * @version 2.1
  */
 
-namespace E20R\Utilities\Editor;
+namespace E20R\Utilities\Email_Notice;
 
 use E20R\Utilities\Utilities;
 
-abstract class Editor {
+abstract class Email_Notice {
 	
 	/**
-	 * The email editor 'slug' (language/translation)
+	 * The email email-notice 'slug' (language/translation)
 	 */
-	const plugin_slug = 'e20r-email-editor';
+	const plugin_slug = 'e20r-email-notice';
 	
 	/**
 	 * The Email Editor 'prefix' (for actions/nonces, etc).
@@ -71,17 +71,17 @@ abstract class Editor {
 	 */
 	const version = '1.4';
 	/**
-	 * @var null|Editor
+	 * @var null|Email_Notice
 	 */
 	private static $instance = null;
 	
 	/**
 	 * @var string
 	 */
-	protected $option_name = 'e20r_email_message_templates';
+	protected $option_name = 'e20r_email_notice_templates';
 	
 	/**
-	 * Editor constructor.
+	 * Email_Notice constructor.
 	 *
 	 * @access private
 	 */
@@ -92,7 +92,7 @@ abstract class Editor {
 		}
 		
 		// $utils = Utilities::get_instance();
-		// $utils->log( "Loading editor hooks in constructor" );
+		// $utils->log( "Loading email-notice hooks in constructor" );
 		
 		// $this->load_hooks();
 	}
@@ -154,14 +154,14 @@ abstract class Editor {
 	
 	public function display_message_metabox() {
 		
-		$types = apply_filters( 'e20r-email-editor-message-types', array() );
-		Editor_View::add_type_metabox( $types );
+		$types = apply_filters( 'e20r-email-email-notice-message-types', array() );
+		Email_Notice_View::add_type_metabox( $types );
 	}
 	
 	/**
 	 * Class instance
 	 *
-	 * @return Editor|null
+	 * @return Email_Notice|null
 	 */
 	public static function get_instance() {
 		
@@ -170,7 +170,7 @@ abstract class Editor {
 			return self::$instance;
 		}
 		
-		wp_die( __( "Cannot use the Editor class directly. Your developer must extend from it!", Editor::plugin_slug ) );
+		wp_die( __( "Cannot use the Email_Notice class directly. Your developer must extend from it!", Email_Notice::plugin_slug ) );
 	}
 	
 	/**
@@ -181,12 +181,12 @@ abstract class Editor {
 	 *
 	 * @return array
 	 *
-	 * @since 1.9.6 - ENHANCEMENT: Added e20r-email-editor-variable-help filter to result of default_variable_help()
+	 * @since 1.9.6 - ENHANCEMENT: Added e20r-email-email-notice-variable-help filter to result of default_variable_help()
 	 */
 	public function default_variable_help( $variables, $type ) {
 		
 		if ( $type == $this->processing_this_term( $type ) ) {
-			return apply_filters( 'e20r-email-editor-variable-help', $variables, $type );
+			return apply_filters( 'e20r-email-notice-variable-help', $variables, $type );
 		}
 		
 		return $variables;
@@ -208,10 +208,10 @@ abstract class Editor {
 		add_action( 'init', array( $this, 'register_template_entry' ) );
 		add_action( 'admin_menu', array( $this, 'load_tools_menu_item' ), 10 );
 		
-		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_default_metaboxes' ), 10, 1 );
-		add_action( 'e20r-editor-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
+		add_action( 'e20r-email-notice-load-message-meta', array( $this, 'load_default_metaboxes' ), 10, 1 );
+		add_action( 'e20r-email-notice-load-message-meta', array( $this, 'load_custom_css_input' ), 10, 0 );
 		
-		$save_action = "save_post_" . Editor::cpt_type;
+		$save_action = "save_post_" . Email_Notice::cpt_type;
 		
 		add_action( $save_action, array( $this, 'save_metadata' ), 10, 1 );
 	}
@@ -226,10 +226,10 @@ abstract class Editor {
 		}
 		
 		add_meta_box(
-			'e20r-editor-settings',
-			__( 'Email Notice Type', Editor::plugin_slug ),
-			'E20R\Utilities\Editor\Editor_View::add_default_metabox',
-			Editor::cpt_type,
+			'e20r-email-notice-settings',
+			__( 'Email Notice Type', Email_Notice::plugin_slug ),
+			'E20R\Utilities\Email_Notice\Email_Notice_View::add_default_metabox',
+			Email_Notice::cpt_type,
 			'side',
 			'high'
 		);
@@ -266,7 +266,7 @@ abstract class Editor {
 			return $post_id;
 		}
 		
-		if ( ! isset( $post->post_type ) || ( Editor::cpt_type != $post->post_type ) ) {
+		if ( ! isset( $post->post_type ) || ( Email_Notice::cpt_type != $post->post_type ) ) {
 			return $post_id;
 		}
 		
@@ -274,11 +274,11 @@ abstract class Editor {
 			return $post_id;
 		}
 		
-		if ( !isset( $_REQUEST['e20r-editor-custom-css'] ) ) {
+		if ( !isset( $_REQUEST['e20r-email-notice-custom-css'] ) ) {
 			return $post_id;
 		}
 		
-		$message_css = isset( $_REQUEST['e20r-editor-custom-css'] ) ? trim( wp_filter_nohtml_kses( wp_strip_all_tags( $_REQUEST['e20r-editor-custom-css'] ) ) ) : null;
+		$message_css = isset( $_REQUEST['e20r-email-notice-custom-css'] ) ? trim( wp_filter_nohtml_kses( wp_strip_all_tags( $_REQUEST['e20r-email-notice-custom-css'] ) ) ) : null;
 		
 		if ( ! empty( $message_css ) ) {
 			update_post_meta( $post_id, '_e20r_editor_custom_css', $message_css );
@@ -327,9 +327,9 @@ abstract class Editor {
 		
 		add_meta_box(
 			'e20r_message_css',
-			__( 'Message Specific CSS', Editor::plugin_slug ),
+			__( 'Message Specific CSS', Email_Notice::plugin_slug ),
 			array( $this, "display_custom_css_input" ),
-			Editor::cpt_type,
+			Email_Notice::cpt_type,
 			'normal',
 			'high'
 		);
@@ -340,7 +340,7 @@ abstract class Editor {
 	 */
 	public function display_custom_css_input() {
 		
-		Editor_View::add_css_metabox();
+		Email_Notice_View::add_css_metabox();
 	}
 	
 	/**
@@ -353,14 +353,14 @@ abstract class Editor {
 	public function install_taxonomy( $taxonomy_name, $taxonomy_nicename, $taxonomy_description ) {
 		
 		$utils = Utilities::get_instance();
-		$utils->log( "Testing custom taxonomy {$taxonomy_name} for {$taxonomy_nicename} email notices: " . Editor::taxonomy );
+		$utils->log( "Testing custom taxonomy {$taxonomy_name} for {$taxonomy_nicename} email notices: " . Email_Notice::taxonomy );
 		
-		if ( ! term_exists( $taxonomy_name, Editor::taxonomy ) ) {
+		if ( ! term_exists( $taxonomy_name, Email_Notice::taxonomy ) ) {
 			$utils->log( "Adding {$taxonomy_nicename} taxonomy" );
 			
 			$new_term = wp_insert_term(
 				$taxonomy_nicename,
-				Editor::taxonomy,
+				Email_Notice::taxonomy,
 				array(
 					'slug'        => $taxonomy_name,
 					'description' => $taxonomy_description,
@@ -391,7 +391,7 @@ abstract class Editor {
 		
 		// In backend
 		/*
-		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-editor-templates' === $_REQUEST['page'] ) {
+		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-email-notice-templates' === $_REQUEST['page'] ) {
 			
 			global $post;
 			
@@ -403,60 +403,54 @@ abstract class Editor {
 			
 			$utils->log( "Loading style(s) for Email Editor plugin" );
 			
-			wp_enqueue_style( 'e20r-email-editor-admin', plugins_url( 'css/e20r-email-editor-admin.css', __FILE__ ), null, Editor::version );
+			wp_enqueue_style( 'e20r-email-email-notice-admin', plugins_url( 'css/e20r-email-email-notice-admin.css', __FILE__ ), null, Email_Notice::version );
 			
-			wp_enqueue_script( 'e20r-email-editor-admin', plugins_url( 'javascript/e20r-email-editor-admin.js', __FILE__ ), array(
+			wp_enqueue_script( 'e20r-email-email-notice-admin', plugins_url( 'javascript/e20r-email-email-notice-admin.js', __FILE__ ), array(
 				'jquery',
-				'editor',
-			), Editor::version, true );
+				'email-notice',
+			), Email_Notice::version, true );
 			
 			$this->i18n_script();
 		}
 		*/
 		global $post;
 		
-		if ( is_admin() && isset( $post->post_type ) && Editor::cpt_type == $post->post_type ) {
+		if ( is_admin() && isset( $post->post_type ) && Email_Notice::cpt_type == $post->post_type ) {
 			
 			$utils->log("Loading scripts for Editor CPT page");
 			
 			wp_enqueue_style(
-				'e20r-email-editor-admin',
-				plugins_url( 'css/e20r-email-editor-admin.css', __FILE__ ),
+				'e20r-email-notice-admin',
+				plugins_url( 'css/e20r-email-notice-admin.css', __FILE__ ),
 				null,
-				Editor::version
+				Email_Notice::version
 			);
 			
-			if ( file_exists( plugin_dir_path('javascript/e20r-email-editor-admin.js' ) ) ) {
-				wp_enqueue_script( 'e20r-email-editor-admin', plugins_url( 'javascript/e20r-email-editor-admin.js', __FILE__ ), array( 'jquery' ), Editor::version, true );
+			if ( file_exists( plugin_dir_path('javascript/e20r-email-notice-admin.js' ) ) ) {
+				wp_enqueue_script( 'e20r-email-notice-admin', plugins_url( 'javascript/e20r-email-notice-admin.js', __FILE__ ), array( 'jquery' ), Email_Notice::version, true );
 			}
 			
-			wp_register_script( 'e20r-email-editor', plugins_url( 'javascript/e20r-email-editor.js', __FILE__ ), array(
+			wp_register_script( 'e20r-email-notice', plugins_url( 'javascript/e20r-email-notice.js', __FILE__ ), array(
 				'jquery',
-				'editor',
-			), Editor::version, true );
+				'email-notice',
+			), Email_Notice::version, true );
 			
-			$new_row_settings = $this->default_template_settings( 'new' );
-			$new_rows         = Editor_View::add_template_entry( 'new', $new_row_settings, true );
-			
-			wp_localize_script( 'e20r-email-editor', 'e20r_email_editor',
+			wp_localize_script( 'e20r-email-notice', 'e20r_email_notice',
 				array(
 					'lang'   => array(
-						'period_label'           => __( 'days before event', Editor::plugin_slug ),
-						'period_btn_label'       => __( 'Add new schedule entry', Editor::plugin_slug ),
-						'no_schedule'            => __( 'No schedule needed/defined', Editor::plugin_slug ),
-						'invalid_schedule_error' => __( "Invalid data in send schedule", Editor::plugin_slug ),
+						'period_label'           => __( 'days before event', Email_Notice::plugin_slug ),
+						'period_btn_label'       => __( 'Add new schedule entry', Email_Notice::plugin_slug ),
+						'no_schedule'            => __( 'No schedule needed/defined', Email_Notice::plugin_slug ),
+						'invalid_schedule_error' => __( "Invalid data in send schedule", Email_Notice::plugin_slug ),
 					),
 					'config' => array(
 						'save_url'     => admin_url( 'admin-ajax.php' ),
 						'ajax_timeout' => apply_filters( 'e20r_email_editor_ajax_timeout', 15000 ),
 					),
-					'data'   => array(
-						'new_template' => $new_rows,
-					),
 				)
 			);
 			
-			wp_enqueue_script( 'e20r-email-editor' );
+			wp_enqueue_script( 'e20r-email-email-notice' );
 		}
 	}
 	
@@ -469,9 +463,9 @@ abstract class Editor {
 	 *
 	 * @return array
 	 */
-	public function default_schedule( $schedule, $type = 'recurring', $slug = Editor::plugin_slug ) {
+	public function default_schedule( $schedule, $type = 'recurring', $slug = Email_Notice::plugin_slug ) {
 		
-		$schedule = apply_filters( 'e20r-email-editor-default-schedules', $schedule, $type, $slug );
+		$schedule = apply_filters( 'e20r-email-email-notice-default-schedules', $schedule, $type, $slug );
 		
 		return $schedule;
 	}
@@ -496,20 +490,20 @@ abstract class Editor {
 			$current_post_id = $post->ID;
 		}
 		
-		$terms = wp_get_post_terms( $current_post_id, Editor::taxonomy );
+		$terms = wp_get_post_terms( $current_post_id, Email_Notice::taxonomy );
 		
 		if ( empty( $current_post_id ) || empty( $terms ) ) {
 			$terms = array( 'slug' => 'default' );
 		}
 		
 		foreach ( $terms as $term ) {
-			do_action( 'e20r-editor-load-message-meta', $term->slug );
+			do_action( 'e20r-email-notice-load-message-meta', $term->slug );
 		}
 	}
 	
 	
 	/**
-	 * Load the template editor page (html)
+	 * Load the template email-notice page (html)
 	 */
 	public function load_message_template_page() {
 		
@@ -530,7 +524,7 @@ abstract class Editor {
 		$utils = Utilities::get_instance();
 		
 		$default_templ = $this->default_templates();
-		$location      = apply_filters( 'e20r-email-editor-template-location', plugin_dir_path( __FILE__ ) );
+		$location      = apply_filters( 'e20r-email-email-notice-template-location', plugin_dir_path( __FILE__ ) );
 		$content_body  = null;
 		$file_name     = false;
 		
@@ -575,7 +569,7 @@ abstract class Editor {
 		$reload      = false;
 		$is_new      = false;
 		
-		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
+		check_ajax_referer( Email_Notice::plugin_prefix, 'message_template' );
 		
 		$template_name = $utils->get_variable( 'e20r_message_template-key', null );
 		$utils->log( "Nonce is OK for template: {$template_name}" );
@@ -648,14 +642,14 @@ abstract class Editor {
 						
 						if ( $var_name == 'description' && true === $is_new ) {
 							
-							$t_type = ! empty( $template_settings[ $template_name ]['type'] ) ? $template_settings[ $template_name ]['type'] : __( 'Custom', Editor::plugin_slug );
+							$t_type = ! empty( $template_settings[ $template_name ]['type'] ) ? $template_settings[ $template_name ]['type'] : __( 'Custom', Email_Notice::plugin_slug );
 							
 							$t_daylist = ! empty( $template_settings[ $template_name ]['schedule'] ) ? $template_settings[ $template_name ]['schedule'] : null;
 							
-							$value = sprintf( __( "Custom %s Template", Editor::plugin_slug ), ucwords( $t_type ) );
+							$value = sprintf( __( "Custom %s Template", Email_Notice::plugin_slug ), ucwords( $t_type ) );
 							
 							if ( ! empty( $t_daylist ) ) {
-								$value .= sprintf( __( " for days %s", Editor::plugin_slug ), implode( ', ', $t_daylist ) );
+								$value .= sprintf( __( " for days %s", Email_Notice::plugin_slug ), implode( ', ', $t_daylist ) );
 							}
 						}
 						
@@ -673,13 +667,13 @@ abstract class Editor {
 			
 			$utils->log( "Saving template settings" );
 			wp_send_json_success( array(
-				'message' => sprintf( __( '%s message template saved', Editor::plugin_slug ), $description ),
+				'message' => sprintf( __( '%s message template saved', Email_Notice::plugin_slug ), $description ),
 				'reload'  => $reload,
 			) );
 			wp_die();
 		}
 		
-		wp_send_json_error( array( 'message' => __( "Invalid attempt at saving the Message Template", Editor::plugin_slug ) ) );
+		wp_send_json_error( array( 'message' => __( "Invalid attempt at saving the Message Template", Email_Notice::plugin_slug ) ) );
 		wp_die();
 	}
 	
@@ -722,7 +716,7 @@ abstract class Editor {
 	 */
 	public function reset_template() {
 		
-		check_ajax_referer( Editor::plugin_prefix, 'message_template' );
+		check_ajax_referer( Email_Notice::plugin_prefix, 'message_template' );
 		$utils = Utilities::get_instance();
 		
 		$template_name = $utils->get_variable( 'message_template', null );
@@ -734,7 +728,7 @@ abstract class Editor {
 			wp_die();
 		}
 		
-		wp_send_json_error( array( 'message' => sprintf( __( 'Could not locate the "%s" template.', Editor::plugin_slug ), $template_name ) ) );
+		wp_send_json_error( array( 'message' => sprintf( __( 'Could not locate the "%s" template.', Email_Notice::plugin_slug ), $template_name ) ) );
 		wp_die();
 	}
 	
@@ -743,48 +737,49 @@ abstract class Editor {
 	 */
 	public function register_template_entry() {
 		
-		$default_slug = apply_filters( 'e20r-email-editor-cpt-slug', get_option( 'e20r_email_editor_slug', Editor::plugin_slug ) );
-		$post_type    = Editor::cpt_type;
+		$default_slug = apply_filters( 'e20r-email-notice-cpt-slug', get_option( 'e20r_email_notice_slug', Email_Notice::plugin_slug ) );
+		$post_type    = Email_Notice::cpt_type;
 		$utils        = Utilities::get_instance();
 		
 		$this->create_email_taxonomy( $post_type, $default_slug );
 		
 		$labels = array(
-			'name'               => __( 'Email Notices', Editor::plugin_slug ),
-			'singular_name'      => __( 'Email Notice', Editor::plugin_slug ),
-			'slug'               => Editor::plugin_slug,
-			'add_new'            => __( 'New Email Notice', Editor::plugin_slug ),
-			'add_new_item'       => __( 'New Email Notice', Editor::plugin_slug ),
-			'edit'               => __( 'Edit Email Notice', Editor::plugin_slug ),
-			'edit_item'          => __( 'Edit Email Notice', Editor::plugin_slug ),
-			'new_item'           => __( 'Add New', Editor::plugin_slug ),
-			'view'               => __( 'View Email Notice', Editor::plugin_slug ),
-			'view_item'          => __( 'View This Email Notice', Editor::plugin_slug ),
-			'search_items'       => __( 'Search Email Notices', Editor::plugin_slug ),
-			'not_found'          => __( 'No Email Notice Found', Editor::plugin_slug ),
-			'not_found_in_trash' => __( 'No Email Notice Found In Trash', Editor::plugin_slug ),
+			'name'               => __( 'Email Notices', Email_Notice::plugin_slug ),
+			'singular_name'      => __( 'Email Notice', Email_Notice::plugin_slug ),
+			'slug'               => Email_Notice::plugin_slug,
+			'add_new'            => __( 'New Email Notice', Email_Notice::plugin_slug ),
+			'add_new_item'       => __( 'New Email Notice', Email_Notice::plugin_slug ),
+			'edit'               => __( 'Edit Email Notice', Email_Notice::plugin_slug ),
+			'edit_item'          => __( 'Edit Email Notice', Email_Notice::plugin_slug ),
+			'new_item'           => __( 'Add New', Email_Notice::plugin_slug ),
+			'view'               => __( 'View Email Notice', Email_Notice::plugin_slug ),
+			'view_item'          => __( 'View This Email Notice', Email_Notice::plugin_slug ),
+			'search_items'       => __( 'Search Email Notices', Email_Notice::plugin_slug ),
+			'not_found'          => __( 'No Email Notice Found', Email_Notice::plugin_slug ),
+			'not_found_in_trash' => __( 'No Email Notice Found In Trash', Email_Notice::plugin_slug ),
 		);
 		
 		$error = register_post_type( $post_type,
 			array(
-				'labels'             => apply_filters( 'e20r-email-editor-cpt-labels', $labels ),
+				'labels'             => apply_filters( 'e20r-email-email-notice-cpt-labels', $labels ),
 				'public'             => true,
 				'show_ui'            => true,
 				'show_in_menu'       => true,
 				'publicly_queryable' => true,
 				'hierarchical'       => true,
-				'supports'           => array( 'title', 'editor', 'thumbnail', 'custom-fields', 'author', 'excerpt' ),
+				'supports'           => array( 'title', 'email-notice', 'thumbnail', 'custom-fields', 'author', 'excerpt' ),
 				'can_export'         => true,
 				'show_in_nav_menus'  => true,
 				'rewrite'            => array(
 					'slug'       => $default_slug,
 					'with_front' => false,
 				),
-				'has_archive'        => apply_filters( 'e20r-email-editor-cpt-archive-slug', Editor::plugin_slug . "-archive" ),
+				'has_archive'        => apply_filters( 'e20r-email-email-notice-cpt-archive-slug', Email_Notice::plugin_slug . "-archive" ),
 			)
 		);
 		
 		if ( ! is_wp_error( $error ) ) {
+			update_option( 'e20r_email_notice_slug', $default_slug );
 			return true;
 		} else {
 			$utils->log( 'Error creating post type: ' . $error->get_error_message() );
@@ -795,7 +790,7 @@ abstract class Editor {
 	}
 	
 	/**
-	 * Create Taxonomy for E20R Editor
+	 * Create Taxonomy for E20R EMail_Notice
 	 *
 	 * @param string $post_type
 	 * @param string $slug
@@ -816,7 +811,7 @@ abstract class Editor {
 			'new_item_name'     => __( 'New Email Type Name', $slug ),
 		);
 		
-		register_taxonomy( Editor::taxonomy, $post_type, array(
+		register_taxonomy( Email_Notice::taxonomy, $post_type, array(
 				'hierarchical'      => true,
 				'label'             => __( 'Email Type', $slug ),
 				'labels'            => $taxonomy_labels,
@@ -825,7 +820,7 @@ abstract class Editor {
 				'show_in_nav_menus' => true,
 				'query_var'         => true,
 				'rewrite'           => array(
-					'slug'         => str_replace( '_', '-', Editor::taxonomy ),
+					'slug'         => str_replace( '_', '-', Email_Notice::taxonomy ),
 					'with_front'   => false,
 					'hierarchical' => true,
 				),
@@ -929,7 +924,7 @@ abstract class Editor {
 	/**
 	 * Filter handler to load the Editor Email Notice content
 	 *
-	 * @filter 'e20r-email-editor-notice-content'
+	 * @filter 'e20r-email-email-notice-notice-content'
 	 *
 	 * @param string $content
 	 * @param string $template_slug

@@ -18,11 +18,11 @@
  * @version 1.1
  */
 'use strict';
-var e20r_editor = {};
+var e20r_email_notice = {};
 
 (function ($) {
 
-        e20r_editor = {
+        e20r_email_notice = {
             init: function () {
 
                 this.hideable = $('.e20r-start-hidden');
@@ -41,6 +41,7 @@ var e20r_editor = {};
                 self.hide_first_remove_btn();
                 self.update_schedule_action();
 
+                /*
                 // Loop through and enable/disable the fields for the template(s)
                 $('input[name="e20r_message_template-key"]').each(function () {
 
@@ -51,6 +52,7 @@ var e20r_editor = {};
                         self.disable_fields($('input#e20r-message-disabled_' + $template_name), $template_name);
                     }, 500);
                 });
+                */
             },
             update_add_action: function () {
 
@@ -94,6 +96,7 @@ var e20r_editor = {};
                     remove_btn.closest('.e20r-schedule-entry').remove();
                 });
             },
+			/*
             disable_fields: function ($element, $template_name) {
 
                 var self = this;
@@ -116,8 +119,7 @@ var e20r_editor = {};
                 }
 
                 $element.attr("disabled", false);
-            }
-            ,
+            }*/
             hide_all: function ($element) {
 
                 $element.each(function () {
@@ -127,24 +129,14 @@ var e20r_editor = {};
             }
             ,
             hide_first_remove_btn: function () {
-                var self = this;
+				var self = this;
 
-                self.first_remove_btn = $('.e20r-delete-schedule-entry').first();
-                self.first_remove_btn.each(function () {
-                    var btn = $(this);
-                    btn.hide();
-                })
-            }
-            ,
-            toggle_visibility: function ($element) {
-
-                var self = this;
-                self.hide_all(self.hideable);
-
-                $element.toggle();
-                $('tr.controls').show();
-            }
-            ,
+				self.first_remove_btn = $('.e20r-delete-schedule-entry').first();
+				self.first_remove_btn.each(function () {
+					var btn = $(this);
+					btn.hide();
+				})
+			},
             add_schedule_div: function ($type) {
 
                 var self = this;
@@ -158,7 +150,7 @@ var e20r_editor = {};
                     $html += '\t\t</span>\n';
                     $html += '\t</div>\n';
                 } else {
-                    $html += e20r_email_editor.lang.no_schedule;
+                    $html += e20r_email_notice.lang.no_schedule;
                 }
 
                 return $html;
@@ -171,7 +163,7 @@ var e20r_editor = {};
 
                 if (true === include_input) {
                     $html += self.add_schedule_div('input');
-                    $html += '\t<button class="button-secondary e20r-add-new-schedule">' + e20r_email_editor.lang.period_btn_label + '</button>\n';
+                    $html += '\t<button class="button-secondary e20r-add-new-schedule">' + e20r_email_notice.lang.period_btn_label + '</button>\n';
                 } else {
                     $html += self.add_schedule_div(null);
                 }
@@ -189,6 +181,6 @@ var e20r_editor = {};
     })(jQuery);
 
 jQuery(document).ready(function () {
-    e20r_editor.init();
+    e20r_email_notice.init();
 });
 
