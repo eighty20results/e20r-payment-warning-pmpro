@@ -724,43 +724,69 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$utils     = Utilities::get_instance();
 			$user_list = array();
 			
-			$table_name  = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
+			$user_info_table  = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
+			$user_cc_table  = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
 			$environment = pmpro_getOption( 'gateway_environment' );
+			
+			$last_day = apply_filters( 'e20rpw_ccexpiration_last_day_of_month', date( 't', current_time('timestamp' ) ) );
+			$current_month = apply_filters( 'e20rpw_ccexpiration_month', date( 'm', current_time('timestamp') ) );
+			
+			if ( $current_month == 12 ) {
+				$next_month = 01;
+			} else {
+				$next_month = $current_month + 1;
+			}
+			
+			$current_year = apply_filters( 'e20rpw_ccexpiration_year', date( 'Y', current_time( 'timestamp' ) ) );
 			
 			$utils->log( "Loading {$type} records from Membership data" );
 			
+			/**
+			 * @since 2.1 - BUG FIX: Used localized date
+			 * @since 2.1 - ENHANCEMENT: Add data fetch for Credit Card Expiration warnings
+			 */
 			switch ( $type ) {
 				case 'recurring':
 					$sql = $wpdb->prepare( "
 							SELECT DISTINCT user_id, level_id, last_order_id
-								FROM {$table_name}
+								FROM {$user_info_table}
 								WHERE (user_payment_status = %s OR user_payment_status = %s) AND
 								reminder_type = %s AND
 								end_of_payment_period >= %s",
 						'active',
 						'success',
 						$type,
-						date_i18n( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
+						date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
 					);
 					
 					break;
 				case 'expiration':
 					$sql = $wpdb->prepare( "
 							SELECT DISTINCT user_id, level_id, last_order_id
-								FROM {$table_name}
+								FROM {$user_info_table}
 								WHERE (user_payment_status = %s OR user_payment_status = %s) AND
 								reminder_type = %s AND
 								end_of_membership_date >= %s",
 						'active',
 						'success',
 						$type,
-						date_i18n( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
+						date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
 					);
 					break;
 				case 'ccexpiration':
 					$utils->log( "WARNING: No processing to do for {$type} as of yet!" );
-					
-					return false;
+					$sql = $wpdb->prepare( "
+						SELECT UI.user_id AS user_id, UI.level_id AS level_id, UI.last_order_id AS last_order_id
+						FROM {$user_cc_table} AS CC
+						INNER JOIN {$user_info_table} AS UI
+							ON ( CC.user_id = UI.user_id AND UI.next_payment_date >= %s AND UI.reminder_type = %s )
+						WHERE CC.exp_month >= %d AND CC.exp_month < %d AND CC.exp_year = %d",
+					"{$current_month}-{$last_day}-{$current_year} 23:59:59",
+						"recurring",
+						$current_month,
+						$current_month,
+						$current_year
+					);
 					break;
 				default:
 					
