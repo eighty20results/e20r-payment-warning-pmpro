@@ -128,6 +128,8 @@ class Payment_Reminder {
 	 * Task handler for Payment email reminders/notices
 	 *
 	 * @param string|null $type
+	 *
+	 * @since 2.1 - BUG FIX: Didn't always process all payment warning message types
 	 */
 	public function process_reminders( $type = null ) {
 		
@@ -156,7 +158,7 @@ class Payment_Reminder {
 		$main            = Payment_Warning::get_instance();
 		$users           = $fetch->get_local_user_data( $type );
 		$templates       = Reminder_Editor::get_templates_of_type( $type );
-		$message_handler = $main->get_handler( 'messages' );
+		$message_handler = $main->get_handler( $type );
 		
 		$util->log( "Will process {$type} messages for " . count( $users ) . " members/users" );
 		$this->set_users( $users );
