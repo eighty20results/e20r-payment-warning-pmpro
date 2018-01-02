@@ -26,31 +26,57 @@ use E20R\Utilities\Utilities;
 
 class Handle_Messages extends E20R_Background_Process {
 	
+	/**
+	 * Instance of this class (Handle_Messages class)
+	 *
+	 * @var Handle_Messages|null
+	 */
 	private static $instance = null;
+	
+	/**
+	 * Set the action handler type (unique name)
+	 * @var string $type
+	 */
+	private $type;
 	
 	/**
 	 * Constructor for Handle_Messages class
 	 *
-	 * @param string $handle
+	 * @param string $type
+	 *
+	 * @since 2.1 - BUG FIX: Didn't always process all types of warning messages
 	 */
-	public function __construct( $handle ) {
+	public function __construct( $type ) {
 		
 		$util = Utilities::get_instance();
-		$util->log( "Instantiated Handle_Messages class" );
+		$util->log( "Instantiated Handle_Messages class for {$type}" );
 		
 		self::$instance = $this;
 		/*
 		$av           = get_class( $calling_class );
 		$name         = explode( '\\', $av );
 		*/
-		$this->action = "hm_" . strtolower( $handle );
-		
-		$util->log( "Set Action variable to {$this->action} for Handle_Messages" );
+		$this->type = strtolower( $type );
+		$this->action = "email_{$this->type}" ;
 		
 		// Required: Run the parent class constructor
 		parent::__construct();
 	}
 	
+	/**
+	 * Set the type of message (for the Message Handler action(s))
+	 *
+	 * @param string $type - recurring, expiring, ccexpiration
+	 *
+	 * @since 2.1 - ENHANCEMENT: Adding ability to change the action name for the background process
+	 */
+	public function set_message_type( $type ) {
+		
+		if ( 1 !== preg_match( "/{$type}/i", $this->action ) ) {
+			$this->type = strtolower( $type );
+			$this->action = "email_{$this->type}";
+		}
+	}
 	/**
 	 * Process Background data retrieval task (fetching subscription data) for a specific user
 	 *
@@ -61,8 +87,10 @@ class Handle_Messages extends E20R_Background_Process {
 	protected function task( $message ) {
 		
 		$util = Utilities::get_instance();
+		$util->log( "Using Action variable {$this->action} for Handle_Messages" );
 		
 		$util->log( "Trigger per user message operation for " . $message->get_user()->get_user_ID() );
+		
 		
 		$template_type = $message->get_template_type();
 		$schedule      = $message->get_schedule();
@@ -70,10 +98,11 @@ class Handle_Messages extends E20R_Background_Process {
 		$check_date    = null;
 		
 		if ( empty( $template_type ) ) {
-			$util->log( sprintf( "Unable to process the '%s' messagefor %d", $message->get_template_type(), $message->get_user()->get_user_ID() ) );
+			$util->log( sprintf( "Unable to process the '%s' message for %d", $message->get_template_type(), $message->get_user()->get_user_ID() ) );
 			
 			return false;
 		}
+		
 		// $util->log( "Sending schedule for {$template_type} is: " . print_r( $schedule, true ) );
 		
 		foreach ( $schedule as $interval_day ) {
@@ -118,6 +147,8 @@ class Handle_Messages extends E20R_Background_Process {
 	 *
 	 * Override if applicable, but ensure that the below actions are
 	 * performed, or, call parent::complete().
+	 *
+	 * @since 2.1 - ENHANCEMENT: Add CreditCard Expiration warning admin message (when applicable)
 	 */
 	protected function complete() {
 		
@@ -125,7 +156,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		$this->send_admin_notice( 'recurring' );
 		$this->send_admin_notice( 'expiration' );
-		// $this->send_admin_notice( 'creditcard' ); // TODO: Enable the admin notice for credit card expiration warnings
+		$this->send_admin_notice( 'creditcard' );
 		
 		$util = Utilities::get_instance();
 		$now  = date_i18n( 'H:i:s (m/d)', strtotime( get_option( 'timezone_string' ) ) );
