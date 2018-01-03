@@ -779,13 +779,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						SELECT UI.user_id AS user_id, UI.level_id AS level_id, UI.last_order_id AS last_order_id
 						FROM {$user_cc_table} AS CC
 						INNER JOIN {$user_info_table} AS UI
-							ON ( CC.user_id = UI.user_id AND UI.next_payment_date >= %s AND UI.reminder_type = %s )
-						WHERE CC.exp_month >= %d AND CC.exp_month < %d AND CC.exp_year = %d",
+							ON (
+								CC.user_id = UI.user_id
+								AND UI.next_payment_date >= %s
+								AND UI.reminder_type = %s
+							)
+						WHERE CC.exp_month >= %d AND
+							CC.exp_month < %d AND
+							CC.exp_year = %d
+							AND UI.user_payment_status = %s",
 					"{$current_month}-{$last_day}-{$current_year} 23:59:59",
-						"recurring",
+						'recurring',
 						$current_month,
 						$current_month,
-						$current_year
+						$current_year,
+						'active'
 					);
 					break;
 				default:
