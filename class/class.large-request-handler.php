@@ -31,11 +31,15 @@ use E20R\Utilities\Utilities;
 class Large_Request_Handler extends E20R_Background_Process {
 	
 	/**
+	 * The action (string) we're processing (used to set the WP_Cron action name)
+	 *
 	 * @var null|string
 	 */
 	protected $action = null;
 	
 	/**
+	 * The Background process handler this large request handler will fire off
+	 *
 	 * @var null|Handle_Subscriptions|Handle_Payments|Handle_Messages
 	 */
 	private $sub_handler = null;
