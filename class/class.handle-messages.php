@@ -20,6 +20,7 @@
 namespace E20R\Payment_Warning;
 
 
+use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Utilities\E20R_Background_Process;
 use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\Utilities;
@@ -52,12 +53,8 @@ class Handle_Messages extends E20R_Background_Process {
 		$util->log( "Instantiated Handle_Messages class for {$type}" );
 		
 		self::$instance = $this;
-		/*
-		$av           = get_class( $calling_class );
-		$name         = explode( '\\', $av );
-		*/
-		$this->type = strtolower( $type );
-		$this->action = "email_{$this->type}" ;
+		$this->type     = strtolower( $type );
+		$this->action   = "email_{$this->type}";
 		
 		// Required: Run the parent class constructor
 		parent::__construct();
@@ -73,24 +70,27 @@ class Handle_Messages extends E20R_Background_Process {
 	public function set_message_type( $type ) {
 		
 		if ( 1 !== preg_match( "/{$type}/i", $this->action ) ) {
-			$this->type = strtolower( $type );
+			$this->type   = strtolower( $type );
 			$this->action = "email_{$this->type}";
 		}
 	}
+	
 	/**
 	 * Process Background data retrieval task (fetching subscription data) for a specific user
 	 *
 	 * @param Email_Message $message
 	 *
 	 * @return bool
+	 *
+	 * @since 2.1 - BUG FIX: Didn't load Credit Card user data correctly
 	 */
 	protected function task( $message ) {
 		
-		$util = Utilities::get_instance();
+		$util            = Utilities::get_instance();
+		$reminder_notice = Reminder_Editor::get_instance();
+		
 		$util->log( "Using Action variable {$this->action} for Handle_Messages" );
-		
 		$util->log( "Trigger per user message operation for " . $message->get_user()->get_user_ID() );
-		
 		
 		$template_type = $message->get_template_type();
 		$schedule      = $message->get_schedule();
@@ -109,19 +109,28 @@ class Handle_Messages extends E20R_Background_Process {
 			
 			$user_id = $message->get_user()->get_user_ID();
 			$send    = false;
-			$util->log( "Processing for warning day #{$interval_day}, user {$user_id}" );
+			$util->log( "Processing for {$template_type} on warning day #{$interval_day}, user {$user_id}" );
 			
 			$uses_recurring = $message->get_user()->has_active_subscription();
 			$next_payment   = $message->get_user()->get_next_payment();
 			$has_enddate    = $message->get_user()->get_end_of_membership_date();
+			$type           = $reminder_notice->get_type_from_string( 'creditcard' );
+			$is_creditcard  = ( $template_type == $type );
 			
-			if ( true === $uses_recurring && ! empty( $next_payment ) ) {
+			$util->log( "Processing for a credit card template ({$template_type} vs {$type})? " . ( $is_creditcard ? 'Yes' : 'No' ) );
+			
+			if ( true === $is_creditcard ) {
+				$util->log( "Credit Card expiration warning" );
+				$check_date = $reminder_notice->end_of_month() . " 23:59:59";
+			}
+			
+			if ( true === $uses_recurring && ! empty( $next_payment ) && false === $is_creditcard ) {
 				
 				$util->log( "Found Next payment info: {$next_payment} for recurring payment member {$user_id}" );
 				$check_date = $next_payment;
 			}
 			
-			if ( false === $uses_recurring && ! empty( $has_enddate ) ) {
+			if ( false === $uses_recurring && ! empty( $has_enddate ) && false === $is_creditcard ) {
 				$check_date = $has_enddate;
 			}
 			
@@ -133,7 +142,7 @@ class Handle_Messages extends E20R_Background_Process {
 			$util->log( "Should we send {$user_id} the {$template_type} email message for the {$interval_day} interval? " . ( $send ? 'Yes' : 'No' ) );
 			
 			if ( true === $send ) {
-				$util->log( "Preparing the message to {$user_id}" );
+				$util->log( "Preparing the {$template_type} message to {$user_id}" );
 				$message->send_message( $template_type );
 			}
 		}
@@ -154,6 +163,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		parent::complete();
 		
+		// FIXME: Doesn't match the saved option type (which is _not_ a text value)
 		$this->send_admin_notice( 'recurring' );
 		$this->send_admin_notice( 'expiration' );
 		$this->send_admin_notice( 'creditcard' );
@@ -179,13 +189,14 @@ class Handle_Messages extends E20R_Background_Process {
 	/**
 	 * Send email message notifying administrator user(s) of completion
 	 *
-	 * @param $type
+	 * @param string $type
 	 *
 	 * @return bool
 	 *
 	 * @access private
 	 *
-	 * @since 1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
+	 * @since  1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
+	 * @since  2.1 - ENHANCEMENT/FIX: Use correct message types for new email notice infrastructure
 	 */
 	private function send_admin_notice( $type ) {
 		
@@ -194,10 +205,21 @@ class Handle_Messages extends E20R_Background_Process {
 		$type_text          = null;
 		$subject            = sprintf( __( "Completed processing the %s payment warning type", Payment_Warning::plugin_slug ), $type );
 		$skip_admin_notices = apply_filters( 'e20r-payment-warning-skip-admin-message-if-none-sent', true );
+		$reminder_msg       = Reminder_Editor::get_instance();
+		$type_const         = $reminder_msg->get_type_from_string( $type );
+		
+		// The requested message type doesn't exist???
+		if ( is_null( $type_const ) ) {
+			
+			$utils = Utilities::get_instance();
+			$utils->log( "Error: Unable to map to the appropriate value for the requested type: {$type}" );
+			
+			return false;
+		}
 		
 		switch ( $type ) {
 			case 'recurring':
-				$users     = get_option( 'e20r_pw_sent_recurring', array() );
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
 				$type_text = __( "upcoming recurring payment", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
@@ -205,7 +227,7 @@ class Handle_Messages extends E20R_Background_Process {
 				break;
 			
 			case 'expiration':
-				$users     = get_option( 'e20r_pw_sent_expiration', array() );
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
 				$type_text = __( "pending membership expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
@@ -213,7 +235,7 @@ class Handle_Messages extends E20R_Background_Process {
 				break;
 			
 			case 'creditcard':
-				$users     = get_option( 'e20r_pw_sent_creditcard', array() );
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
 				$type_text = __( "credit card expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
@@ -244,7 +266,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		if ( ! empty( $users[ $today ] ) ) {
 			// @since 1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
-			$user_list .= implode( '<br/>', array_keys( $users[ $today ] ) );
+			$user_list .= implode( '<br/>', array_map( 'urldecode', array_keys( $users[ $today ] ) ) );
 			
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
