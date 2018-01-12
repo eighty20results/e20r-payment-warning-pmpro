@@ -47,6 +47,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		/**
 		 * Handler for remote data fetch operation for subscriptions (background operation)
 		 *
+		 * @param string $addon_name - Name of gateway/addon we'll fetch data for
+		 *
+		 * @return bool
+		 *
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_subscription_data() for get_all_user_records() return values
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_subscription_data() from running more than once at a time
@@ -55,28 +59,38 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.10 - ENHANCEMENT: Also add monitoring if the mutex is set
 		 * @since 1.9.10 - BUG FIX: Delay first execution of monitoring action
 		 * @since 1.9.11 - BUG FIX: Moved monitoring cron job scheduler to Cron_Handler class
+		 * @since 2.1 - ENHANCEMENT: Process for multiple payment gateways (add-ons) at the same time
 		 */
-		public function configure_remote_subscription_data_fetch() {
+		public function configure_remote_subscription_data_fetch( $addon_name ) {
 			
-			$util = Utilities::get_instance();
-			$main = Payment_Warning::get_instance();
-			$mutex = intval( get_option( 'e20rpw_subscr_fetch_mutex', 0 ) );
+			$util  = Utilities::get_instance();
+			$main  = Payment_Warning::get_instance();
+			$mutex = intval( get_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 0 ) );
 			
 			if ( 1 === $mutex ) {
 				
 				$util->log( "Error: Remote subscription data fetch is already active. Refusing to run!" );
-				return;
+				
+				return false;
 			}
 			
 			if ( false == $main->load_options( 'enable_gateway_fetch' ) ) {
 				
 				$util->log( "User has not enabled subscription download!" );
 				
-				return;
+				return false;
 			}
 			
-			$util->log( "Trigger load of the active add-on gateway(s)" );
-			do_action( 'e20r_pw_addon_load_gateway' );
+			$util->log( "Trigger load of the active add-on gateway for {$addon_name}" );
+			$loaded = apply_filters( 'e20r_pw_addon_load_gateway', $addon_name );
+			
+			/**
+			 * @since 2.1 - ENHANCEMENT: Manage processing for multiple gateway(s) at once
+			 */
+			if ( $addon_name !== $loaded ) {
+				$util->log("Not processing the same add-on as we're trying to load!");
+				return false;
+			}
 			
 			$util->log( "Grab all active PMPro Members" );
 			$this->active_members = array();
@@ -88,7 +102,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$util->log( "No records found for the remote payment data search" );
 				$util->add_message( __( "No local records for expiring memberships found!", Payment_Warning::plugin_slug ), 'warning', 'backend' );
 				
-				return;
+				return false;
 			}
 			
 			$data_count = count( $this->active_members );
@@ -99,7 +113,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( $data_count > $this->per_request_count ) {
 				
-				$util->log( "Using large request handler for subscription requests" );
+				$util->log( "Using large request handler for subscription requests for {$addon_name}" );
 				
 				$no_chunks = ceil( $data_count / $this->per_request_count );
 				$util->log( "Splitting data into {$no_chunks} chunks" );
@@ -116,7 +130,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$data = array(
 						'dataset'      => $to_process,
-						'task_handler' => $main->get_handler( 'subscriptions' ),
+						'task_handler' => $main->get_handler( 'subscription', $addon_name ),
 						'type'         => 'enable_gateway_fetch',
 					);
 					
@@ -126,7 +140,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
 				$handler->save()->dispatch();
-				update_option( 'e20rpw_subscr_fetch_mutex', 1, 'no' );
+				update_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 1, 'no' );
 				
 			} else {
 				
@@ -137,8 +151,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				if ( true === $run_gateway_fetch ) {
 					
-					$util->log( "No need to split the data set to queue for processing!" );
-					$sub_handler = $main->get_handler( 'subscriptions' );
+					$util->log( "No need to split the data set to queue for processing for type: {$addon_name}!" );
+					$sub_handler = $main->get_handler( 'subscription', $addon_name );
+					
+					if ( empty( $sub_handler ) ) {
+						$util->log("No handler returned for the {$addon_name} gateway");
+						return false;
+					}
 					
 					foreach ( $this->active_members as $user_data ) {
 						
@@ -147,7 +166,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					}
 					$util->log( "Saved the data to process to the subscription handler & dispatching it" );
 					$sub_handler->save()->dispatch();
-					update_option( 'e20rpw_subscr_fetch_mutex', 1, 'no' );
+					update_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 1, 'no' );
 				}
 			}
 		}
@@ -155,12 +174,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		/**
 		 * Handler for remote data fetch operation for payments (non-recurring payments in background operation)
 		 *
+		 * @param string $addon_name - Name of gateway/addon we'll fetch data for
+		 *
 		 * @since 1.9.1 - BUG FIX: Didn't use the default method - get_all_user_records() - when loading member/user data
 		 * @since 1.9.4 - ENHANCEMENT: Added error checking in get_remote_payment_data() for get_all_user_records() return values
 		 * @since 1.9.4 - ENHANCEMENT: Preventing get_remote_payment_data() from running more than once at a time
 		 * @since 1.9.6 - ENHANCEMENT: Renamed get_remote_payment_data() to configure_remote_payment_data_fetch()
+		 * @since 2.1 - ENHANCEMENT: Process for multiple payment gateways (add-ons) at the same time
 		 */
-		public function configure_remote_payment_data_fetch() {
+		public function configure_remote_payment_data_fetch( $addon_name ) {
 			
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
@@ -182,9 +204,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			}
 			
 			$util->log( "Trigger load of the active add-on gateway(s)" );
-			do_action( 'e20r_pw_addon_load_gateway' );
+			$loaded = apply_filters( 'e20r_pw_addon_load_gateway', $addon_name );
 			
-			$util->log( "Grab all active Members without subscription plans" );
+			if ( $addon_name !== $loaded ) {
+				$util->log("Not processing the same add-on as we're trying to load!");
+				return;
+			}
+			
+			$util->log( "Grab all active Members WITHOUT a subscription plans" );
 			$this->active_members = array();
 			
 			/**
@@ -204,7 +231,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			if ( $data_count > $this->per_request_count ) {
 				
-				$util->log( "Using large request handler for payment request" );
+				$util->log( "Using large request handler for payment request for {$addon_name}" );
 				
 				$no_chunks = ceil( $data_count / $this->per_request_count );
 				$util->log( "Splitting data into {$no_chunks} chunks" );
@@ -220,7 +247,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$data = array(
 						'dataset'      => $to_process,
-						'task_handler' => $main->get_handler( 'payments' ),
+						'task_handler' => $main->get_handler( "payment", $addon_name ),
 						'type'         => 'enable_gateway_fetch',
 					);
 					
@@ -232,7 +259,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				$util->log( "Saving and dispatching large number of payment workstreams in separate requests" );
 				$handler->save()->dispatch();
 				
-				update_option( 'e20rpw_paym_fetch_mutex', 1, 'no' );
+				update_option( "e20rpw_paym_fetch_mutex_{$addon_name}", 1, 'no' );
 				
 			} else {
 				
@@ -243,8 +270,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				if ( true === $run_gateway_fetch ) {
 					
-					$p_handler = $main->get_handler( 'payments' );
+					$p_handler = $main->get_handler( "payment", $addon_name );
 					$p_handler->clear_queue();
+					
+					if ( empty( $this->active_members ) ) {
+						return;
+					}
 					
 					foreach ( $this->active_members as $user_data ) {
 						
@@ -252,10 +283,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						$p_handler->push_to_queue( $user_data );
 					}
 					
-					$util->log( "Dispatch the background job for the payment data" );
+					$util->log( "Dispatch the background job for the payment data with {$addon_name}" );
 					$p_handler->save()->dispatch();
 					
-					update_option( 'e20rpw_paym_fetch_mutex', 1, 'no' );
+					update_option( "e20rpw_paym_fetch_mutex_{$addon_name}", 1, 'no' );
 				}
 			}
 		}
@@ -299,7 +330,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						 		AND mu.enddate >= %s
 					        )
 					        ORDER by mu.user_id ASC",
-					date('Y-m-d 00:00:00' ) // Midnight today
+					date( 'Y-m-d 00:00:00' ) // Midnight today
 				);
 				
 				$member_list = $wpdb->get_results( $active_sql );
@@ -724,20 +755,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$utils     = Utilities::get_instance();
 			$user_list = array();
 			
-			$user_info_table  = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
-			$user_cc_table  = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
-			$environment = pmpro_getOption( 'gateway_environment' );
+			$user_info_table = apply_filters( 'e20r_pw_user_info_table_name', "{$wpdb->prefix}e20rpw_user_info" );
+			$user_cc_table   = apply_filters( 'e20r_pw_user_cc_table_name', "{$wpdb->prefix}e20rpw_user_cc" );
+			$environment     = pmpro_getOption( 'gateway_environment' );
 			
-			$last_day = apply_filters( 'e20rpw_ccexpiration_last_day_of_month', date( 't', current_time('timestamp' ) ) );
-			$current_month = apply_filters( 'e20rpw_ccexpiration_month', date( 'm', current_time('timestamp') ) );
+			$last_day      = apply_filters( 'e20rpw_ccexpiration_last_day_of_month', date( 't', current_time( 'timestamp' ) ) );
+			$current_month = apply_filters( 'e20rpw_ccexpiration_month', date( 'm', current_time( 'timestamp' ) ) );
+			$current_year = apply_filters( 'e20rpw_ccexpiration_year', date( 'Y', current_time( 'timestamp' ) ) );
 			
 			if ( $current_month == 12 ) {
 				$next_month = 01;
 			} else {
 				$next_month = $current_month + 1;
 			}
-			
-			$current_year = apply_filters( 'e20rpw_ccexpiration_year', date( 'Y', current_time( 'timestamp' ) ) );
 			
 			$utils->log( "Loading {$type} records from Membership data" );
 			
@@ -774,7 +804,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					);
 					break;
 				case 'ccexpiration':
-					$utils->log( "WARNING: No processing to do for {$type} as of yet!" );
+					
 					$sql = $wpdb->prepare( "
 						SELECT UI.user_id AS user_id, UI.level_id AS level_id, UI.last_order_id AS last_order_id
 						FROM {$user_cc_table} AS CC
@@ -784,17 +814,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 								AND UI.next_payment_date >= %s
 								AND UI.reminder_type = %s
 							)
-						WHERE CC.exp_month >= %d AND
-							CC.exp_month < %d AND
+						WHERE CC.exp_month = %d AND
+							CC.exp_month <= %d AND
 							CC.exp_year = %d
 							AND UI.user_payment_status = %s",
-					"{$current_month}-{$last_day}-{$current_year} 23:59:59",
+						"{$current_year}-{$current_month}-{$last_day} 23:59:59",
 						'recurring',
-						$current_month,
-						$current_month,
-						$current_year,
+						( $current_month == 12 ? $next_month : $current_month ), // Handle end of year
+						( $current_month == 12 ? $next_month + 1 : $next_month ), // Handle end of year
+						( $next_month != 1 ? $current_year : $current_year + 1 ), // Handle end of year
 						'active'
 					);
+					
+					$utils->log("Using SQL for Credit Card Expirations: {$sql}");
 					break;
 				default:
 					
@@ -823,12 +855,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				if ( ! empty( $last_order->code ) ) {
 					$record = new User_Data( $user, $last_order, $type );
-					$record->maybe_load_from_db( $user->ID, $last_order->id,$member->level_id );
+					$record->maybe_load_from_db( $user->ID, $last_order->id, $member->level_id );
 					$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( true == $record->get_recurring_membership_status() ? 'Yes' : 'No' ) );
 					
 				} else {
 					$record = new User_Data( $user, null, $type );
-					$record->maybe_load_from_db( $user->ID, null,$member->level_id );
+					$record->maybe_load_from_db( $user->ID, null, $member->level_id );
 					$utils->log( "No pre-existing active order for {$user->ID}" );
 				}
 				
