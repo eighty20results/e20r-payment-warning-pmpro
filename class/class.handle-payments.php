@@ -33,25 +33,34 @@ class Handle_Payments extends E20R_Background_Process {
 	 * @var null|User_Data
 	 */
 	protected $user_info = null;
+	
+	private $type = null;
+	
 	/**
 	 * Handle_Payments constructor.
 	 *
-	 * @param string $handle
+	 * @param string $type
 	 */
-	public function __construct( $handle ) {
+	public function __construct( $type ) {
 		
 		$util = Utilities::get_instance();
-		$util->log("Instantiated Handle_Payments class");
+		$util->log( "Instantiated Handle_Payments for {$type} class" );
 		
 		self::$instance = $this;
-		/*
-		$av = get_class( $calling_class );
-		$name = explode( '\\', $av );
-		*/
-		$this->action = "hp_" . strtolower( $handle );
-		$util->log("Set Action variable to {$this->action} for Handle_Payments");
+		$this->type     = $type;
+		$this->action   = "hp_" . strtolower( $type ) . "_paym";
+		$util->log( "Set Action variable to {$this->action} for Handle_Payments" );
 		
 		parent::__construct();
+	}
+	
+	/**
+	 * Return the action name for this Background Process
+	 *
+	 * @return string
+	 */
+	public function get_action() {
+		return $this->action;
 	}
 	
 	/**
@@ -67,17 +76,21 @@ class Handle_Payments extends E20R_Background_Process {
 	protected function task( $user_data ) {
 		
 		$util = Utilities::get_instance();
+		$pw   = Payment_Warning::get_instance();
 		
-		$util->log("Trigger per-addon payment/charge download for user" );
+		$util->log( "Trigger per-addon payment/charge download for user" );
 		
-		if ( !is_bool( $user_data ) ) {
+		if ( ! is_bool( $user_data ) ) {
 			
 			$user_id = $user_data->get_user_ID();
-			$user_data->set_reminder_type('expiration');
+			$user_data->set_reminder_type( 'expiration' );
 			
-			$util->log( "Loading from DB (if record exists) for {$user_id}");
+			$util->log( "Loading from DB (if record exists) for {$user_id}" );
 			$user_data->maybe_load_from_db( $user_id );
 			
+			/**
+			 * @since 2.1 - Allow processing for multiple payment gateways
+			 */
 			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
 			
 			// @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
@@ -85,26 +98,18 @@ class Handle_Payments extends E20R_Background_Process {
 				
 				$util->log( "Fetched payment data from gateway for " . $user_data->get_user_email() );
 				$util->log( "Done processing payment data for {$user_id}. Removing the user from the queue" );
+				
 				return false;
 			}
 			
-			$util->log( "User payment record not saved/processed. May be a-ok..." );
+			$util->log( "User payment record (for gateway: {$this->type}) not saved/processed. May be a-ok..." );
 			
 		} else {
-			$util->log("Incorrect format for user data record (boolean received!)");
+			$util->log( "Incorrect format for user data record (boolean received!)" );
 		}
 		
 		return false;
 		
-	}
-	
-	/**
-	 * Return the action name for this Background Process
-	 *
-	 * @return string
-	 */
-	public function get_action() {
-		return $this->action;
 	}
 	
 	/**
@@ -121,10 +126,10 @@ class Handle_Payments extends E20R_Background_Process {
 		$this->clear_queue();
 		
 		$util = Utilities::get_instance();
-		if ( false === delete_option( 'e20rpw_paym_fetch_mutex' ) ) {
-			$util->add_message( __( 'Unable to clear lock after loading Payment data', Payment_Warning::plugin_slug ), 'error', 'backend' );
+		if ( false === delete_option( "e20rpw_paym_fetch_mutex_{$this->type}" ) ) {
+			$util->add_message( sprintf( __( 'Unable to clear lock after loading Payment data for %s', Payment_Warning::plugin_slug ), $this->type ), 'error', 'backend' );
 		}
 		
-		$util->log("Completed remote payment/charge data fetch for all active gateways");
+		$util->log( "Completed remote payment/charge data fetch for all active gateways" );
 	}
 }
