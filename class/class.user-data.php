@@ -752,17 +752,31 @@ class User_Data {
 	/**
 	 * Return the type of reminder this record is for
 	 *
-	 * @param string $type
-	 *
-	 * @return null|string
+	 * @return null|string|int
 	 */
-	public function get_reminder_type( $type ) {
+	public function get_reminder_type() {
 		
-		if ( ! empty( $this->reminder_type ) ) {
-			return $this->reminder_type;
+		$value = null;
+		
+		if ( ! empty( $this->reminder_type ) && is_string( $this->reminder_type )) {
+			
+			switch( $this->reminder_type ) {
+				case 'recurring':
+					$value = E20R_PW_RECURRING_REMINDER;
+					break;
+				case 'expiring':
+					$value = E20R_PW_EXPIRATION_REMINDER;
+					break;
+				case 'ccexpiration':
+					$value = E20R_PW_CREDITCARD_REMINDER;
+					break;
+			}
+			
+		} else if ( !empty( $this->reminder_type ) ) {
+			$value = $this->reminder_type;
 		}
 		
-		return null;
+		return $value;
 	}
 	
 	/**
@@ -869,6 +883,8 @@ class User_Data {
 	 * Next payment date (for subscriptions)
 	 *
 	 * @return null|string Date/Time: YYYY-MM-DD HH:MM:SS)
+	 *
+	 * @since 2.2 - BUG FIX: Didn't use the supplied subscription ID
 	 */
 	public function get_next_payment( $subscription_id = null ) {
 		
@@ -879,7 +895,7 @@ class User_Data {
 			$util->log( "Have to attempt to fetch the next payment date from the DB..." );
 			global $wpdb;
 			
-			$sql = $wpdb->prepare( "SELECT next_payment_date FROM {$this->user_info_table_name} WHERE user_id = %d AND gateway_subscr_id = %s", $this->user->ID, $this->gateway_subscr_id );
+			$sql = $wpdb->prepare( "SELECT next_payment_date FROM {$this->user_info_table_name} WHERE user_id = %d AND gateway_subscr_id = %s", $this->user->ID, $subscription_id );
 			
 			$date = $wpdb->get_var( $sql );
 			$util->log( "Received date value: {$date}" );
@@ -889,7 +905,7 @@ class User_Data {
 			}
 		}
 		
-		$util->log( "Using: {$this->next_payment_date}" );
+		$util->log( "Using: {$this->next_payment_date} for subscription" );
 		
 		return $this->next_payment_date;
 	}
