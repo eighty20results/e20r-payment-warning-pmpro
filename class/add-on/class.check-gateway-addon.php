@@ -156,8 +156,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 				return $gateway_customer_id;
 			}
 			
-			$gateway_customer_id = get_user_meta( $user_info->get_user_ID(), 'pmpro_stripe_customerid', true );
-			$util->log( "Located Stripe user ID: {$gateway_customer_id} for WP User " . $user_info->get_user_ID() );
+			$gateway_customer_id = $user_info->get_user_ID();
+			$util->log( "Located Check user ID: {$gateway_customer_id} for WP User " . $user_info->get_user_ID() );
 			
 			return $gateway_customer_id;
 		}
@@ -175,15 +175,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		
 		/**
 		 * Load the payment gateway specific class/code/settings from PMPro
+		 *
+		 * @param string $addon_name
+		 *
+		 * @return boolean
 		 */
-		public function load_gateway() {
+		public function load_gateway( $addon_name ) {
 			
 			$util = Utilities::get_instance();
+			
+			if ( $addon_name !== 'check' ) {
+				$util->log("Not processing for this addon (check): {$addon_name}" );
+				return false;
+			}
 			
 			// This will load the Check/PMPro Gateway class _and_ its library(ies)
 			$util->log( "PMPro loaded? " . ( defined( 'PMPRO_VERSION' ) ? 'Yes' : 'No' ) );
 			$util->log( "PMPro check gateway loaded? " . ( class_exists( "\PMProGateway_check" ) ? 'Yes' : 'No' ) );
-			// $util->log( "Stripe Class(es) loaded? " . ( class_exists( 'Stripe\Stripe' ) ? 'Yes' : 'No' ) );
 			
 			if ( defined( 'PMPRO_VERSION' ) && class_exists( "\PMProGateway_check" ) && false === $this->gateway_loaded ) {
 				$util->log( "Loading the PMPro Check Gateway instance" );
@@ -202,40 +210,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 					$api_key = DEBUG_CHECK_KEY;
 				} else {
 					$util->log( "Using PMPro specified Key for Check API" );
-					$api_key = pmpro_getOption( 'stripe_secretkey' );
 				}
-				
-				// Stripe::setApiKey( $api_key );
-				
-				$api_version = $this->load_option( 'check_api_version' );
-				
-				// Not configured locally, so using whatever the Dashboard is configured for.
-				if ( empty( $api_version ) ) {
-					// $api_version = Stripe::getApiVersion();
-					$util->log( "Having to fetch the upstream API version to use: {$api_version}" );
-				}
-				
-				$util->log( "Using Check API Version: {$api_version}" );
 				
 				// Configure Stripe API call version
-				// Stripe::setApiVersion( $api_version );
-				
-				if ( empty( $this->gateway_timezone ) ) {
-					
-					$account = Account::retrieve();
-					
-					if ( ! empty( $account ) ) {
-						$util->log( "Using the Check Gateway timezone info" );
-						$this->gateway_timezone = $account->timezone;
-					} else {
-						$util->log( "Using the default WordPress instance timezone info" );
-						// Default to the same TZ as the WordPress server has.
-						$this->gateway_timezone = get_option( 'timezone_string' );
-					}
-					
-					$util->log( "Using {$this->gateway_timezone} as the timezone value" );
-				}
-				
+				$this->gateway_timezone = get_option( 'timezone_string' );
+				$util->log( "Using {$this->gateway_timezone} as the timezone value" );
 				return true;
 			} catch ( \Exception $e ) {
 				
@@ -267,7 +246,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			}
 			
 			if ( false === $this->gateway_loaded ) {
-				$utils->log( "Loading the PMPro Stripe Gateway instance" );
+				$utils->log( "Loading the PMPro Check Gateway instance" );
 				$this->load_check_libs();
 			}
 			
@@ -282,7 +261,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			
 			try {
 				
-				$utils->log( "Accessing Stripe API service for {$cust_id}" );
+				$utils->log( "Accessing Check API service for {$cust_id}" );
 				$data = Customer::retrieve( $cust_id );
 				
 			} catch ( Api $exception ) {
@@ -312,7 +291,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			
 			$utils->log( "Loading most recent local PMPro order info" );
 			
-			$local_order     = $user_data->get_last_pmpro_order();
+			$local_order    = $user_data->get_last_pmpro_order();
 			$check_statuses = apply_filters( 'e20r_pw_addon_gateway_subscr_statuses', array(), $this->gateway_name );
 			
 			// $user_data->add_subscription_list( $data->subscriptions->data );
@@ -399,7 +378,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
 					
 				} else {
-				 
+					
 					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
 					/**
 					 * @action e20r_pw_addon_save_subscription_mismatch
@@ -423,10 +402,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
 		 *
 		 * @param User_Data $user_data User data to update/process
+		 * @param string    $gateway   The name of the gateway being processed
 		 *
 		 * @return bool|User_Data
 		 */
-		public function get_gateway_payments( User_Data $user_data ) {
+		public function get_gateway_payments( User_Data $user_data, $gateway ) {
 			
 			$utils = Utilities::get_instance();
 			$stub  = apply_filters( 'e20r_pw_addon_check_gateway_addon_name', null );
@@ -448,7 +428,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			
 			$last_order    = $user_data->get_last_pmpro_order();
 			$last_order_id = ! empty( $last_order->payment_transaction_id ) ? $last_order->payment_transaction_id : null;
-   
+			
 			if ( empty( $cust_id ) ) {
 				
 				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
@@ -457,7 +437,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			}
 			
 			if ( empty( $last_order_id ) ) {
-				$utils->log("Unexpected: There's no Transaction ID for " . $user_data->get_user_ID() . " / {$cust_id}");
+				$utils->log( "Unexpected: There's no Transaction ID for " . $user_data->get_user_ID() . " / {$cust_id}" );
+				
 				return false;
 			}
 			
@@ -485,9 +466,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			$user_email = $user_data->get_user_email();
 			
 			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'in_' ) ) {
-			    
-			    $utils->log("Local order saved a Stripe Invoice ID, not a Charge ID");
-			    
+				
+				$utils->log( "Local order saved a Stripe Invoice ID, not a Charge ID" );
+				
 				try {
 					$inv = Invoice::retrieve( $last_order_id );
 					
@@ -601,31 +582,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			return $user_data;
 		}
 		
-		/**
-		 * List of Stripe API versions
-		 * TODO: Maintain the STRIPE API version list manually (no call to fetch current versions as of 07/03/2017)
-		 *
-		 * @return array
-		 */
-		public function fetch_check_api_versions() {
-			
-			$versions = apply_filters( 'e20r_pw_addon_check_api_versions', array(
-				'2017-08-15',
-				'2017-06-05',
-				'2017-05-25',
-				'2017-04-06',
-				'2017-02-14',
-				'2017-01-27',
-				'2016-10-19',
-				'2016-07-06',
-				'2016-06-15',
-				'2016-03-07',
-				'2016-02-29',
-			) );
-			
-			return $versions;
-		}
-		
+	
 		/**
 		 *  Stripe_Gateway_Addon constructor.
 		 */
@@ -694,7 +651,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 * @filter e20r-license-add-new-licenses
 		 *
 		 * @param array $license_settings
-         * @param array $plugin_settings
+		 * @param array $plugin_settings
 		 *
 		 * @return array
 		 */
@@ -740,7 +697,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		public function activate_addon() {
 			
 			$util = Utilities::get_instance();
-			$util->log( "Triggering Plugin activation actions for: Stripe Payment Gateway add-on" );
+			$util->log( "Triggering Plugin activation actions for: Check Payment Gateway add-on" );
 			
 			// FixMe: Any and all activation activities that are add-on specific
 			return;
@@ -762,8 +719,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			$util = Utilities::get_instance();
 			if ( true == $clear ) {
 				
-				// FixMe: Delete all option entries from the Database for this paymnt gateway add-on
-				$util->log( "Deactivate the add-on specific settings for the Stripe Payment Gateway" );
+				// FixMe: Delete all option entries from the Database for this payment gateway add-on
+				$util->log( "Deactivate the add-on specific settings for the Check Payment Gateway" );
 			}
 		}
 		
@@ -779,9 +736,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		private function load_defaults() {
 			
-			return array(
-				'check_api_version' => 0,
-			);
+			return array();
 			
 		}
 		
@@ -914,7 +869,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 				) );
 				
 				// Add-on specific filters and actions
-				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 0 );
+				add_filter( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
 				add_action( 'e20r_pw_addon_save_email_error_data', array(
 					self::get_instance(),
 					'save_email_error',
@@ -1001,97 +956,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			if ( false === $this->gateway_loaded ) {
 				$util->log( "Loading the PMPro Check Gateway instance" );
 				$this->load_check_libs();
-			}
-			/*
-			try {
-				Stripe::setApiKey( pmpro_getOption( "stripe_secretkey" ) );
-				
-			} catch ( \Exception $e ) {
-				
-				$util->log( "Unable to set API key for Stripe gateway: " . $e->getMessage() );
-				
-				return false;
-			}
-			*/
-			$api_version_to_use = $this->load_option( 'stripe_api_version' );
-			/*
-			try {
-				Stripe::setApiVersion( $api_version_to_use );
-			} catch ( \Exception $e ) {
-				$util->log( "Error attempting to set the API version to {$api_version_to_use}: " . $e->getMessage() );
-				
-				return false;
-			}
-			*/
-			$event_id = $util->get_variable( 'event_id', null );
-			
-			if ( ! empty( $event_id ) ) {
-				$util->log( "Loading event: {$event_id} from Stripe.com" );
-				try {
-					$event = Event::retrieve( $event_id );
-				} catch ( \Exception $e ) {
-					$util->log( "Error proceesing {$event_id}: " . $e->getMessage() );
-				}
-			} else if ( empty( $pmpro_stripe_event ) && empty( $event_id ) ) {
-				
-				$util->log( "Having to try to load the body of the request from the input stream:" );
-				
-				$body = @file_get_contents( 'php://input' );
-				
-				if ( ! empty( $body ) ) {
-					
-					$util->log( "Got 'something' (json?) from the input stream" );
-					
-					// Attempt to decode JSON (and return as Class/Object
-					$post_event = json_decode( $body, false );
-					
-					if ( ! isset( $post_event->object ) || ( isset( $post_event->object ) && 'event' !== $post_event->object ) ) {
-						
-						if ( ! empty( $post_event ) && ! is_bool( $post_event ) ) {
-							
-							
-							//Find the event ID
-							if ( ! empty( $post_event ) ) {
-								
-								$event_id = $post_event->id;
-							}
-							
-							$util->log( "Attempting to grab the event from Stripe.com for {$event_id}" );
-							
-							try {
-								
-								$event = Event::retrieve( $event_id );
-								
-							} catch ( \Exception $e ) {
-								
-								$util->log( "Error retrieving {$event_id}: " . $e->getMessage() );
-								
-								return false;
-							}
-							
-						} else {
-							$util->log( "Error attempting to decode the Stripe.com JSON text" );
-							
-							return false;
-						}
-						
-						if ( ! empty( $event_id ) && ! isset( $_REQUEST['event_id'] ) ) {
-							
-							$util->log( "Re-adding the event ID for check's webhook to the REQUEST array" );
-							$_REQUEST['event_id'] = $event_id;
-						}
-						
-					} else {
-						
-						$util->log( "Body/Event Parsed." );
-						$event = $post_event;
-					}
-				}
-				
-			} else if ( ! empty( $pmpro_stripe_event ) ) {
-				
-				$util->log( "Grabbing event from PMPro and using it for processing: {$pmpro_stripe_event->id}" );
-				$event = $pmpro_stripe_event;
 			}
 			
 			// Have what we believe to be a Stripe event object
@@ -1197,142 +1061,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			$customer    = null;
 			$user        = null;
 			
-			if ( isset( $data->object->customer ) ) {
-				
-				$util->log( "Found stripe customer ID: {$data->object->customer}" );
-				$customer_id = $data->object->customer;
-				
-			} else if ( isset( $data->object->owner->email ) ) {
-				
-				$util->log( "Found user email ({$data->object->owner->email}). Loading the Stripe customer ID..." );
-				$user = get_user_by( 'email', $data->object->owner->email );
-				
-				if ( ! empty( $user ) ) {
-					$customer_id = get_user_meta( $user->ID, 'pmpro_stripe_customer_id', true );
-				}
-			}
-			
-			if ( ! empty( $customer_id ) ) {
-				
-				try {
-					$customer = Customer::retrieve( $customer_id );
-					$user     = get_user_by( 'email', $customer->email );
-					
-				} catch ( \Exception $e ) {
-					$util->log( "Unable to retrieve customer data from object: {$data->object->customer} (probably not a Credit Card)" );
-				}
-				
-			} else {
-				$util->log( "No customer ID to use to update credit card data" );
-			}
-			
-			if ( 'card' !== $data->object->object || empty( $user ) ) {
-				$util->log( "Not processing a credit card, and didn't find a user!" );
-				
-				return false;
-			}
-			
-			$util->log( "Processing {$operation} card operation for user ID: {$user->ID}" );
-			
-			// We're looking to add/update
-			if ( 'delete' !== $operation ) {
-				
-				$util->log( "It's an update or add operation" );
-				
-				if ( 'update' === $operation ) {
-					$old_card_attributes = (array) $data->previous_attributes;
-					$util->log( "Previously saved (now updated): " . print_r( $old_card_attributes, true ) );
-				}
-				
-				$current_card_attributes = (array) $data->object;
-				$util->log( "Current saved (aka the updated) card details: " . print_r( $current_card_attributes, true ) );
-				
-				$search_for            = User_Data::default_card_format();
-				$search_for['user_id'] = $user->ID;
-				
-				foreach ( $search_for as $key => $value ) {
-					
-					if ( ! empty( $current_card_attributes[ $key ] ) ) {
-						$util->log( "Saving new/existing card info for {$key}: {$current_card_attributes[$key]}" );
-						$search_for[ $key ] = $current_card_attributes[ $key ];
-					}
-					
-					if ( 'update' === $operation && ! empty( $old_card_attributes[ $key ] ) ) {
-						$util->log( "Updating search array for key {$key} with: {$old_card_attributes[ $key ]}" );
-						$search_for[ $key ] = $old_card_attributes[ $key ];
-					}
-				}
-				
-				$card_id = User_Data::find_card_info( $search_for );
-				
-				if ( false !== $card_id ) {
-					$search_for['ID'] = $card_id;
-				}
-				
-				$search_for['user_id'] = $user->ID;
-				
-				$util->log( "Found card with record ID? " . ( isset( $search_for['ID'] ) ? 'Yes' : 'No' ) );
-				
-				foreach ( $search_for as $key => $value ) {
-					
-					if ( isset( $current_card_attributes[ $key ] ) && ! empty( $current_card_attributes[ $key ] ) ) {
-						$search_for[ $key ] = $current_card_attributes[ $key ];
-					}
-				}
-				
-				$util->log( "Will insert/update credit card info for {$user->user_email}: " . print_r( $search_for, true ) );
-				
-				if ( false === User_Data::save_credit_card( $search_for, isset( $search_for['ID'] ) ) ) {
-					
-					$util->log( "Unable to save/update credit card info locally..." );
-					
-					return false;
-				}
-				
-				// Deleting the card
-			} else if ( 'delete' === $operation ) {
-				
-				$current_card_attributes = (array) $data->object;
-				$search_for              = $current_card_attributes;
-				
-				$util->log( "Attempting to delete card: " );
-				
-				$card_info            = User_Data::default_card_format();
-				$card_info['user_id'] = $user->ID;
-				
-				$received = (array) $data->object;
-				
-				$util->log( "Received data for {$operation} operation: " . print_r( $received, true ) );
-				
-				foreach ( $card_info as $key => $value ) {
-					
-					if ( isset( $current_card_attributes[ $key ] ) ) {
-						$card_info[ $key ] = $current_card_attributes[ $key ];
-					}
-				}
-				
-				$card_id = User_Data::find_card_info( $card_info );
-				
-				if ( ! empty( $card_id ) ) {
-					
-					$util->log( "Found card with ID: {$card_id}" );
-					
-					if ( false === User_Data::delete_card( $card_id ) ) {
-						
-						$util->log( "Unable to delete {$card_info['brand']}/{$card_info['last4']} with ID {$card_id}" );
-						
-						return false;
-					}
-					
-					$util->log( "Deleted card with ID: {$card_id}" );
-				} else {
-					
-					$util->log( "Card with ID {$card_id} not found???" );
-					
-					return true;
-				}
-			}
-			
 			return true;
 		}
 		
@@ -1353,125 +1081,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 				$util->log( "Not a subscription object! Exiting" );
 				
 				return false;
-			}
-			
-			$subscription = $data->object;
-			$customer_id  = isset( $subscription->customer ) ? $subscription->customer : null;
-			
-			if ( ! empty( $customer_id ) ) {
-				
-				try {
-					$customer = Customer::retrieve( $customer_id );
-					$user     = get_user_by( 'email', $customer->email );
-				} catch ( \Exception $e ) {
-					$util->log( "Error fetching customer data from Stripe.com: " . $e->getMessage() );
-					
-					return false;
-				}
-			}
-			
-			if ( empty( $user ) ) {
-				$util->log( "Customer/User with Stripe ID {$customer_id} not found on local system!" );
-				
-				return false;
-			}
-			
-			if ( 'delete' === $operation ) {
-				$util->log( "Will be removing subscription data for {$subscription->id}/{$customer_id}/{$user->user_email}" );
-				
-				if ( false === User_Data::delete_subscription_record( $user->ID, $subscription->id ) ) {
-					$util->log( "Error deleting subscription record: {$subscription->id} for {$user->ID}" );
-				}
-				
-				return true;
-			}
-			
-			if ( 'add' === $operation ) {
-				
-				$util->log( "Wanting to add a new subscription for user {$customer_id}/{$user->ID}" );
-				
-				if ( ! empty( $customer ) && ! empty( $user ) && ! empty( $subscription ) ) {
-					
-					$util->log( "Adding local PMPro order for {$user->ID}/{$customer->id}" );
-					$user_info = $this->add_local_subscription_order( $customer, $user, $subscription );
-					
-					$user_info->set_gw_subscription_id( $subscription->id );
-					$user_info->set_payment_currency( $subscription->items->data[0]->plan->currency );
-					
-					if ( empty( $subscription->cancel_at_period_end ) && empty( $subscription->cancelled_at ) && in_array( $subscription->status, array(
-							'trialing',
-							'active',
-						) )
-					) {
-						$util->log( "Setting payment status to 'active' for {$customer->id}" );
-						$user_info->set_payment_status( 'active' );
-					}
-					
-					if ( ! empty( $subscription->cancel_at_period_end ) || ! empty( $subscription->cancelled_at ) || ! in_array( $subscription->status, array(
-							'trialing',
-							'active',
-						) )
-					) {
-						$util->log( "Setting payment status to 'stopped' for {$customer->id}" );
-						$user_info->set_payment_status( 'stopped' );
-					}
-					
-					// Set the date for the next payment
-					if ( $user_info->get_payment_status() === 'active' ) {
-						
-						// Get the date when the currently paid for period ends.
-						$current_payment_until = date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end );
-						$user_info->set_end_of_paymentperiod( $current_payment_until );
-						$util->log( "End of the current payment period: {$current_payment_until}" );
-						
-						// Add a day (first day of new payment period)
-						$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
-						
-						$user_info->set_next_payment( $payment_next );
-						$util->log( "Next payment on: {$payment_next}" );
-						
-						global $pmpro_currencies;
-						$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
-						$user_info->set_payment_currency( $plan_currency );
-						
-						$util->log( "Payments are made in: {$plan_currency}" );
-						$has_decimals = true;
-						
-						if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
-							
-							// Is this for a no-decimal currency?
-							if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
-								$util->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
-								$has_decimals = false;
-							}
-						}
-						
-						// Get the amount & cast it to a floating point value
-						$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
-						$user_info->set_next_payment_amount( $amount );
-						$util->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
-						
-						$user_info->set_reminder_type( 'recurring' );
-					} else {
-						
-						$util->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
-						$user_info->set_subscription_end();
-					}
-					
-					$user_info->set_active_subscription( true );
-					$util->log( "Attempting to load credit card (payment method) info from gateway" );
-					
-					// Trigger handler for credit card data
-					$user_info = $this->process_credit_card_info( $user_info, $customer->sources->data, $this->gateway_name );
-					
-					$user_info->save_to_db();
-					
-					return true;
-				}
-			}
-			
-			if ( 'update' === $operation ) {
-			
 			}
 			
 			return false;
@@ -1588,15 +1197,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		public function get_billing_info( $customer ) {
 			
-			$stripe_billing_info = $customer->sources->data[0];
+			$check_billing_info = $customer->sources->data[0];
 			
 			$billing          = new \stdClass();
-			$billing->name    = $stripe_billing_info->name;
-			$billing->street  = $stripe_billing_info->address_line1;
-			$billing->city    = $stripe_billing_info->address_city;
-			$billing->state   = $stripe_billing_info->address_state;
-			$billing->zip     = $stripe_billing_info->address_zip;
-			$billing->country = $stripe_billing_info->address_country;
+			$billing->name    = $check_billing_info->name;
+			$billing->street  = $check_billing_info->address_line1;
+			$billing->city    = $check_billing_info->address_city;
+			$billing->state   = $check_billing_info->address_state;
+			$billing->zip     = $check_billing_info->address_zip;
+			$billing->country = $check_billing_info->address_country;
 			$billing->phone   = null;
 			
 			return $billing;
@@ -1640,11 +1249,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 					'label'           => __( "Check Gateway Settings", Payment_Warning::plugin_slug ),
 					'render_callback' => array( $this, 'render_settings_text' ),
 					'fields'          => array(
-						array(
-							'id'              => 'check_api_version',
-							'label'           => __( "Check Payment API Version to use", Payment_Warning::plugin_slug ),
-							'render_callback' => array( $this, 'render_select' ),
-						),
+						array(),
 					),
 				),
 			);
@@ -1659,9 +1264,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			
 			$cleanup = $this->load_option( 'deactivation_reset' );
 			?>
-            <input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
-                   name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
-                   value="1" <?php checked( 1, $cleanup ); ?> />
+			<input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
+			       name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
+			       value="1" <?php checked( 1, $cleanup ); ?> />
 			<?php
 		}
 		
@@ -1673,7 +1278,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 * @return mixed $validated
 		 */
 		public function validate_settings( $input ) {
-		 
+			
 			$defaults = $this->load_defaults();
 			
 			foreach ( $defaults as $key => $value ) {
@@ -1702,44 +1307,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		public function render_settings_text() {
 			?>
-            <p class="e20r-example-global-settings-text">
-				<?php _e( "Configure global settings for the E20R Payment Warnings: Stripe Gateway add-on", Payment_Warning::plugin_slug ); ?>
-            </p>
+			<p class="e20r-example-global-settings-text">
+				<?php _e( "Configure global settings for the E20R Payment Warnings: Check Gateway add-on", Payment_Warning::plugin_slug ); ?>
+			</p>
 			<?php
 		}
 		
-		/**
-		 * Display the select option for the "Allow anybody to read forum posts" global setting (select)
-		 */
-		public function render_select() {
-			
-			$utils = Utilities::get_instance();
-			
-			$check_api_version = $this->load_option( 'check_api_version' );
-			$utils->log( "Setting for Check API Version: {$check_api_version}" );
-			?>
-            <select name="<?php esc_attr_e( $this->option_name ); ?>[check_api_version]"
-                    id="<?php esc_attr_e( $this->option_name ); ?>_check_api_version">
-                <option value="0" <?php selected( $check_api_version, 0 ); ?>>
-					<?php _e( 'Default', Payment_Warning::plugin_slug ); ?>
-                </option>
-				<?php
-				$all_api_versions = $this->fetch_check_api_versions();
-				
-				foreach ( $all_api_versions as $version ) {
-					?>
-                    <option value="<?php esc_attr_e( $version ); ?>" <?php selected( $version, $check_api_version ); ?>>
-						<?php esc_attr_e( $version ); ?>
-                    </option>
-				<?php } ?>
-            </select>
-			<?php
-		}
 		
 		/**
 		 * Fetch the properties for the Stripe Gateway add-on class
 		 *
-		 * @return Stripe_Gateway_Addon
+		 * @return Check_Gateway_Addon
 		 *
 		 * @since  1.0
 		 * @access public

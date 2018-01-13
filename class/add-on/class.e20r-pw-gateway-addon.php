@@ -450,7 +450,7 @@ abstract class E20R_PW_Gateway_Addon {
 	 * @return mixed
 	 */
 	public function load_filters( $addons ) {
-		
+	
 	}
 	
 	public function generate_option_menu() {
@@ -493,8 +493,13 @@ abstract class E20R_PW_Gateway_Addon {
 	
 	/**
 	 * Required Add-on class method: load_gateway()
+	 *
+	 * @param bool $loaded
+	 * @param string $addon_name
+	 *
+	 * @return string|bool - Add-on name or false
 	 */
-	abstract public function load_gateway();
+	abstract public function load_gateway( $addon_name );
 	
 	/**
 	 * Required Add-on class method: get_gateway_subscriptions()
@@ -509,10 +514,10 @@ abstract class E20R_PW_Gateway_Addon {
 	 * Required Add-on class method: get_gateway_payments()
 	 *
 	 * @param User_Data $user_data
-	 *
+	 * @param string    $gateway   The name of the gateway being processed
 	 * @return User_Data
 	 */
-	abstract public function get_gateway_payments( User_Data $user_data );
+	abstract public function get_gateway_payments( User_Data $user_data, $gateway );
 	
 	/**
 	 * Required Add-on class method: validate_settings()

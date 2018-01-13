@@ -85,11 +85,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			return $name;
 		}
 		
-		public function load_gateway() {
+		/**
+		 * Load the payment gateway for this module/addon
+		 *
+		 * @param string $addon_name
+		 *
+		 * @return bool|string
+		 */
+		public function load_gateway( $addon_name ) {
 			// TODO: Implement load_gateway() method.
 		}
         
-        public function load_webhook_handler() {
+        public function load_webhook_handler( $stub = null ) {
 	        // TODO: Implement load_webhook_handler() method.
         }
 		
@@ -352,8 +359,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 				
 				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
 				add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
-				add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
-				add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 0 );
+				add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 1 );
+				add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 1 );
 				add_action( 'e20r_pw_process_warnings', array( self::get_instance(), 'send_warnings' ), 10, 0 );
 				
 				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );

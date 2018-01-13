@@ -30,19 +30,16 @@ use PayPal\Rest\ApiContext;
 class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	
 	const CACHE_GROUP = 'e20r_ppexpress_addon';
-	
+	/**
+	 * @var PayPal_Gateway_Addon|null
+	 */
+	private static $instance = null;
 	/**
 	 * The name of this class
 	 *
 	 * @var string
 	 */
 	protected $class_name;
-	
-	/**
-	 * @var PayPal_Gateway_Addon|null
-	 */
-	private static $instance = null;
-	
 	/**
 	 * Instance of the active/primary Payment Gateway Class(es) for PMPro
 	 *
@@ -94,6 +91,157 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	protected $option_name = 'e20r_egwao_ppexpress';
 	
 	/**
+	 *  PayPal_Gateway_Addon constructor.
+	 */
+	public function __construct() {
+		
+		parent::__construct();
+		
+		add_filter( 'e20r-licensing-text-domain', array( $this, 'set_stub_name' ) );
+		
+		if ( is_null( self::$instance ) ) {
+			self::$instance = $this;
+		}
+		
+		$this->class_name   = $this->maybe_extract_class_name( get_class( $this ) );
+		$this->gateway_name = 'paypal_express';
+		
+		if ( function_exists( 'pmpro_getOption' ) ) {
+			$this->current_gateway_type = pmpro_getOption( "gateway_environment" );
+		}
+		
+		if ( function_exists( 'pmpro_getOption' ) ) {
+			$this->current_gateway_type = pmpro_getOption( "gateway_environment" );
+		}
+		
+		$this->define_settings();
+	}
+	
+	/**
+	 * Load the saved options, or generate the default settings
+	 */
+	protected function define_settings() {
+		
+		$this->settings = get_option( $this->option_name, $this->load_defaults() );
+		$defaults       = $this->load_defaults();
+		
+		foreach ( $defaults as $key => $dummy ) {
+			$this->settings[ $key ] = isset( $this->settings[ $key ] ) ? $this->settings[ $key ] : $defaults[ $key ];
+		}
+	}
+	
+	/**
+	 * Loads the default settings (keys & values)
+	 *
+	 * TODO: Specify settings for this add-on
+	 *
+	 * @return array
+	 *
+	 * @access private
+	 * @since  1.0
+	 */
+	private function load_defaults() {
+		
+		return array(
+			'paypal_api_version'           => null,
+			'paypal_sandbox_account'       => '',
+			'paypal_sandbox_client_id'     => '',
+			'paypal_sandbox_secret'        => '',
+			'paypal_sandbox_token'         => null,
+			'paypal_sandbox_token_expires' => null,
+			'paypal_account'               => '',
+			'paypal_client_id'             => '',
+			'paypal_client_secret'         => '',
+			'paypal_token'                 => null,
+			'paypal_token_expires'         => null,
+			'deactivation_reset'           => false,
+		);
+		
+	}
+	
+	/**
+	 * Load add-on actions/filters when the add-on is active & enabled
+	 *
+	 * @param string $stub Lowercase Add-on class name
+	 *
+	 * @return boolean
+	 */
+	final public static function is_enabled( $stub ) {
+		
+		$utils = Utilities::get_instance();
+		global $e20r_pw_addons;
+		
+		// TODO: Set the filter name to match the sub for this plugin.
+		
+		/**
+		 * Toggle ourselves on/off, and handle any deactivation if needed.
+		 */
+		add_action( 'e20r_pw_addon_toggle_addon', array( self::get_instance(), 'toggle_addon' ), 10, 2 );
+		add_action( 'e20r_pw_addon_deactivating_core', array(
+			self::get_instance(),
+			'deactivate_addon',
+		), 10, 1 );
+		
+		/**
+		 * Configuration actions & filters
+		 */
+		add_filter(
+			'e20r-license-add-new-licenses',
+			array( self::get_instance(), 'add_new_license_info', ),
+			10,
+			2
+		);
+		
+		$class_name = self::get_instance()->get_class_name();
+		
+		// TODO: Reqactivate required actions/filters for PayPal gateway support
+		$utils->log( "Running register settings for {$class_name}" );
+		add_filter( "e20r_pw_addon_options_{$class_name}", array( self::get_instance(), 'register_settings', ), 10, 1 );
+		
+		if ( true === parent::is_enabled( $stub ) ) {
+			
+			$utils->log( "Loading other actions/filters for {$e20r_pw_addons[$stub]['label']}" );
+			/*
+			add_action( 'e20r_pw_addon_save_email_error_data', array(
+				self::get_instance(),
+				'save_email_error',
+			), 10, 3 );
+			add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch' ), 10, 3 );
+			*/
+			/**
+			 * Membership related settings for role(s) add-on
+			 */
+//				add_action( 'e20r_pw_level_settings', array( self::get_instance(), 'load_level_settings' ), 10, 2 );
+//				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
+//				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
+			
+			/**
+			 * add_filter( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
+			 * add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
+			 * add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
+			 * add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 2 );
+			 * add_action( 'e20r_pw_process_warnings', array( self::get_instance(), 'send_warnings' ), 10, 0 );
+			 *
+			 * add_action( 'e20r_pw_addon_add_remote_call_handler', array( self::get_instance(), 'load_webhook_handler' ) );
+			 *
+			 * add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );
+			 * add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info' ), 10, 3 );
+			 */
+		}
+	}
+	
+	/**
+	 * Append this add-on to the list of configured & enabled add-ons
+	 */
+	public static function configure_addon() {
+		
+		$class = self::get_instance();
+		$name  = strtolower( $class->get_class_name() );
+		
+		parent::is_enabled( $name );
+	}
+	
+	/**
 	 * Loading add-on specific webhook handler for PayPal (late handling to stay out of the way of PMPro itself)
 	 *
 	 * @param string|null $stub
@@ -116,6 +264,54 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * Extract/return the name of the add-on
+	 *
+	 * @return string
+	 */
+	public function get_class_name() {
+		
+		if ( empty( $this->class_name ) ) {
+			$this->class_name = $this->maybe_extract_class_name( get_class( self::$instance ) );
+		}
+		
+		return $this->class_name;
+	}
+	
+	/**
+	 * @param $string
+	 *
+	 * @return mixed
+	 */
+	private function maybe_extract_class_name( $string ) {
+		
+		$utils = Utilities::get_instance();
+		$utils->log( "Supplied (potential) class name: {$string}" );
+		
+		$class_array = explode( '\\', $string );
+		$name        = $class_array[ ( count( $class_array ) - 1 ) ];
+		
+		return $name;
+	}
+	
+	/**
+	 * Fetch the class for the PayPal add-on
+	 *
+	 * @return PayPal_Gateway_Addon|null
+	 *
+	 * @since  1.0
+	 * @access public
+	 */
+	public static function get_instance() {
+		
+		if ( is_null( self::$instance ) ) {
+			
+			self::$instance = new self;
+		}
+		
+		return self::$instance;
+	}
+	
+	/**
 	 * Handler for PayPal IPN messages
 	 *
 	 * @return bool
@@ -126,56 +322,26 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	
 	/**
 	 * Load the payment gateway specific class/code/settings from PMPro
+	 *
+	 * @param string $addon_name
+	 *
+	 * @return bool|string
 	 */
-	public function load_gateway() {
+	public function load_gateway( $addon_name ) {
 		
 		$util = Utilities::get_instance();
 		
+		if ( $addon_name !== 'paypal' ) {
+			$util->log("Not processing for this addon (PayPal): {$addon_name}" );
+			return false;
+		}
 		// This will load the PayPal Express/PMPro Gateway class _and_ its library(ies)
 		$util->log( "PMPro loaded? " . ( defined( 'PMPRO_VERSION' ) ? 'Yes' : 'No' ) );
 		$util->log( "PMPro PayPal Express gateway loaded? " . ( class_exists( "\PMProGateway_paypalexpress" ) ? 'Yes' : 'No' ) );
 		$util->log( "PayPal Express Class(es) loaded? " . ( class_exists( 'PayPalExpress' ) ? 'Yes' : 'No' ) );
 		
 		// TODO: Implement load_gateway() method for PayPal Express (if needed).
-	}
-	
-	/**
-	 * Do what's required to make PayPal Express libraries visible/active
-	 */
-	private function load_paypal_libs() {
-		
-		$utils = Utilities::get_instance();
-		
-		$this->pmpro_gateway = new \PMProGateway_paypalexpress();
-		
-		if ( ! class_exists( '\PayPal\Rest\ApiContext' ) ) {
-			
-			require_once( E20R_PW_DIR . "/libraries/PayPal/autoload.php" );
-			
-			$client_id     = null;
-			$client_secret = null;
-			
-			if ( 'sandbox' === $this->current_gateway_type ) {
-				$client_id     = $this->load_option( 'paypal_sandbox_client_id' );
-				$client_secret = $this->load_options( 'paypal_sandbox_secret' );
-			} else if ( 'live' === $this->current_gateway_type ) {
-				$client_id     = $this->load_option( 'paypal_client_id' );
-				$client_secret = $this->load_options( 'paypal_secret' );
-			}
-			
-			try {
-				$this->gateway = new ApiContext(
-					new OAuthTokenCredential(
-						$client_id,
-						$client_secret
-					)
-				);
-			} catch ( \Exception $exception ) {
-				$utils->log( "Error getting PayPal Connection ready: " . $exception->getMessage() );
-			}
-		}
-		
-		$this->gateway_loaded = true;
+		return 'paypal';
 	}
 	
 	/**
@@ -248,7 +414,66 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		return $user_data;
 	}
 	
-	public function get_gateway_payments( User_Data $user_data ) {
+	/**
+	 * Do what's required to make PayPal Express libraries visible/active
+	 */
+	private function load_paypal_libs() {
+		
+		$utils = Utilities::get_instance();
+		
+		$this->pmpro_gateway = new \PMProGateway_paypalexpress();
+		
+		if ( ! class_exists( '\PayPal\Rest\ApiContext' ) ) {
+			
+			require_once( E20R_PW_DIR . "/libraries/PayPal/autoload.php" );
+			
+			$client_id     = null;
+			$client_secret = null;
+			
+			if ( 'sandbox' === $this->current_gateway_type ) {
+				$client_id     = $this->load_option( 'paypal_sandbox_client_id' );
+				$client_secret = $this->load_options( 'paypal_sandbox_secret' );
+			} else if ( 'live' === $this->current_gateway_type ) {
+				$client_id     = $this->load_option( 'paypal_client_id' );
+				$client_secret = $this->load_options( 'paypal_secret' );
+			}
+			
+			try {
+				$this->gateway = new ApiContext(
+					new OAuthTokenCredential(
+						$client_id,
+						$client_secret
+					)
+				);
+			} catch ( \Exception $exception ) {
+				$utils->log( "Error getting PayPal Connection ready: " . $exception->getMessage() );
+			}
+		}
+		
+		$this->gateway_loaded = true;
+	}
+	
+	/**
+	 * Load the specific option from the option array
+	 *
+	 * @param string $option_name
+	 *
+	 * @return bool
+	 */
+	public function load_option( $option_name ) {
+		
+		$this->settings = get_option( "{$this->option_name}" );
+		
+		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
+			
+			return $this->settings[ $option_name ];
+		}
+		
+		return false;
+		
+	}
+	
+	public function get_gateway_payments( User_Data $user_data, $gateway ) {
 		
 		$utils = Utilities::get_instance();
 		$stub  = apply_filters( 'e20r_pw_addon_paypal_gateway_addon_name', null );
@@ -257,6 +482,10 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 			$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
 			
+			return $user_data;
+		}
+		
+		if ( $gateway !== $this->gateway_name ) {
 			return $user_data;
 		}
 		
@@ -315,66 +544,9 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		// TODO: Load PayPal Express specific customer ID from local customer
 	}
 	
-	/**
-	 *  PayPal_Gateway_Addon constructor.
-	 */
-	public function __construct() {
-		
-		parent::__construct();
-		
-		add_filter( 'e20r-licensing-text-domain', array( $this, 'set_stub_name' ) );
-		
-		if ( is_null( self::$instance ) ) {
-			self::$instance = $this;
-		}
-		
-		$this->class_name   = $this->maybe_extract_class_name( get_class( $this ) );
-		$this->gateway_name = 'paypal_express';
-		
-		if ( function_exists( 'pmpro_getOption' ) ) {
-			$this->current_gateway_type = pmpro_getOption( "gateway_environment" );
-		}
-		
-		if ( function_exists( 'pmpro_getOption' ) ) {
-			$this->current_gateway_type = pmpro_getOption( "gateway_environment" );
-		}
-		
-		$this->define_settings();
-	}
-	
 	public function set_stub_name( $name = null ) {
 		
 		$name = strtolower( $this->get_class_name() );
-		
-		return $name;
-	}
-	
-	/**
-	 * Extract/return the name of the add-on
-	 *
-	 * @return string
-	 */
-	public function get_class_name() {
-		
-		if ( empty( $this->class_name ) ) {
-			$this->class_name = $this->maybe_extract_class_name( get_class( self::$instance ) );
-		}
-		
-		return $this->class_name;
-	}
-	
-	/**
-	 * @param $string
-	 *
-	 * @return mixed
-	 */
-	private function maybe_extract_class_name( $string ) {
-		
-		$utils = Utilities::get_instance();
-		$utils->log( "Supplied (potential) class name: {$string}" );
-		
-		$class_array = explode( '\\', $string );
-		$name        = $class_array[ ( count( $class_array ) - 1 ) ];
 		
 		return $name;
 	}
@@ -439,48 +611,6 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Loads the default settings (keys & values)
-	 *
-	 * TODO: Specify settings for this add-on
-	 *
-	 * @return array
-	 *
-	 * @access private
-	 * @since  1.0
-	 */
-	private function load_defaults() {
-		
-		return array(
-			'paypal_api_version'           => null,
-			'paypal_sandbox_account'       => '',
-			'paypal_sandbox_client_id'     => '',
-			'paypal_sandbox_secret'        => '',
-			'paypal_sandbox_token'         => null,
-			'paypal_sandbox_token_expires' => null,
-			'paypal_account'               => '',
-			'paypal_client_id'             => '',
-			'paypal_client_secret'         => '',
-			'paypal_token'                 => null,
-			'paypal_token_expires'         => null,
-			'deactivation_reset'           => false,
-		);
-		
-	}
-	
-	/**
-	 * Load the saved options, or generate the default settings
-	 */
-	protected function define_settings() {
-		
-		$this->settings = get_option( $this->option_name, $this->load_defaults() );
-		$defaults       = $this->load_defaults();
-		
-		foreach ( $defaults as $key => $dummy ) {
-			$this->settings[ $key ] = isset( $this->settings[ $key ] ) ? $this->settings[ $key ] : $defaults[ $key ];
-		}
-	}
-	
-	/**
 	 * Action Hook: Enable/disable this add-on. Will clean up if we're being deactivated & configured to do so
 	 *
 	 * @action e20r_pw_addon_toggle_addon
@@ -533,109 +663,6 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Load the specific option from the option array
-	 *
-	 * @param string $option_name
-	 *
-	 * @return bool
-	 */
-	public function load_option( $option_name ) {
-		
-		$this->settings = get_option( "{$this->option_name}" );
-		
-		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
-			
-			return $this->settings[ $option_name ];
-		}
-		
-		return false;
-		
-	}
-	
-	/**
-	 * Load add-on actions/filters when the add-on is active & enabled
-	 *
-	 * @param string $stub Lowercase Add-on class name
-	 *
-	 * @return boolean
-	 */
-	final public static function is_enabled( $stub ) {
-		
-		$utils = Utilities::get_instance();
-		global $e20r_pw_addons;
-		
-		// TODO: Set the filter name to match the sub for this plugin.
-		
-		/**
-		 * Toggle ourselves on/off, and handle any deactivation if needed.
-		 */
-		add_action( 'e20r_pw_addon_toggle_addon', array( self::get_instance(), 'toggle_addon' ), 10, 2 );
-		add_action( 'e20r_pw_addon_deactivating_core', array(
-			self::get_instance(),
-			'deactivate_addon',
-		), 10, 1 );
-		
-		/**
-		 * Configuration actions & filters
-		 */
-		add_filter(
-			'e20r-license-add-new-licenses',
-			array( self::get_instance(), 'add_new_license_info', ),
-			10,
-			2
-		);
-		
-		$class_name = self::get_instance()->get_class_name();
-		
-		// TODO: Reqactivate required actions/filters for PayPal gateway support
-		$utils->log( "Running register settings for {$class_name}" );
-		add_filter( "e20r_pw_addon_options_{$class_name}", array( self::get_instance(), 'register_settings', ), 10, 1 );
-		
-		if ( true === parent::is_enabled( $stub ) ) {
-			
-			$utils->log( "Loading other actions/filters for {$e20r_pw_addons[$stub]['label']}" );
-			/*
-			add_action( 'e20r_pw_addon_save_email_error_data', array(
-				self::get_instance(),
-				'save_email_error',
-			), 10, 3 );
-			add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch' ), 10, 3 );
-			*/
-			/**
-			 * Membership related settings for role(s) add-on
-			 */
-//				add_action( 'e20r_pw_level_settings', array( self::get_instance(), 'load_level_settings' ), 10, 2 );
-//				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
-//				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
-			
-			/**
-			 * add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
-			 * add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
-			 * add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 0 );
-			 * add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 0 );
-			 * add_action( 'e20r_pw_process_warnings', array( self::get_instance(), 'send_warnings' ), 10, 0 );
-			 *
-			 * add_action( 'e20r_pw_addon_add_remote_call_handler', array( self::get_instance(), 'load_webhook_handler' ) );
-			 *
-			 * add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );
-			 * add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info' ), 10, 3 );
-			 */
-		}
-	}
-	
-	
-	/**
-	 * Append this add-on to the list of configured & enabled add-ons
-	 */
-	public static function configure_addon() {
-		
-		$class = self::get_instance();
-		$name  = strtolower( $class->get_class_name() );
-		
-		parent::is_enabled( $name );
-	}
-	
-	/**
 	 * Configure the settings page/component for this add-on
 	 *
 	 * @param array $settings
@@ -680,9 +707,9 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		
 		$cleanup = $this->load_option( 'deactivation_reset' );
 		?>
-        <input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
-               name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
-               value="1" <?php checked( 1, $cleanup ); ?> />
+		<input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
+		       name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
+		       value="1" <?php checked( 1, $cleanup ); ?> />
 		<?php
 	}
 	
@@ -729,9 +756,9 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 */
 	public function render_settings_text() {
 		?>
-        <p class="e20r-paypal-global-settings-text">
+		<p class="e20r-paypal-global-settings-text">
 			<?php _e( "Configure global settings for the E20R Payment Warnings: PayPal Express Gateway add-on", Payment_Warning::plugin_slug ); ?>
-        </p>
+		</p>
 		<?php
 	}
 	
@@ -743,34 +770,16 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		$primary_gateway = $this->load_option( 'primary_gateway' );
 		
 		?>
-        <select name="<?php esc_attr_e( $this->option_name ); ?>[primary_gateway]"
-                id="<?php esc_attr_e( $this->option_name ); ?>_primary_gateway">
-            <option value="0" <?php selected( $primary_gateway, 0 ); ?>>
+		<select name="<?php esc_attr_e( $this->option_name ); ?>[primary_gateway]"
+		        id="<?php esc_attr_e( $this->option_name ); ?>_primary_gateway">
+			<option value="0" <?php selected( $primary_gateway, 0 ); ?>>
 				<?php _e( 'Disabled', Payment_Warning::plugin_slug ); ?>
-            </option>
-            <option value="1" <?php selected( $primary_gateway, 1 ); ?>>
+			</option>
+			<option value="1" <?php selected( $primary_gateway, 1 ); ?>>
 				<?php _e( 'Read Only', Payment_Warning::plugin_slug ); ?>
-            </option>
-        </select>
+			</option>
+		</select>
 		<?php
-	}
-	
-	/**
-	 * Fetch the class for the PayPal add-on
-	 *
-	 * @return PayPal_Gateway_Addon|null
-	 *
-	 * @since  1.0
-	 * @access public
-	 */
-	public static function get_instance() {
-		
-		if ( is_null( self::$instance ) ) {
-			
-			self::$instance = new self;
-		}
-		
-		return self::$instance;
 	}
 }
 
