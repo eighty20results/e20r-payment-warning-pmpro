@@ -327,6 +327,7 @@ class Cron_Handler {
 	public function fetch_gateway_payment_info() {
 		
 		$util = Utilities::get_instance();
+		$main = Payment_Warning::get_instance();
 		
 		$not_first_run     = get_option( 'e20r_pw_firstrun_gateway_check', false );
 		$schedule_next_run = 0;
@@ -383,15 +384,20 @@ class Cron_Handler {
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
+			$addon_list = $main->get_addons();
 			
-			// Trigger fetch of subscription data from Payment Gateways
-			$util->log( "Triggering remote subscription fetch configuration" );
-			$fetch_data->configure_remote_subscription_data_fetch();
-			
-			
-			// Trigger fetch of one-time payment data from Payment Gateways
-			$util->log( "Triggering remote payment (expiring memberships) fetch configuration" );
-			$fetch_data->configure_remote_payment_data_fetch();
+			foreach( $addon_list as $addon_name ) {
+				
+				// Trigger fetch of subscription data from Payment Gateways
+				$util->log( "Triggering remote subscription fetch configuration" );
+				$fetch_data->configure_remote_subscription_data_fetch( $addon_name );
+				
+				
+				// Trigger fetch of one-time payment data from Payment Gateways
+				$util->log( "Triggering remote payment (expiring memberships) fetch configuration" );
+				$fetch_data->configure_remote_payment_data_fetch( $addon_name );
+				
+			}
 			
 			// Configure when to run this job the next time
 			$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
@@ -418,48 +424,57 @@ class Cron_Handler {
 	 *
 	 * @since 1.9.9 - ENHANCEMENT: Clear mutex options (if they exists) once the background jobs are done/have ran
 	 * @since 1.9.12 - ENHANCEMENT/FIX: Clear old temporary data/keys/values from options table
+	 * @since 2.1 - ENHANCEMENT: Support processing multiple payment gateway at the same time
 	 */
 	public function clear_mutexes() {
 		
 		$utils = Utilities::get_instance();
+		$main = Payment_Warning::get_instance();
 		
-		$payment_mutex       = 'e20rpw_paym_fetch_mutex';
-		$subscription_mutext = 'e20rpw_subscr_fetch_mutex';
+		$addons = $main->get_addons();
 		
-		/**
-		 * @since 1.9.10 - ENHANCEMENT: Faster completion of scheduled job checks
-		 */
-		$subscr_job      = wp_next_scheduled( 'e20r_hs_process_subscr_cron' );
-		$payment_job     = wp_next_scheduled( 'e20r_hp_process_payments_cron' );
 		$batch_scheduler = wp_next_scheduled( 'e20r_lhr_payments_cron' );
 		
-		if ( false === $payment_job && false === $batch_scheduler ) {
-			$utils->log( "Removing the Payment Collection mutex: {$payment_mutex}" );
-			delete_option( $payment_mutex );
-		}
-		
-		if ( false === $subscr_job && false === $batch_scheduler ) {
-			$utils->log( "Removing the Subscriptions Collection mutex: {$subscription_mutext}" );
-			delete_option( $subscription_mutext );
-		}
-		
-		if ( false === $payment_job && false === $subscr_job && false === $batch_scheduler ) {
-			$utils->log( "None of the data fetch operations are running. Removing the monitoring job!" );
-			wp_clear_scheduled_hook( 'e20r_check_job_status' );
+		foreach( $addons as $addon ) {
 			
-			global $wpdb;
+			$payment_mutex       = "e20rpw_paym_fetch_mutex_{$addon}";
+			$subscription_mutext = "e20rpw_subscr_fetch_mutex_{$addon}";
 			
-			$sql = $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
-				'e20r_ar_hp%batch_%', 'e20r_ar_hs%batch_%', 'e20r_ar_lhr%_batch_%' );
-			$wpdb->query( $sql );
+			/**
+			 * @since 1.9.10 - ENHANCEMENT: Faster completion of scheduled job checks
+			 */
+			$subscr_job      = wp_next_scheduled( "e20r_hs_{$addon}_subscr_cron" );
+			$payment_job     =  wp_next_scheduled( "e20r_hp_{$addon}_paym_cron" );
 			
-			update_option( 'e20r_hp_process_payments_batch_a', '', 'no' );
-			update_option( 'e20r_lhr_subscriptions_batch_a', '', 'no' );
-			update_option( 'e20r_lhr_payments_batch_a', '', 'no' );
+			if ( false === $payment_job && false === $batch_scheduler ) {
+				$utils->log( "Removing the Payment Collection mutex: {$payment_mutex}" );
+				delete_option( $payment_mutex );
+			}
 			
-			$utils->log( "Cleared options and temporary data" );
-		} else {
-			$utils->log( "One or more of the background data collection jobs are active" );
+			if ( false === $subscr_job && false === $batch_scheduler ) {
+				$utils->log( "Removing the Subscriptions Collection mutex: {$subscription_mutext}" );
+				delete_option( $subscription_mutext );
+			}
+			
+			if ( false === $payment_job && false === $subscr_job && false === $batch_scheduler ) {
+				$utils->log( "None of the data fetch operations are running. Removing the monitoring job!" );
+				wp_clear_scheduled_hook( 'e20r_check_job_status' );
+				
+				global $wpdb;
+				
+				$sql = $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
+					'e20r_ar_hp%batch_%', 'e20r_ar_hs%batch_%', 'e20r_ar_lhr%_batch_%' );
+				$wpdb->query( $sql );
+				
+				update_option( "e20r_hp_{$addon}_paym_batch_a", '', 'no' );
+				update_option( "e20r_hs_{$addon}_subscr_batch_a", '', 'no' );
+				update_option( 'e20r_lhr_subscriptions_batch_a', '', 'no' );
+				update_option( 'e20r_lhr_payments_batch_a', '', 'no' );
+				
+				$utils->log( "Cleared options and temporary data" );
+			} else {
+				$utils->log( "One or more of the background data collection jobs are active" );
+			}
 		}
 		
 		$utils->log( "Done testing if mutexes are done..." );
