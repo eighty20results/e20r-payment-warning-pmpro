@@ -93,6 +93,7 @@ class Handle_Messages extends E20R_Background_Process {
 		$util->log( "Trigger per user message operation for " . $message->get_user()->get_user_ID() );
 		
 		$template_type = $message->get_template_type();
+		$template_name = $message->get_template_name();
 		$schedule      = $message->get_schedule();
 		$send          = false;
 		$check_date    = null;
@@ -109,7 +110,8 @@ class Handle_Messages extends E20R_Background_Process {
 			
 			$user_id = $message->get_user()->get_user_ID();
 			$send    = false;
-			$util->log( "Processing for {$template_type} on warning day #{$interval_day}, user {$user_id}" );
+			
+			$util->log( "Processing for {$template_type}/{$template_name} on warning day #{$interval_day}, user {$user_id}" );
 			
 			$uses_recurring = $message->get_user()->has_active_subscription();
 			$next_payment   = $message->get_user()->get_next_payment();
@@ -142,7 +144,7 @@ class Handle_Messages extends E20R_Background_Process {
 			$util->log( "Should we send {$user_id} the {$template_type} email message for the {$interval_day} interval? " . ( $send ? 'Yes' : 'No' ) );
 			
 			if ( true === $send ) {
-				$util->log( "Preparing the {$template_type} message to {$user_id}" );
+				$util->log( "Preparing the {$template_type}/{$template_name} message to {$user_id}" );
 				$message->send_message( $template_type );
 			}
 		}
@@ -163,7 +165,6 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		parent::complete();
 		
-		// FIXME: Doesn't match the saved option type (which is _not_ a text value)
 		$this->send_admin_notice( 'recurring' );
 		$this->send_admin_notice( 'expiration' );
 		$this->send_admin_notice( 'creditcard' );
@@ -220,7 +221,7 @@ class Handle_Messages extends E20R_Background_Process {
 		switch ( $type ) {
 			case 'recurring':
 				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
-				$type_text = __( "upcoming recurring payment", Payment_Warning::plugin_slug );
+				$type_text = __( "Upcoming recurring payment", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
@@ -228,7 +229,7 @@ class Handle_Messages extends E20R_Background_Process {
 			
 			case 'expiration':
 				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
-				$type_text = __( "pending membership expiration", Payment_Warning::plugin_slug );
+				$type_text = __( "Pending membership expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
@@ -236,7 +237,7 @@ class Handle_Messages extends E20R_Background_Process {
 			
 			case 'creditcard':
 				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
-				$type_text = __( "credit card expiration", Payment_Warning::plugin_slug );
+				$type_text = __( "Credit card expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
@@ -247,7 +248,7 @@ class Handle_Messages extends E20R_Background_Process {
 		$admin_intro_text = apply_filters(
 			"e20r-payment-warning-email-pre-list-text",
 			sprintf(
-				__( "A %s warning message has been sent to the following list of users/members:", Payment_Warning::plugin_slug ),
+				__( "%s warning message(s) has been sent to the following list of users/members:", Payment_Warning::plugin_slug ),
 				$type_text
 			)
 		);
@@ -262,12 +263,13 @@ class Handle_Messages extends E20R_Background_Process {
 		}
 		
 		$body      = sprintf( "<div>%s</div>", $admin_intro_text );
-		$user_list = '<div style="font-size: 11pt; font-style: italic;">';
+		$user_list = sprintf( '<div style="font-size: 11pt; font-style: italic;">' );
 		
 		if ( ! empty( $users[ $today ] ) ) {
-			// @since 1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
-			$user_list .= implode( '<br/>', array_map( 'urldecode', array_keys( $users[ $today ] ) ) );
 			
+			foreach( $users[ $today ] as $user_email => $list ) {
+				$user_list .= sprintf( '%s (messages sent: %d)%s', $user_email,count( $list ), '<br/>' );
+			}
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
 		}
