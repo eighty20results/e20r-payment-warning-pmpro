@@ -63,6 +63,11 @@ class Reminder_Editor extends Email_Notice {
 	 */
 	protected $taxonomy_description = null;
 	
+	/**
+	 * The ID of the user who's message(s) we're processing
+	 *
+	 * @var int $user_id
+	 */
 	protected $user_id;
 	
 	/**
@@ -106,6 +111,7 @@ class Reminder_Editor extends Email_Notice {
 		
 		add_action( 'wp_ajax_e20r_util_save_template', array( $this, 'save_template' ) );
 		add_action( 'wp_ajax_e20r_util_reset_template', array( $this, 'reset_template' ) );
+		
 		/*
 		add_action( 'e20r_sequence_module_deactivating_core', array( self::$instance, 'deactivate_plugin' ), 10, 1 );
 		add_action( 'e20r_sequence_module_activating_core', array( self::$instance, 'activate_plugin' ), 10 );
@@ -133,14 +139,46 @@ class Reminder_Editor extends Email_Notice {
 			'load_template_content',
 		), 10, 2 );
 		
-		add_filter( 'e20r-email-notice-custom-variable-filter', array(
-			$this,
-			'load_email_notice_filter_value',
-		), 10, 4 );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'load_filter_value' ), 10, 4 );
+		
 		add_filter( 'e20r-email-notice-membership-level-for-user', array( $this, 'get_member_level_for_user' ), 10, 3 );
 		add_filter( 'e20r-email-notice-membership-page-for-user', array( $this, 'get_member_page_for_user' ), 10, 3 );
 		
-		add_filter( 'e20r-payment-warning-billing-info-page', array( $this, 'load_billing_page' ) );
+		add_filter( 'e20r-payment-warning-billing-info-page', array( $this, 'load_billing_page' ), 10, 1 );
+	}
+	
+	/**
+	 * Get and print the message type (string) for the email notice column
+	 *
+	 * @param string $column
+	 * @param int $post_id
+	 */
+	public function custom_post_column( $column, $post_id ) {
+		
+		$msg_types = $this->define_message_types( array() );
+		
+		if ( $column === 'message_type' ) {
+			$warning_type = get_post_meta( $post_id, '_e20r_pw_message_type', true );
+			
+			if ( !empty( $warning_type ) ) {
+				esc_html_e( $msg_types[ $warning_type ]['label'] );
+			} else {
+				_e("Not Applicable", Payment_Warning::plugin_slug );
+			}
+		}
+		
+	}
+	
+	/**
+	 * Add the message type column header
+	 *
+	 * @param array $columns
+	 *
+	 * @return array
+	 */
+	public function set_custom_edit_columns( $columns ) {
+		$columns['message_type'] = __( 'Warning Type', Payment_Warning::plugin_slug );
+		return $columns;
 	}
 	
 	/**
@@ -365,6 +403,7 @@ class Reminder_Editor extends Email_Notice {
 	
 	/**
 	 * Generate the MySQL friendly date string for the end of the current month
+	 *
 	 * @return null|string
 	 */
 	public function end_of_month() {
@@ -382,6 +421,8 @@ class Reminder_Editor extends Email_Notice {
 	
 	/**
 	 * Set the message type for the Email Notices (as used by Sequences)
+	 *
+	 * @param string $term_type
 	 */
 	public function load_message_metabox( $term_type ) {
 		
@@ -818,7 +859,7 @@ class Reminder_Editor extends Email_Notice {
 				
 				case E20R_PW_RECURRING_REMINDER:
 					$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
-					$variables['billing_info']        = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
+					$variables['billing_address']        = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 					$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 					$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
 					$variables['payment_date']        = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
@@ -826,7 +867,7 @@ class Reminder_Editor extends Email_Notice {
 					break;
 				
 				case E20R_PW_CREDITCARD_REMINDER:
-					$variables['billing_info']       = __( 'The stored PMPro billing information (formatted)', Payment_Warning::plugin_slug );
+					$variables['billing_address']       = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 					$variables['saved_cc_info']      = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 					$variables['billing_page_link']  = __( "Link to the Membership billing information page (used to change credit card info)", Payment_Warning::plugin_slug );
 					$variables['billing_page_login'] = __( "Link to the Membership billing information page, via the WordPress login process. (used to change credit card info)", Payment_Warning::plugin_slug );
@@ -869,15 +910,14 @@ class Reminder_Editor extends Email_Notice {
 			'next_payment_amount'   => array( 'type' => 'membership', 'variable' => 'billing_amount' ),
 			'payment_date'          => array( 'type' => 'membership', 'variable' => 'payment_date' ),
 			'currency'              => array( 'type' => 'wp_options', 'variable' => 'pmpro_currency' ),
-			'billing_info'          => array( 'type' => null, 'variable' => null ),
+			'billing_address'          => array( 'type' => null, 'variable' => null ),
+			'saved_cc_info'         => array( 'type' => null, 'variable' => null ),
 			'billing_page_link'     => array( 'type' => 'link', 'variable' => 'billing_page' ),
 			'billing_page_login'    => array( 'type' => 'encoded_link', 'variable' => 'billing_page' ),
 			'account_page_link'     => array( 'type' => 'link', 'variable' => 'account_page' ),
 			'account_page_login'    => array( 'type' => 'encoded_link', 'variable' => 'account_page' ),
-			'saved_cc_info'         => array( 'type' => null, 'variable' => null ),
 			'membership_ends'       => array( 'type' => 'membership', 'variable' => 'enddate' ),
 			'enddate'               => array( 'type' => 'membership', 'variable' => 'enddate' ),
-		
 		);
 		
 		// }
@@ -895,21 +935,12 @@ class Reminder_Editor extends Email_Notice {
 	 *
 	 * @return mixed
 	 */
-	public function load_email_notice_filter_value( $value, $var_name, $user_id, $settings ) {
+	public function load_filter_value( $value, $var_name, $user_id, $settings ) {
 		
 		global $wpdb;
 		
 		$utils = Utilities::get_instance();
 		$sql   = null;
-		
-		if ( 'billing_address' === $var_name ) {
-			$this->format_billing_address( $this->user_id );
-		}
-		
-		if ( 'save_cc_info' === $var_name ) {
-			$utils->log( "Provide the credit card info!" );
-		}
-		
 		
 		// Make sure we load this from the
 		if ( 'next_payment_amount' === $var_name && 'billing_amount' === $settings['variable'] ) {
