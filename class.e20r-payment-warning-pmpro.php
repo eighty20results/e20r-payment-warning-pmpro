@@ -405,6 +405,67 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			$this->load_licensed_modules();
+			
+			add_filter( 'e20r-email-notice-footer-company-name', array( $this, 'get_company_name' ), 10, 2 );
+			add_filter( 'e20r-email-notice-footer-company-address', array( $this, 'get_company_address' ), 10, 2 );
+			add_filter( 'e20r-email-notice-footer-text', array( $this, 'load_unsubscribe_notice' ), 10, 2 );
+		}
+		
+		/**
+		 * Filter handler to add a footer text (unubscribe link, etc)
+		 *
+		 * @filter e20r-email-notice-footer-text
+		 *
+		 * @param string $footer_text
+		 * @param string $plugin
+		 *
+		 * @return mixed
+		 */
+		public function load_unsubscribe_notice( $footer_text, $plugin ) {
+			
+			if ( $plugin === Payment_Warning::plugin_slug ) {
+				$footer_text = null; // FIXME: Add notice unsubscribe link for the plugin - $this->load_options('company_address');
+			}
+			
+			return $footer_text;
+		}
+		
+		/**
+		 * Filter handler to load company address setting from DB
+		 *
+		 * @filter e20r-email-notice-footer-company-address
+		 *
+		 * @param string $company_address
+		 * @param string $plugin
+		 *
+		 * @return mixed
+		 */
+		public function get_company_address( $company_address, $plugin ) {
+			
+			if ( $plugin === Payment_Warning::plugin_slug ) {
+				$company_address = $this->load_options('company_address');
+			}
+			
+			return $company_address;
+		}
+		
+		/**
+		 * Filter handler to load company name setting from DB
+		 *
+		 * @filter e20r-email-notice-footer-company-name
+		 *
+		 * @param string $company_name
+		 * @param string $plugin
+		 *
+		 * @return mixed
+		 */
+		public function get_company_name( $company_name, $plugin ) {
+			
+			if ( $plugin === Payment_Warning::plugin_slug ) {
+				$company_name = $this->load_options('company_name');
+			}
+			
+			return $company_name;
 		}
 		
 		/**
@@ -508,6 +569,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				'enable_payment_warnings'       => false,
 				'enable_cc_expiration_warnings' => false,
 				'company_name' => null,
+				'company_address' => null,
 			);
 		}
 		
@@ -804,7 +866,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				'e20r_pw_global',
 				array( 'option_name' => 'company_name' )
 			);
-			// company_name
+			
+			add_settings_field(
+				'e20r_pw_company_address',
+				__( "Company Address", Payment_Warning::plugin_slug ),
+				array( $this, 'render_textarea' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'company_address' )
+			);
 			
 			/**
 			 *                 'enable_payment_warnings' => false,
@@ -1031,6 +1101,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			<input type="<?php esc_attr_e( $type ); ?>"
 			       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
 			       value="<?php esc_attr_e( $value ); ?>" />
+			<?php
+		}
+		
+		/**
+		 * Render a textarea field on the Settings page
+		 *
+		 * @param array $settings
+		 */
+		public function render_textarea( $settings ) {
+			$value = $this->load_options( $settings['option_name'] );
+			?>
+			<textarea name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]" rows="5" cols="50" placeholder="<?php _e("Enter address using the &lt;br/&gt; html element for line breaks", Payment_Warning::plugin_slug ); ?>" ><?php trim( esc_html_e( $value ) ); ?></textarea>
 			<?php
 		}
 		/**
