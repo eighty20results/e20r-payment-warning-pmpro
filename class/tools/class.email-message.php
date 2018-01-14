@@ -553,7 +553,7 @@ class Email_Message {
 					}
 				}
 				
-				if ( ! is_array( $users[ $today ][ $to ] ) ) {
+				if ( !isset( $users[ $today ][ $to ] ) || ! is_array( $users[ $today ][ $to ] ) ) {
 					$users[ $today ][ $to ] = array();
 				}
 				
