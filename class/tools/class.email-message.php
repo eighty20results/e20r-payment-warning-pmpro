@@ -95,6 +95,7 @@ class Email_Message {
 		
 		$this->sender          = new Send_Email();
 		$this->sender->user_id = $user_info->get_user_ID();
+		$this->sender->set_module( Payment_Warning::plugin_slug );
 		$this->sender->from    = apply_filters( 'e20r-email-notice-sender', $this->site_email );
 		
 		$util->log( "Instantiated for {$template_name}/{$type}: " . $user_info->get_user_ID() );
