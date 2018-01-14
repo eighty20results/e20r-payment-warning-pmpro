@@ -360,7 +360,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_action( 'wp_ajax_e20rpw_save_template', array( Reminder_Editor::get_instance(), 'save_template' ) );
 			add_action( 'wp_ajax_e20rpw_reset_template', array( Reminder_Editor::get_instance(), 'reset_template' ) );
 			
-			add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
+			// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
 			
 			$utils->log( "Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons" );
 			/** Add all module remote AJAX call actions */
