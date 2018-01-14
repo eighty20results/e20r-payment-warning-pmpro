@@ -366,7 +366,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			/** Add all module remote AJAX call actions */
 			do_action( 'e20r_pw_addon_add_remote_call_handler' );
 			
-			// TODO: Testing actions (uncomment to include)
 			if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG ) {
 				
 				add_action( 'wp_ajax_test_get_remote_fetch', array(
