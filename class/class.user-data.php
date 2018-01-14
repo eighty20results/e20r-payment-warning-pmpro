@@ -910,11 +910,23 @@ class User_Data {
 		return $this->next_payment_date;
 	}
 	
+	/**
+	 * Return the name for the Credit Card database table
+	 *
+	 * @return string|null
+	 */
 	public function get_cc_table_name() {
 		
 		return $this->cc_info_table_name;
 	}
 	
+	/**
+	 * Search for, and return card data in database
+	 *
+	 * @param $card
+	 *
+	 * @return null|string
+	 */
 	public static function find_card_info( $card ) {
 		
 		global $wpdb;
@@ -936,6 +948,11 @@ class User_Data {
 		return $result;
 	}
 	
+	/**
+	 * The default format for Credit Card data stored (PCI Compliant)
+	 *
+	 * @return array
+	 */
 	public static function default_card_format() {
 		
 		return array(
@@ -1157,6 +1174,7 @@ class User_Data {
 	
 	/**
 	 * Get the user's Display Name
+	 *
 	 * @return bool|string
 	 */
 	public function get_user_name() {
@@ -1210,6 +1228,11 @@ class User_Data {
 		return null;
 	}
 	
+	/**
+	 * Return the membership level name (string) for the user
+	 *
+	 * @return string|null
+	 */
 	public function get_level_name() {
 		
 		if ( isset( $this->user->current_membership_level->name ) ) {
@@ -1229,6 +1252,11 @@ class User_Data {
 		return array_keys( $this->credit_card );
 	}
 	
+	/**
+	 * Return the credit card info for the current record
+	 *
+	 * @return array|null
+	 */
 	public function get_all_payment_info() {
 		
 		if ( ! empty( $this->credit_card ) ) {
