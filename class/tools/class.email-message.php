@@ -296,7 +296,7 @@ class Email_Message {
 		
 		$utils = Utilities::get_instance();
 		
-		if ( $user_id === $this->user_info->get_user_ID() && 'save_cc_info' === $var_name ) {
+		if ( $user_id === $this->user_info->get_user_ID() && 'saved_cc_info' === $var_name ) {
 			$utils->log( "Generate credit card info list in HTML" );
 			$value = $this->get_html_payment_info();
 		}
