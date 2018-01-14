@@ -97,9 +97,6 @@ class Email_Message {
 		$this->sender->user_id = $user_info->get_user_ID();
 		$this->sender->from    = apply_filters( 'e20r-email-notice-sender', $this->site_email );
 		
-		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
-		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 10, 4 );
-		
 		$util->log( "Instantiated for {$template_name}/{$type}: " . $user_info->get_user_ID() );
 	}
 	
@@ -114,6 +111,7 @@ class Email_Message {
 	 *
 	 * @since 1.9.6 - ENHANCEMENT: Made replace_variable_text() function static & a filter hook
 	 */
+	/*
 	public static function replace_variable_text( $template_settings, $variables, $type ) {
 		
 		$util = Utilities::get_instance();
@@ -128,7 +126,7 @@ class Email_Message {
 		
 		return $template_settings;
 	}
-	
+	*/
 	/**
 	 * Help text for supported message type specific substitution variables
 	 *
@@ -207,9 +205,10 @@ class Email_Message {
 		
 		$utils = Utilities::get_instance();
 		
-		if ( $user_id === $this->user_info->get_user_ID() && 'billing_address' === $var_name ) {
-			$utils->log( "Generate credit card info list in HTML" );
-			$value = $this->format_billing_address( $this->user_id );
+		$utils->log( "Generate billing address as HTML for {$user_id}/{$var_name}" );
+		
+		if ( $user_id == $this->user_info->get_user_ID() && 'billing_address' === $var_name ) {
+			$value = $this->format_billing_address( $user_id );
 		}
 		
 		return $value;
@@ -295,9 +294,9 @@ class Email_Message {
 	public function get_cc_info( $value, $var_name, $user_id, $settings ) {
 		
 		$utils = Utilities::get_instance();
+		$utils->log( "Generate credit card info list in HTML for {$var_name}/{$user_id}" );
 		
-		if ( $user_id === $this->user_info->get_user_ID() && 'saved_cc_info' === $var_name ) {
-			$utils->log( "Generate credit card info list in HTML" );
+		if ( $user_id == $this->user_info->get_user_ID() && 'saved_cc_info' === $var_name ) {
 			$value = $this->get_html_payment_info();
 		}
 		
@@ -534,6 +533,11 @@ class Email_Message {
 			
 			$util->log( "Sending message to {$to} -> " . $this->subject );
 			$this->sender->template = $this->template_name;
+			
+			// Add filters for billing address & CC info
+			$util->log("Loading filter handlers for 'e20r-email-notice-custom-variable-filter'");
+			add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
+			add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 10, 4 );
 			
 			if ( true == $this->sender->send( $to, null, null, $this->subject, $this->template_name, $type ) ) {
 				
