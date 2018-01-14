@@ -507,6 +507,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				'enable_expiration_warnings'    => false,
 				'enable_payment_warnings'       => false,
 				'enable_cc_expiration_warnings' => false,
+				'company_name' => null,
 			);
 		}
 		
@@ -795,6 +796,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				array( 'option_name' => 'deactivation_reset' )
 			);
 			
+			add_settings_field(
+				'e20r_pw_company_name',
+				__( "Company Name", Payment_Warning::plugin_slug ),
+				array( $this, 'render_input' ),
+				'e20r-payment-warning-settings',
+				'e20r_pw_global',
+				array( 'option_name' => 'company_name' )
+			);
+			// company_name
+			
 			/**
 			 *                 'enable_payment_warnings' => false,
 			 * 'enable_cc_expiration_warnings' => false,
@@ -1007,6 +1018,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			<?php
 		}
 		
+		/**
+		 * Render an input field for the Settings page
+		 *
+		 * @param array $settings
+		 */
+		public function render_input( $settings ) {
+			
+			$value = $this->load_options( $settings['option_name'] );
+			$type = empty( $settings['type'] ) ? 'text' : $settings['type'];
+			?>
+			<input type="<?php esc_attr_e( $type ); ?>"
+			       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+			       value="<?php esc_attr_e( $value ); ?>" />
+			<?php
+		}
 		/**
 		 * Generates the Settings API compliant option page
 		 */
