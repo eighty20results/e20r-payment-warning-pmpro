@@ -368,6 +368,7 @@ class Email_Message {
 	 *
 	 * @return array
 	 */
+	/**
 	public function configure_default_data( $template_type = null, $force = false ) {
 		
 		$util  = Utilities::get_instance();
@@ -471,7 +472,7 @@ class Email_Message {
 		
 		return $data;
 	}
-	
+	*/
 	/**
 	 * Determine whether or not to send the current message (to the user)
 	 *
