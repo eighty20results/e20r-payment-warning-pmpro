@@ -329,7 +329,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			// Iterate through subscription plans on Stripe.com & fetch required date info
 			foreach ( $data->subscriptions->data as $subscription ) {
 				
-				$payment_next  = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+				$payment_next  = date( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
 				$already_saved = $user_data->has_subscription_id( $subscription->id );
 				$saved_next    = $user_data->get_next_payment( $subscription->id );
 				
@@ -396,7 +396,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 						$utils->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
 						$user_data->set_subscription_end();
 						
-						$ends = date_i18n( 'Y-m-d H:i:s', $subscription->current_period_end );
+						$ends = date( 'Y-m-d H:i:s', $subscription->current_period_end );
 						
 						$utils->log( "Setting end of membership to {$ends}" );
 						$user_data->set_end_of_membership_date( $ends );
