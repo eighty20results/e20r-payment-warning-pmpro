@@ -158,27 +158,19 @@ class Reminder_Editor extends Email_Notice {
 		$msg_types = $this->define_message_types( array() );
 		
 		if ( $column === 'message_type' ) {
-			$warning_type = get_post_meta( $post_id, '_e20r_pw_message_type', true );
 			
-			if ( !empty( $warning_type ) ) {
+			$warning_type = get_post_meta( $post_id, '_e20r_pw_message_type', true );
+			$terms = wp_get_object_terms( $post_id, 'e20r_email_type', array( 'fields' => 'slugs') );
+			
+			if ( empty( $warning_type ) ) {
+				$warning_type = -1;
+			}
+			
+			if ( !empty( $warning_type ) && in_array( 'e20r-pw-notices', $terms ) ) {
 				esc_html_e( $msg_types[ $warning_type ]['label'] );
-			} else {
-				_e("Not Applicable", Payment_Warning::plugin_slug );
 			}
 		}
 		
-	}
-	
-	/**
-	 * Add the message type column header
-	 *
-	 * @param array $columns
-	 *
-	 * @return array
-	 */
-	public function set_custom_edit_columns( $columns ) {
-		$columns['message_type'] = __( 'Warning Type', Payment_Warning::plugin_slug );
-		return $columns;
 	}
 	
 	/**
