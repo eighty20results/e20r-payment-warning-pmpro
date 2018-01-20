@@ -492,6 +492,26 @@ abstract class E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * Return the class name w/o the Namespace portion
+	 *
+	 * @param $string
+	 *
+	 * @return string
+	 *
+	 * @version 2.1
+	 */
+	protected function maybe_extract_class_name( $string ) {
+		
+		$utils = Utilities::get_instance();
+		$utils->log( "Supplied (potential) class name: {$string}" );
+		
+		$class_array = explode( '\\', $string );
+		$name        = $class_array[ ( count( $class_array ) - 1 ) ];
+		
+		return $name;
+	}
+	
+	/**
 	 * Required Add-on class method: load_gateway()
 	 *
 	 * @param bool $loaded
