@@ -92,6 +92,8 @@ class User_Data {
 	
 	private $failure_description = null;
 	
+	private $gateway_module = 'stripe';
+	
 	/**
 	 * User_Data constructor.
 	 *
@@ -364,6 +366,7 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
+				'gateway_module'                 => $this->gateway_module,
 				'modified'                       => current_time( 'mysql' ),
 			);
 			
@@ -388,6 +391,7 @@ class User_Data {
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
+				'%s', // gateway_module
 				'%s', // modified
 			);
 			
@@ -716,6 +720,30 @@ class User_Data {
 		} else {
 			$util->log( "Unable to add {$date} as the 'end of membership date' value" );
 		}
+	}
+	
+	/**
+	 * The gateway module used to collect this data
+	 *
+	 * @return string
+	 */
+	public function from_module() {
+		
+		// Default is stripe if not configured
+		if ( empty( $this->gateway_module ) ) {
+			$this->gateway_module = 'stripe';
+		}
+		
+		return $this->gateway_module;
+	}
+	
+	/**
+	 * Configure the add-on module used to collect this user data
+	 *
+	 * @param string $addon
+	 */
+	public function set_module( $addon ) {
+		$this->gateway_module = $addon;
 	}
 	
 	/**
@@ -1597,6 +1625,7 @@ class User_Data {
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
 					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
+					gateway_module varchar(255) NULL,
 					modified DATETIME  NOT NULL,
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),
