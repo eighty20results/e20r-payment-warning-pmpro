@@ -1,5 +1,6 @@
+<?php
 /**
- * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,24 +15,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * @version 2.3
  */
-div#e20r-email-notice-configure-css {
-	min-height: 100px;
-	height: 100%;
-	max-height: 200px;
-}
-textarea#e20r-email-notice-custom-css-input {
-	line-height: 1em;
-	width: 100%;
-	height: 150px;
-}
-div#e20r-email-notice-configure-css label {
-	vertical-align: top;
-}
-#e20r-email-notice-custom-css {
-	width: 100%;
-	/* line-height: 1.5em; */
-	height: 90%;
-}
+
+// Silence is golden...
