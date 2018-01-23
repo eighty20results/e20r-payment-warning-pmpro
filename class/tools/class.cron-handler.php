@@ -19,6 +19,9 @@
 
 namespace E20R\Payment_Warning\Tools;
 
+use E20R\Payment_Warning\Addon\Check_Gateway_Addon;
+use E20R\Payment_Warning\Addon\PayPal_Gateway_Addon;
+use E20R\Payment_Warning\Addon\Stripe_Gateway_Addon;
 use E20R\Payment_Warning\Fetch_User_Data;
 use E20R\Payment_Warning\Payment_Reminder;
 use E20R\Payment_Warning\Payment_Warning;
@@ -33,186 +36,33 @@ class Cron_Handler {
 	private static $instance = null;
 	
 	/**
-	 * Identify the shortest billing cycle for the membership levels on this system
-	 *
-	 * @return array|null
+	 * Cron_Handler constructor.
 	 */
-	public function find_shortest_recurring_period() {
+	private function __construct() {
 		
-		$util = Utilities::get_instance();
+		self::$instance = $this;
 		
-		if ( null === ( $shortest_period = Cache::get( 'shortest_recurring_level', Payment_Warning::cache_group ) ) ) {
+		if ( function_exists( 'pmpro_getAllLevels' ) ) {
 			
-			if ( ! function_exists( 'pmpro_getAllLevels' ) ) {
-				$util->log( "PMPro not found. Returning error!" );
-				
-				return null;
-			}
-			
-			$level_list = pmpro_getAllLevels( true, true );
-			$shortest   = 9999;
-			
-			foreach ( $level_list as $level ) {
-				
-				$all_delays = Utilities::get_membership_start_delays( $level );
-				
-				if ( empty( $all_delays ) ) {
-					$util->log( "Skipping subscription delay handling for {$level->id}" );
-					continue;
-				}
-				
-				// Iterate through all delay values for this membership level, and select the shortest one
-				foreach ( $all_delays as $type => $days ) {
-					
-					if ( $shortest > $days ) {
-						
-						$util->log( "Delay of {$days} is shorter than {$shortest} so we'll select level {$level->id} as the current level with the shortest delay" );
-						
-						$shortest        = $days;
-						$shortest_period = array( $level->id => $shortest );
-					}
-				}
-			}
-			
-			if ( ! empty( $level_id ) ) {
-				Cache::set( 'shortest_recurring_level', $shortest_period, WEEK_IN_SECONDS, Payment_Warning::cache_group );
-			}
+			// Clear the cache whenever a membership level definition is edited/saved
+			add_action( 'pmpro_save_membership_level', array( $this, 'clear_cache' ), 9999, 0 );
+			add_action( 'pmpro_save_discount_code', array( $this, 'clear_cache' ), 9999, 0 );
 		}
-		
-		$util->log( "Returning as the shortest recurring level on this server: " . print_r( $shortest_period, true ) );
-		
-		return $shortest_period;
 	}
 	
 	/**
-	 * Calculate and return the next scheduled time (timestamp) for a Cron action
+	 * Returns the current instance of the class
 	 *
-	 * @param string $default_time
-	 * @param bool   $instant
-	 *
-	 * @return int
-	 *
-	 * @access private
+	 * @return Cron_Handler|null
 	 */
-	private function next_scheduled( $default_time, $instant = false ) {
+	public static function get_instance() {
 		
-		$util = Utilities::get_instance();
-		
-		$shortest_delay        = $this->find_shortest_recurring_period();
-		/**
-		 * @since 1.9.17 - BUG FIX: Set default timezone if none is defined in the WordPress settings
-		 */
-		$timezone              = get_option( 'timezone_string', 'Europe/London' );
-		$default_delay_divisor = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
-		$next_scheduled_run    = "{$default_time} {$timezone}";
-		$delay_config          = ! empty( $shortest_delay ) ? array_shift( $shortest_delay ) : 9999;
-		$delay_config          = ( ! empty( $delay_config ) ? $delay_config : "1" );
-		$days                  = ceil( ( $delay_config / $default_delay_divisor ) );
-		
-		$util->log( "Timezone configured as: {$timezone}");
-		
-		while ( $days > 7 ) {
-			// Increment the divisor and retry the calculation (should minimally check the payment gateway once per week)
-			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
+		if ( is_null( self::$instance ) ) {
+			
+			self::$instance = new self;
 		}
 		
-		$util->log( "Delay config: {$days}" );
-		
-		try {
-			
-			// Calculate when the next interval is to happen
-			if ( false === $instant ) {
-				$util->log( "Configure next interval based on configured days: {$days}" );
-				
-				$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
-				$interval = new \DateInterval( "P{$days}D" );
-				$time->add( $interval );
-			} else {
-				$util->log( "Using next scheduled run value: {$next_scheduled_run}" );
-				$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
-			}
-			
-		} catch (\Exception $exception ) {
-			$util->log("DateTime Error: " . $exception->getMessage() );
-			// Default to 'now' in the GMT timezone
-			return current_time('timestamp', true );
-		}
-		
-		$util->log( "Next scheduled (based on {$default_time} and whether or not to run without delay (" . ( $instant ? 'yes' : 'no' ) . "): " . $time->getTimestamp() );
-		
-		return $time->getTimestamp();
-	}
-	
-	/**
-	 * Configure the cron schedule for the remote data fetch (by gateway)
-	 *
-	 * @return false|int
-	 */
-	public function configure_cron_schedules() {
-		
-		$util = Utilities::get_instance();
-		
-		$util->log( "Determine shortest recurring payment period on system" );
-		
-		$shortest                        = $this->find_shortest_recurring_period();
-		$delay_config                    = ! empty( $shortest ) ? array_shift( $shortest ) : 9999;
-		$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
-		$default_send_message_start_time = apply_filters( 'e20r_payment_warning_send_message_time', '05:30:00' );
-		$timezone                        = get_option( 'timezone_string' );
-		$next_scheduled_collect_run      = "{$default_data_collect_start_time} {$timezone}";
-		$next_scheduled_message_run      = "{$default_send_message_start_time} {$timezone}";
-		
-		// Make sure the trigger time is minimally daily
-		$delay_config = ( ! empty( $delay_config ) ? $delay_config : "1" );
-		
-		$now                  = current_time( 'timestamp' ) + 5;
-		$collection_scheduled = wp_next_scheduled( 'e20r_run_remote_data_update' );
-		$cc_scheduled         = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
-		$payment_scheduled    = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
-		$exp_scheduled        = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
-		$collect_when         = $this->next_scheduled( $default_data_collect_start_time, false );
-		
-		// No previously scheduled job for the payment gateway
-		if ( false === $collection_scheduled ) {
-			
-			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
-			
-			$collect_when = $this->next_scheduled( $default_data_collect_start_time, true );
-			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}/{$collect_when}" );
-			
-			wp_schedule_event( $collect_when, 'daily', 'e20r_run_remote_data_update' );
-			
-			$util->log( "Configure next (allowed) run time for the cron job to be at {$collect_when}" );
-			update_option( 'e20r_pw_next_gateway_check', $collect_when, 'no' );
-			
-		} else {
-			$next_run = $collection_scheduled;
-			$util->log( "The cron job exists and is scheduled to run at: {$next_run}" );
-		}
-		
-		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
-		
-		$message_when = $this->next_scheduled( $default_send_message_start_time, true );
-		
-		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
-		
-		if ( false === $cc_scheduled ) {
-			
-			$util->log( "Cron job for Credit Card Warning isn't scheduled yet. Will use {$message_when}" );
-			wp_schedule_event( $message_when, 'daily', 'e20r_send_creditcard_warning_emails' );
-		}
-		
-		if ( false === $payment_scheduled ) {
-			$util->log( "Cron job for Next Payment Warning isn't scheduled yet. Will use {$message_when}" );
-			wp_schedule_event( $message_when, 'daily', 'e20r_send_payment_warning_emails' );
-		}
-		
-		if ( false === $exp_scheduled ) {
-			$util->log( "Cron job for Membership Expiration Warning isn't scheduled yet. Will use {$message_when}" );
-			wp_schedule_event( $message_when, 'daily', 'e20r_send_expiration_warning_emails' );
-		}
-		
-		return $collect_when;
+		return self::$instance;
 	}
 	
 	/**
@@ -386,17 +236,37 @@ class Cron_Handler {
 			$fetch_data = Fetch_User_Data::get_instance();
 			$addon_list = $main->get_addons();
 			
-			foreach( $addon_list as $addon_name ) {
+			$util->log( "Addon list consists of: " . print_r( $addon_list, true ) );
+			
+			foreach ( $addon_list as $addon_name ) {
 				
-				// Trigger fetch of subscription data from Payment Gateways
-				$util->log( "Triggering remote subscription fetch configuration" );
-				$fetch_data->configure_remote_subscription_data_fetch( $addon_name );
+				$gateway_name = apply_filters( 'e20r_pw_get_gateway_name_for_addon', null, $addon_name );
+				$util->log( "Processing payment and subscription load for {$addon_name}/{$gateway_name}" );
 				
-				
-				// Trigger fetch of one-time payment data from Payment Gateways
-				$util->log( "Triggering remote payment (expiring memberships) fetch configuration" );
-				$fetch_data->configure_remote_payment_data_fetch( $addon_name );
-				
+				if ( ! empty( $gateway_name ) ) {
+					
+					$class_name = "E20R\\Payment_Warning\\Addon\\{$gateway_name}";
+					
+					/**
+					 * @var PayPal_Gateway_Addon|Stripe_Gateway_Addon|Check_Gateway_Addon $class_name
+					 */
+					$class = $class_name::get_instance();
+					
+					if ( true === $class->is_active( strtolower( $gateway_name ) ) ) {
+						
+						// Trigger fetch of subscription data from Payment Gateways
+						$util->log( "Triggering remote subscription fetch configuration with {$addon_name}" );
+						$fetch_data->configure_remote_subscription_data_fetch( $addon_name );
+						
+						
+						// Trigger fetch of one-time payment data from Payment Gateways
+						$util->log( "Triggering remote payment (expiring memberships) fetch configuration with {$addon_name}" );
+						$fetch_data->configure_remote_payment_data_fetch( $addon_name );
+					} else {
+						$util->log( "{$addon_name} is either inactive or we didn't find the gateway name (Gateway class: {$gateway_name})" );
+					}
+					
+				}
 			}
 			
 			// Configure when to run this job the next time
@@ -420,6 +290,190 @@ class Cron_Handler {
 	}
 	
 	/**
+	 * Configure the cron schedule for the remote data fetch (by gateway)
+	 *
+	 * @return false|int
+	 */
+	public function configure_cron_schedules() {
+		
+		$util = Utilities::get_instance();
+		
+		$util->log( "Determine shortest recurring payment period on system" );
+		
+		$shortest                        = $this->find_shortest_recurring_period();
+		$delay_config                    = ! empty( $shortest ) ? array_shift( $shortest ) : 9999;
+		$default_data_collect_start_time = apply_filters( 'e20r_payment_warning_data_collect_time', '02:00:00' );
+		$default_send_message_start_time = apply_filters( 'e20r_payment_warning_send_message_time', '05:30:00' );
+		$timezone                        = get_option( 'timezone_string' );
+		$next_scheduled_collect_run      = "{$default_data_collect_start_time} {$timezone}";
+		$next_scheduled_message_run      = "{$default_send_message_start_time} {$timezone}";
+		
+		// Make sure the trigger time is minimally daily
+		$delay_config = ( ! empty( $delay_config ) ? $delay_config : "1" );
+		
+		$now                  = current_time( 'timestamp' ) + 5;
+		$collection_scheduled = wp_next_scheduled( 'e20r_run_remote_data_update' );
+		$cc_scheduled         = wp_next_scheduled( 'e20r_send_creditcard_warning_emails' );
+		$payment_scheduled    = wp_next_scheduled( 'e20r_send_payment_warning_emails' );
+		$exp_scheduled        = wp_next_scheduled( 'e20r_send_expiration_warning_emails' );
+		$collect_when         = $this->next_scheduled( $default_data_collect_start_time, false );
+		
+		// No previously scheduled job for the payment gateway
+		if ( false === $collection_scheduled ) {
+			
+			$util->log( "Cron job for Payment Gateway processing isn't scheduled yet" );
+			
+			$collect_when = $this->next_scheduled( $default_data_collect_start_time, true );
+			$util->log( "Scheduling data collection cron job to start on {$next_scheduled_collect_run}/{$collect_when}" );
+			
+			wp_schedule_event( $collect_when, 'daily', 'e20r_run_remote_data_update' );
+			
+			$util->log( "Configure next (allowed) run time for the cron job to be at {$collect_when}" );
+			update_option( 'e20r_pw_next_gateway_check', $collect_when, 'no' );
+			
+		} else {
+			$next_run = $collection_scheduled;
+			$util->log( "The cron job exists and is scheduled to run at: {$next_run}" );
+		}
+		
+		$util->log( "Scheduling next message transmissions: {$next_scheduled_message_run}" );
+		
+		$message_when = $this->next_scheduled( $default_send_message_start_time, true );
+		
+		$util->log( "Scheduling next message transmissions timestamp: {$message_when}" );
+		
+		if ( false === $cc_scheduled ) {
+			
+			$util->log( "Cron job for Credit Card Warning isn't scheduled yet. Will use {$message_when}" );
+			wp_schedule_event( $message_when, 'daily', 'e20r_send_creditcard_warning_emails' );
+		}
+		
+		if ( false === $payment_scheduled ) {
+			$util->log( "Cron job for Next Payment Warning isn't scheduled yet. Will use {$message_when}" );
+			wp_schedule_event( $message_when, 'daily', 'e20r_send_payment_warning_emails' );
+		}
+		
+		if ( false === $exp_scheduled ) {
+			$util->log( "Cron job for Membership Expiration Warning isn't scheduled yet. Will use {$message_when}" );
+			wp_schedule_event( $message_when, 'daily', 'e20r_send_expiration_warning_emails' );
+		}
+		
+		return $collect_when;
+	}
+	
+	/**
+	 * Identify the shortest billing cycle for the membership levels on this system
+	 *
+	 * @return array|null
+	 */
+	public function find_shortest_recurring_period() {
+		
+		$util = Utilities::get_instance();
+		
+		if ( null === ( $shortest_period = Cache::get( 'shortest_recurring_level', Payment_Warning::cache_group ) ) ) {
+			
+			if ( ! function_exists( 'pmpro_getAllLevels' ) ) {
+				$util->log( "PMPro not found. Returning error!" );
+				
+				return null;
+			}
+			
+			$level_list = pmpro_getAllLevels( true, true );
+			$shortest   = 9999;
+			
+			foreach ( $level_list as $level ) {
+				
+				$all_delays = Utilities::get_membership_start_delays( $level );
+				
+				if ( empty( $all_delays ) ) {
+					$util->log( "Skipping subscription delay handling for {$level->id}" );
+					continue;
+				}
+				
+				// Iterate through all delay values for this membership level, and select the shortest one
+				foreach ( $all_delays as $type => $days ) {
+					
+					if ( $shortest > $days ) {
+						
+						$util->log( "Delay of {$days} is shorter than {$shortest} so we'll select level {$level->id} as the current level with the shortest delay" );
+						
+						$shortest        = $days;
+						$shortest_period = array( $level->id => $shortest );
+					}
+				}
+			}
+			
+			if ( ! empty( $level_id ) ) {
+				Cache::set( 'shortest_recurring_level', $shortest_period, WEEK_IN_SECONDS, Payment_Warning::cache_group );
+			}
+		}
+		
+		$util->log( "Returning as the shortest recurring level on this server: " . print_r( $shortest_period, true ) );
+		
+		return $shortest_period;
+	}
+	
+	/**
+	 * Calculate and return the next scheduled time (timestamp) for a Cron action
+	 *
+	 * @param string $default_time
+	 * @param bool   $instant
+	 *
+	 * @return int
+	 *
+	 * @access private
+	 */
+	private function next_scheduled( $default_time, $instant = false ) {
+		
+		$util = Utilities::get_instance();
+		
+		$shortest_delay = $this->find_shortest_recurring_period();
+		/**
+		 * @since 1.9.17 - BUG FIX: Set default timezone if none is defined in the WordPress settings
+		 */
+		$timezone              = get_option( 'timezone_string', 'Europe/London' );
+		$default_delay_divisor = apply_filters( 'e20r_payment_warning_period_divisor', 2 );
+		$next_scheduled_run    = "{$default_time} {$timezone}";
+		$delay_config          = ! empty( $shortest_delay ) ? array_shift( $shortest_delay ) : 9999;
+		$delay_config          = ( ! empty( $delay_config ) ? $delay_config : "1" );
+		$days                  = ceil( ( $delay_config / $default_delay_divisor ) );
+		
+		$util->log( "Timezone configured as: {$timezone}" );
+		
+		while ( $days > 7 ) {
+			// Increment the divisor and retry the calculation (should minimally check the payment gateway once per week)
+			$days = ceil( ( $delay_config / ( ++ $default_delay_divisor ) ) );
+		}
+		
+		$util->log( "Delay config: {$days}" );
+		
+		try {
+			
+			// Calculate when the next interval is to happen
+			if ( false === $instant ) {
+				$util->log( "Configure next interval based on configured days: {$days}" );
+				
+				$time     = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+				$interval = new \DateInterval( "P{$days}D" );
+				$time->add( $interval );
+			} else {
+				$util->log( "Using next scheduled run value: {$next_scheduled_run}" );
+				$time = new \DateTime( $next_scheduled_run, new \DateTimeZone( $timezone ) );
+			}
+			
+		} catch ( \Exception $exception ) {
+			$util->log( "DateTime Error: " . $exception->getMessage() );
+			
+			// Default to 'now' in the GMT timezone
+			return current_time( 'timestamp', true );
+		}
+		
+		$util->log( "Next scheduled (based on {$default_time} and whether or not to run without delay (" . ( $instant ? 'yes' : 'no' ) . "): " . $time->getTimestamp() );
+		
+		return $time->getTimestamp();
+	}
+	
+	/**
 	 * Monitor background data collection job(s) and remove stale mutex options if they're done
 	 *
 	 * @since 1.9.9 - ENHANCEMENT: Clear mutex options (if they exists) once the background jobs are done/have ran
@@ -429,13 +483,13 @@ class Cron_Handler {
 	public function clear_mutexes() {
 		
 		$utils = Utilities::get_instance();
-		$main = Payment_Warning::get_instance();
+		$main  = Payment_Warning::get_instance();
 		
 		$addons = $main->get_addons();
 		
 		$batch_scheduler = wp_next_scheduled( 'e20r_lhr_payments_cron' );
 		
-		foreach( $addons as $addon ) {
+		foreach ( $addons as $addon ) {
 			
 			$payment_mutex       = "e20rpw_paym_fetch_mutex_{$addon}";
 			$subscription_mutext = "e20rpw_subscr_fetch_mutex_{$addon}";
@@ -443,8 +497,8 @@ class Cron_Handler {
 			/**
 			 * @since 1.9.10 - ENHANCEMENT: Faster completion of scheduled job checks
 			 */
-			$subscr_job      = wp_next_scheduled( "e20r_hs_{$addon}_subscr_cron" );
-			$payment_job     =  wp_next_scheduled( "e20r_hp_{$addon}_paym_cron" );
+			$subscr_job  = wp_next_scheduled( "e20r_hs_{$addon}_subscr_cron" );
+			$payment_job = wp_next_scheduled( "e20r_hp_{$addon}_paym_cron" );
 			
 			if ( false === $payment_job && false === $batch_scheduler ) {
 				$utils->log( "Removing the Payment Collection mutex: {$payment_mutex}" );
@@ -511,36 +565,6 @@ class Cron_Handler {
 		$util = Utilities::get_instance();
 		$util->log( "Clearing shortest_recurring_level cache entry" );
 		Cache::delete( 'shortest_recurring_level', Payment_Warning::cache_group );
-	}
-	
-	/**
-	 * Returns the current instance of the class
-	 *
-	 * @return Cron_Handler|null
-	 */
-	public static function get_instance() {
-		
-		if ( is_null( self::$instance ) ) {
-			
-			self::$instance = new self;
-		}
-		
-		return self::$instance;
-	}
-	
-	/**
-	 * Cron_Handler constructor.
-	 */
-	private function __construct() {
-		
-		self::$instance = $this;
-		
-		if ( function_exists( 'pmpro_getAllLevels' ) ) {
-			
-			// Clear the cache whenever a membership level definition is edited/saved
-			add_action( 'pmpro_save_membership_level', array( self::$instance, 'clear_cache' ), 9999, 0 );
-			add_action( 'pmpro_save_discount_code', array( self::$instance, 'clear_cache' ), 9999, 0 );
-		}
 	}
 	
 }
