@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.9.2
-Stable tag: 3.0
+Stable tag: 3.2
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,16 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v3.2 ==
+
+* BUG FIX: Didn't disable the default PMPro expiration warning emails
+
+== v3.1 ==
+
+* ENHANCEMENT/FIX: Updated Utilities submodule to v2.0
+* BUG FIX: Didn't clear/remove the debug log(s) for the PayPal Merchants API library
+* BUG FIX: Renamed the example addon class to Example_Gateway_Addon and need to reflect that in licensing & settings/stubs to ignore
 
 == v3.0 ==
 
