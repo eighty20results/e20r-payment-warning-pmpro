@@ -114,12 +114,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		/**
 		 * Return the array of supported subscription statuses to capture data about
 		 *
-		 * @param array  $statuses Array of valid gateway statuses
+		 * @param string[]  $statuses Array of valid gateway statuses
 		 * @param string $gateway  The gateway name we're processing for
+		 * @param string $addon
 		 *
 		 * @return array
 		 */
-		public function valid_gateway_subscription_statuses( $statuses, $gateway ) {
+		public function valid_gateway_subscription_statuses( $statuses, $gateway, $addon ) {
 			
 			if ( $gateway === $this->gateway_name ) {
 				
@@ -150,8 +151,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			}
 			
 			// Don't run this action handler (unexpected gateway name)
-			if ( $gateway_name != $this->gateway_name ) {
-				$util->log( "Specified gateway name doesn't match this add-on's gateway: {$gateway_name} vs {$this->gateway_name}. Returning: {$gateway_customer_id}" );
+			if ( 1 !== preg_match( "/{$this->gateway_name}/i", $gateway_name ) ) {
+				$util->log( "Specified gateway name doesn't match tihis add-on's gateway: {$gateway_name} vs {$this->gateway_name}. Returning: {$gateway_customer_id}" );
 				
 				return $gateway_customer_id;
 			}
@@ -178,7 +179,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 *
 		 * @param string $addon_name
 		 *
-		 * @return bool|string
+		 * @return bool
 		 */
 		public function load_gateway( $addon_name ) {
 			
@@ -245,7 +246,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					$util->log( "Using {$this->gateway_timezone} as the timezone value" );
 				}
 				
-				return 'stripe';
+				return true;
 			} catch ( \Exception $e ) {
 				
 				$utils = Utilities::get_instance();
@@ -259,15 +260,26 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		/**
 		 * Configure the subscription information for the user data for the current Payment Gateway
 		 *
-		 * @param User_Data $user_data The User_Data record to process for
+		 * @param User_Data|bool $user_data The User_Data record to process for
+		 * @param string $addon The addon we're processing for
 		 *
 		 * @return bool|User_Data
 		 */
-		public function get_gateway_subscriptions( User_Data $user_data ) {
+		public function get_gateway_subscriptions( $user_data, $addon ) {
 			
 			$utils = Utilities::get_instance();
 			$stub  = apply_filters( "e20r_pw_addon_stripe_gateway_addon_name", null );
 			$data  = null;
+			
+			if ( 1 !== preg_match( "/stripe/i", $addon ) ) {
+				$utils->log("While in the Stripe module, the system asked to process for {$addon}");
+				return $user_data;
+			}
+			
+			if ( empty( $user_data )) {
+				$utils->log("Error: No user data received!" );
+				return $user_data;
+			}
 			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway licence for the add-on" );
@@ -322,7 +334,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			$utils->log( "Loading most recent local PMPro order info" );
 			
 			$local_order     = $user_data->get_last_pmpro_order();
-			$stripe_statuses = apply_filters( 'e20r_pw_addon_gateway_subscr_statuses', array(), $this->gateway_name );
+			$stripe_statuses = apply_filters( 'e20r_pw_addon_subscr_statuses', array(), $this->gateway_name, $addon );
 			
 			// $user_data->add_subscription_list( $data->subscriptions->data );
 			
@@ -407,6 +419,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					// Trigger handler for credit card data
 					$user_data = $this->process_credit_card_info( $user_data, $data->sources->data, $this->gateway_name );
 					
+					// Save the processing module for this record
+					$user_data->set_module( $addon );
+					
 				} else {
 					
 					$utils->log( "Mismatch between expected (local) subscription ID {$local_order->subscription_transaction_id} and remote ID {$subscription->id}" );
@@ -431,24 +446,30 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		/**
 		 * Configure Charges (one-time charges) for the user data from the specified payment gateway
 		 *
-		 * @param User_Data $user_data User data to update/process
-		 * @param string    $gateway   The gateway being processed
+		 * @param User_Data|bool $user_data User data to update/process
+		 * @param string $addon The addon we're processing for
 		 *
 		 * @return bool|User_Data
 		 */
-		public function get_gateway_payments( User_Data $user_data, $gateway ) {
+		public function get_gateway_payments( $user_data, $addon ) {
 			
 			$utils = Utilities::get_instance();
 			$stub  = apply_filters( 'e20r_pw_addon_stripe_gateway_addon_name', null );
 			$data  = null;
 			
+			if ( 1 !== preg_match( "/stripe/i", $addon ) ) {
+				$utils->log("While in the Stripe module, the system asked to process for {$addon}");
+				return $user_data;
+			}
+			
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
-				$utils->log( "Failed check of gateway / gateway addon licence for the add-on" );
+				$utils->log( "Failed check of gateway / gateway addon licence for the Stripe add-on" );
 				
 				return $user_data;
 			}
 			
-			if ( $gateway !== $this->gateway_name ) {
+			if ( $user_data->get_gateway_name() !== $this->gateway_name ) {
+				$utils->log("Gateway name: {$this->gateway_name} vs " . $user_data->get_gateway_name() );
 				return $user_data;
 			}
 			
@@ -499,6 +520,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$user_email = $user_data->get_user_email();
 			
+			// Last order was of the Stripe Invoice type
 			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'in_' ) ) {
 				
 				$utils->log( "Local order saved a Stripe Invoice ID, not a Charge ID" );
@@ -506,23 +528,25 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				try {
 					$inv = Invoice::retrieve( $last_order_id );
 					
+					// Retrieve the charge object related to this invoice (which is what's needed)
 					if ( ! empty( $inv ) ) {
 						$last_order_id = $inv->charge;
 					}
-				} catch ( Api $exception ) {
+				} catch ( \Exception $exception ) {
 					$utils->log( "Error fetching invoice info: " . $exception->getMessage() );
 					
 					return false;
 				}
 			}
 			
-			if ( ! empty( $last_order_id ) && false !== strpos( $last_order_id, 'ch_' ) ) {
+			// Last order was of the Stripe Charge type
+			if ( ! empty( $last_order_id ) && ( false !== strpos( $last_order_id, 'ch_' ) ) ) {
 				try {
 					
 					$utils->log( "Loading charge data for {$last_order_id}" );
 					$charge = Charge::retrieve( $last_order_id );
 					
-				} catch ( Api $exception ) {
+				} catch ( \Exception $exception ) {
 					$utils->log( "Error fetching charge/payment: " . $exception->getMessage() );
 					
 					return false;
@@ -565,6 +589,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				// Add any/all credit card info used for this transaction
 				$user_data = $this->process_credit_card_info( $user_data, $charge->source, $this->gateway_name );
+				
+				// Save the processing module for this record
+				$user_data->set_module( $addon );
 			}
 			
 			
@@ -614,6 +641,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			}
 			
 			return $user_data;
+		}
+		
+		/**
+		 * Return the gateway name for the matching add-on
+		 *
+		 * @param null|string $gateway_name
+		 * @param string     $addon
+		 *
+		 * @return null|string
+		 */
+		public function get_gateway_class_name( $gateway_name = null , $addon ) {
+			
+			// "Punch through" unless the gateway name matches the addon specified
+			if ( is_null($gateway_name) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
+				$gateway_name =  $this->get_class_name();
+			}
+			
+			return $gateway_name;
 		}
 		
 		/**
@@ -691,17 +736,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			}
 			
 			return $this->class_name;
-		}
-		
-		private function maybe_extract_class_name( $string ) {
-			
-			$utils = Utilities::get_instance();
-			$utils->log( "Supplied (potential) class name: {$string}" );
-			
-			$class_array = explode( '\\', $string );
-			$name        = $class_array[ ( count( $class_array ) - 1 ) ];
-			
-			return $name;
 		}
 		
 		/**
@@ -924,42 +958,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "{$e20r_pw_addons[$stub]['label']} active: Loading add-on specific actions/filters" );
 				
-				add_action( 'e20r_pw_addon_add_remote_call_handler', array(
-					self::get_instance(),
-					'load_webhook_handler',
-				) );
-				
-				// Add-on specific filters and actions
-				add_filter( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
-				add_action( 'e20r_pw_addon_save_email_error_data', array(
-					self::get_instance(),
-					'save_email_error',
-				), 10, 4 );
-				add_action( 'e20r_pw_addon_save_subscription_mismatch', array(
-					self::get_instance(),
-					'save_subscription_mismatch',
-				), 10, 4 );
-				add_filter( 'e20r_pw_addon_get_user_subscriptions', array(
-					self::get_instance(),
-					'get_gateway_subscriptions',
-				), 10, 1 );
-				
-				add_filter( 'e20r_pw_addon_get_user_payments', array(
-					self::get_instance(),
-					'get_gateway_payments',
-				), 10, 1 );
-				add_filter( 'e20r_pw_addon_get_user_customer_id', array(
-					self::get_instance(),
-					'get_local_user_customer_id',
-				), 10, 3 );
-				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array(
-					self::get_instance(),
-					'valid_gateway_subscription_statuses',
-				), 10, 2 );
-				add_filter( 'e20r_pw_addon_process_cc_info', array(
-					self::get_instance(),
-					'update_credit_card_info',
-				), 10, 3 );
+				parent::load_hooks_for( self::get_instance() );
 				
 				if ( WP_DEBUG ) {
 					add_action( 'wp_ajax_test_get_gateway_subscriptions', array(
@@ -978,13 +977,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function load_webhook_handler( $stub = null ) {
 			
 			global $e20r_pw_addons;
-			
-			$stub = strtolower( $this->get_class_name() );;
 			$util = Utilities::get_instance();
+			
+			if ( empty( $stub ) ) {
+				$stub = strtolower( $this->get_class_name() );
+			}
 			
 			parent::load_webhook_handler( $stub );
 			
-			$util->log( "Site has the expected Stripe Webhook action: " . (
+			$util->log( "Site has the expected Stripe WebHook action: " . (
 				has_action(
 					"wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
 					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
@@ -1501,7 +1502,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 *
 		 * @param Customer $stripe_customer
 		 * @param \WP_User $user
-		 * @param array    $subscription
+		 * @param Subscription    $subscription
 		 *
 		 * @return User_Data
 		 */
