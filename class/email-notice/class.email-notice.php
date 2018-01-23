@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 2.1
+ * @version 2.4
  */
 
 namespace E20R\Utilities\Email_Notice;
@@ -69,7 +69,8 @@ abstract class Email_Notice {
 	/**
 	 * Version number for the edition of the Email Editor we're loading
 	 */
-	const version = '1.4';
+	const version = '2.4';
+	
 	/**
 	 * @var null|Email_Notice
 	 */
@@ -104,19 +105,14 @@ abstract class Email_Notice {
 	 *
 	 * @return array
 	 */
-	public static function get_templates_of_type( $type ) {
+	public function get_templates_of_type( $type ) {
 		
 		$utils = Utilities::get_instance();
 		$utils->log( "Loading templates for type: {$type}" );
 		
-		if ( empty( self::$instance ) ) {
-			$utils->log( "Error attempting to load myself!" );
-			
-			return array();
-		}
 		
 		$template_keys = array();
-		$templates     = self::$instance->load_template_settings( 'all', false );
+		$templates     = $this->load_template_settings( 'all', false );
 		
 		foreach ( $templates as $template_name => $template ) {
 			
@@ -135,26 +131,32 @@ abstract class Email_Notice {
 	/**
 	 * Return the specified template (by name)
 	 *
-	 * @param string $template_name
+	 * @param string $name
 	 * @param bool   $load_body
 	 *
 	 * @return array
 	 */
-	public static function get_template_by_name( $template_name, $load_body = false ) {
+	public function get_template_by_name( $name, $load_body = false ) {
 		
-		$class    = self::get_instance();
-		$template = $class->load_template_settings( $template_name, $load_body );
+		$templates = $this->configure_cpt_templates();
+		$utils = Utilities::get_instance();
 		
-		if ( $template['active'] == true && ! empty( $template['type'] ) ) {
-			return $template;
-		}
+		foreach( $templates as $name => $template )
+			
+			if ( isset($template['active'] ) && $template['active'] == true ) {
+				$utils->log("Returning template settings for {$name}");
+				return $template;
+			}
 		
 		return null;
 	}
 	
+	/**
+	 * Load type specific metabox(es) on Edit page
+	 */
 	public function display_message_metabox() {
 		
-		$types = apply_filters( 'e20r-email-email-notice-message-types', array() );
+		$types = apply_filters( 'e20r-email-notice-message-types', array() );
 		Email_Notice_View::add_type_metabox( $types );
 	}
 	
@@ -181,7 +183,7 @@ abstract class Email_Notice {
 	 *
 	 * @return array
 	 *
-	 * @since 1.9.6 - ENHANCEMENT: Added e20r-email-email-notice-variable-help filter to result of default_variable_help()
+	 * @since 1.9.6 - ENHANCEMENT: Added e20r-email-notice-variable-help filter to result of default_variable_help()
 	 */
 	public function default_variable_help( $variables, $type ) {
 		
@@ -214,6 +216,13 @@ abstract class Email_Notice {
 		$save_action = "save_post_" . Email_Notice::cpt_type;
 		
 		add_action( $save_action, array( $this, 'save_metadata' ), 10, 1 );
+		
+		// Add PHP Mail Error Handler
+		add_action( 'wp_mail_failed', 'E20R\Utilities\Email_Notice\Send_Email::email_error_handler', 10 );
+		
+		// List warning message type in the edit list for the custom post type
+		add_filter( 'manage_e20r_email_message_posts_columns', array( $this, 'set_custom_edit_columns' ), 10 );
+		add_action( 'manage_e20r_email_message_posts_custom_column', array( $this, 'custom_post_column' ), 10, 2 );
 	}
 	
 	/**
@@ -227,7 +236,7 @@ abstract class Email_Notice {
 		
 		add_meta_box(
 			'e20r-email-notice-settings',
-			__( 'Email Notice Type', Email_Notice::plugin_slug ),
+			__( 'Configure Email Notice Type', Email_Notice::plugin_slug ),
 			'E20R\Utilities\Email_Notice\Email_Notice_View::add_default_metabox',
 			Email_Notice::cpt_type,
 			'side',
@@ -244,7 +253,7 @@ abstract class Email_Notice {
 	 */
 	public function save_metadata( $post_id ) {
 		
-		// post_meta key: _e20r_editor_custom_css
+		// post_meta key: _e20r_email_notice_custom_css
 		
 		global $post;
 		
@@ -281,7 +290,7 @@ abstract class Email_Notice {
 		$message_css = isset( $_REQUEST['e20r-email-notice-custom-css'] ) ? trim( wp_filter_nohtml_kses( wp_strip_all_tags( $_REQUEST['e20r-email-notice-custom-css'] ) ) ) : null;
 		
 		if ( ! empty( $message_css ) ) {
-			update_post_meta( $post_id, '_e20r_editor_custom_css', $message_css );
+			update_post_meta( $post_id, '_e20r_email_notice_custom_css', $message_css );
 		}
 	}
 	
@@ -326,7 +335,7 @@ abstract class Email_Notice {
 		$utils->log("Loading message-specific CSS textarea");
 		
 		add_meta_box(
-			'e20r_message_css',
+			'e20r_email_notice_css',
 			__( 'Message Specific CSS', Email_Notice::plugin_slug ),
 			array( $this, "display_custom_css_input" ),
 			Email_Notice::cpt_type,
@@ -388,33 +397,9 @@ abstract class Email_Notice {
 	public function enqueue() {
 		
 		$utils = Utilities::get_instance();
-		
-		// In backend
-		/*
-		if ( is_admin() && isset( $_REQUEST['page'] ) && 'e20r-email-email-notice-templates' === $_REQUEST['page'] ) {
-			
-			global $post;
-			
-			wp_enqueue_editor();
-			
-			if ( ! empty( $post->ID ) ) {
-				wp_enqueue_media( $post->ID );
-			}
-			
-			$utils->log( "Loading style(s) for Email Editor plugin" );
-			
-			wp_enqueue_style( 'e20r-email-email-notice-admin', plugins_url( 'css/e20r-email-email-notice-admin.css', __FILE__ ), null, Email_Notice::version );
-			
-			wp_enqueue_script( 'e20r-email-email-notice-admin', plugins_url( 'javascript/e20r-email-email-notice-admin.js', __FILE__ ), array(
-				'jquery',
-				'email-notice',
-			), Email_Notice::version, true );
-			
-			$this->i18n_script();
-		}
-		*/
 		global $post;
 		
+		// At the WP backend & the post editor for the Email Notices?
 		if ( is_admin() && isset( $post->post_type ) && Email_Notice::cpt_type == $post->post_type ) {
 			
 			$utils->log("Loading scripts for Editor CPT page");
@@ -430,10 +415,7 @@ abstract class Email_Notice {
 				wp_enqueue_script( 'e20r-email-notice-admin', plugins_url( 'javascript/e20r-email-notice-admin.js', __FILE__ ), array( 'jquery' ), Email_Notice::version, true );
 			}
 			
-			wp_register_script( 'e20r-email-notice', plugins_url( 'javascript/e20r-email-notice.js', __FILE__ ), array(
-				'jquery',
-				'email-notice',
-			), Email_Notice::version, true );
+			wp_register_script( 'e20r-email-notice', plugins_url( 'javascript/e20r-email-notice.js', __FILE__ ), array( 'jquery' ), Email_Notice::version, true );
 			
 			wp_localize_script( 'e20r-email-notice', 'e20r_email_notice',
 				array(
@@ -450,7 +432,7 @@ abstract class Email_Notice {
 				)
 			);
 			
-			wp_enqueue_script( 'e20r-email-email-notice' );
+			wp_enqueue_script( 'e20r-email-notice' );
 		}
 	}
 	
@@ -465,7 +447,7 @@ abstract class Email_Notice {
 	 */
 	public function default_schedule( $schedule, $type = 'recurring', $slug = Email_Notice::plugin_slug ) {
 		
-		$schedule = apply_filters( 'e20r-email-email-notice-default-schedules', $schedule, $type, $slug );
+		$schedule = apply_filters( 'e20r-email-notice-default-schedules', $schedule, $type, $slug );
 		
 		return $schedule;
 	}
@@ -493,23 +475,18 @@ abstract class Email_Notice {
 		$terms = wp_get_post_terms( $current_post_id, Email_Notice::taxonomy );
 		
 		if ( empty( $current_post_id ) || empty( $terms ) ) {
-			$terms = array( 'slug' => 'default' );
+			
+			// Create data structure for default (not an array)
+			$default = new \stdClass();
+			$default->slug = 'default';
+			
+			// Assign it to an array.
+			$terms = array( $default );
 		}
 		
-		foreach ( $terms as $term ) {
-			do_action( 'e20r-email-notice-load-message-meta', $term->slug );
+		foreach ( $terms as $tax_term ) {
+			do_action( 'e20r-email-notice-load-message-meta', $tax_term->slug );
 		}
-	}
-	
-	
-	/**
-	 * Load the template email-notice page (html)
-	 */
-	public function load_message_template_page() {
-		
-		$all_settings = $this->load_template_settings( 'all', true );
-		
-		Editor_View::editor( $all_settings );
 	}
 	
 	/**
@@ -524,7 +501,7 @@ abstract class Email_Notice {
 		$utils = Utilities::get_instance();
 		
 		$default_templ = $this->default_templates();
-		$location      = apply_filters( 'e20r-email-email-notice-template-location', plugin_dir_path( __FILE__ ) );
+		$location      = apply_filters( 'e20r-email-notice-template-location', plugin_dir_path( __FILE__ ) );
 		$content_body  = null;
 		$file_name     = false;
 		
@@ -549,7 +526,7 @@ abstract class Email_Notice {
 		}
 		
 		$utils->log( "Loading body of template from {$file_name}" );
-		if ( ! empty( $file_name ) && empty( $content_body ) ) {
+		if ( ! empty( $file_name ) && empty( $content_body ) && file_exists( $file_name ) ) {
 			
 			ob_start();
 			require_once( $file_name );
@@ -569,16 +546,16 @@ abstract class Email_Notice {
 		$reload      = false;
 		$is_new      = false;
 		
-		check_ajax_referer( Email_Notice::plugin_prefix, 'message_template' );
+		check_ajax_referer( Email_Notice::plugin_prefix, 'email_notice_template' );
 		
-		$template_name = $utils->get_variable( 'e20r_message_template-key', null );
+		$template_name = $utils->get_variable( 'e20r_email_notice_template-key', null );
 		$utils->log( "Nonce is OK for template: {$template_name}" );
 		
 		if ( ! empty( $template_name ) && 'new' === $template_name ) {
 			
 			$is_new   = true;
-			$type     = $utils->get_variable( 'e20r_message_template-type', null );
-			$schedule = $utils->get_variable( 'e20r_message_template-schedule', array() );
+			$type     = $utils->get_variable( 'e20r_email_notice_template-type', null );
+			$schedule = $utils->get_variable( 'e20r_email_notice_template-schedule', array() );
 			
 			if ( ! empty( $type ) && ! empty( $schedule ) ) {
 				
@@ -593,10 +570,10 @@ abstract class Email_Notice {
 			$template_settings = $this->load_template_settings( 'all' );
 			
 			// Skip and use the HTML formatted message/template
-			unset( $_REQUEST["e20r_message_template-body_{$template_name}"] );
+			unset( $_REQUEST["e20r_email_notice_template-body_{$template_name}"] );
 			
 			// Get status for template (active/inactive)
-			$is_active = $utils->get_variable( 'e20r_message_template-active', 0 );
+			$is_active = $utils->get_variable( 'e20r_email_notice_template-active', 0 );
 			
 			if ( 0 == $is_active ) {
 				$template_settings[ $template_name ]['active'] = $is_active;
@@ -604,11 +581,11 @@ abstract class Email_Notice {
 			
 			foreach ( $_REQUEST as $key => $value ) {
 				
-				if ( false !== strpos( $key, 'e20r_message_template' ) ) {
+				if ( false !== strpos( $key, 'e20r_email_notice_template' ) ) {
 					
 					$tmp = explode( '-', $key );
 					
-					if ( $key !== 'e20r_message_template-key' ) {
+					if ( $key !== 'e20r_email_notice_template-key' ) {
 						
 						$value    = $utils->get_variable( $key, null );
 						$var_name = $tmp[ ( count( $tmp ) - 1 ) ];
@@ -719,7 +696,7 @@ abstract class Email_Notice {
 		check_ajax_referer( Email_Notice::plugin_prefix, 'message_template' );
 		$utils = Utilities::get_instance();
 		
-		$template_name = $utils->get_variable( 'message_template', null );
+		$template_name = $utils->get_variable( 'email_notice_template', null );
 		
 		if ( ! empty( $template_name ) ) {
 			
@@ -761,20 +738,20 @@ abstract class Email_Notice {
 		
 		$error = register_post_type( $post_type,
 			array(
-				'labels'             => apply_filters( 'e20r-email-email-notice-cpt-labels', $labels ),
+				'labels'             => apply_filters( 'e20r-email-notice-cpt-labels', $labels ),
 				'public'             => true,
 				'show_ui'            => true,
 				'show_in_menu'       => true,
 				'publicly_queryable' => true,
 				'hierarchical'       => true,
-				'supports'           => array( 'title', 'email-notice', 'thumbnail', 'custom-fields', 'author', 'excerpt' ),
+				'supports'           => array( 'title', 'editor', 'excerpt', 'thumbnail', 'author' ),
 				'can_export'         => true,
 				'show_in_nav_menus'  => true,
 				'rewrite'            => array(
 					'slug'       => $default_slug,
 					'with_front' => false,
 				),
-				'has_archive'        => apply_filters( 'e20r-email-email-notice-cpt-archive-slug', Email_Notice::plugin_slug . "-archive" ),
+				'has_archive'        => apply_filters( 'e20r-email-notice-cpt-archive-slug', Email_Notice::plugin_slug . "-archive" ),
 			)
 		);
 		
@@ -859,6 +836,18 @@ abstract class Email_Notice {
 	}
 	
 	/**
+	 * Add the message type column header
+	 *
+	 * @param array $columns
+	 *
+	 * @return array
+	 */
+	public function set_custom_edit_columns( $columns ) {
+		$columns['message_type'] = __( 'Message Type', Email_Notice::plugin_slug );
+		return $columns;
+	}
+	
+	/**
 	 * Save the message specific metadata (from child class)
 	 *
 	 * @param int $post_id
@@ -906,11 +895,11 @@ abstract class Email_Notice {
 	/**
 	 * Return the Message templates for the specified type
 	 *
-	 * @param string $type - The type of template to return
+	 * @param mixed|null $type - The type of template to return
 	 *
 	 * @return array
 	 */
-	abstract public function configure_cpt_templates( $type );
+	abstract public function configure_cpt_templates( $type = null );
 	
 	/**
 	 * Default settings for any new template(s)
@@ -924,7 +913,7 @@ abstract class Email_Notice {
 	/**
 	 * Filter handler to load the Editor Email Notice content
 	 *
-	 * @filter 'e20r-email-email-notice-notice-content'
+	 * @filter 'e20r-email-notice-notice-content'
 	 *
 	 * @param string $content
 	 * @param string $template_slug
@@ -937,4 +926,12 @@ abstract class Email_Notice {
 	 * Load the child metabox to set message type ( For the _e20r_sequence_message_type post meta )
 	 */
 	abstract public function load_message_metabox( $term_type );
+	
+	/**
+	 * Get and print the message type (string) for the email notice column
+	 *
+	 * @param string $column
+	 * @param int $post_id
+	 */
+	abstract public function custom_post_column( $column, $post_id );
 }

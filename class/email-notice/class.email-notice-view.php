@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @version 2.1
+ * @version 2.3
  */
 
 namespace E20R\Utilities\Email_Notice;
@@ -268,11 +268,11 @@ class Email_Notice_View {
 		
 		global $post_ID;
 		?>
-		<div class="submitbox" id="e20r-editor-postmeta">
+		<div class="submitbox" id="e20r-email-notice-postmeta">
 		<div id="minor-publishing">
-			<div id="e20r-editor-configure-types">
-				<label for="e20r-editor-type-select"><?php _e( 'Type:', Email_Notice::plugin_slug ); ?></label>
-				<select id="e20r-editor-type-select" name="e20r-editor-type">
+			<div id="e20r-email-notice-configure-types">
+				<label for="e20r-email-notice-type-select"><?php _e( 'Type:', Email_Notice::plugin_slug ); ?></label>
+				<select id="e20r-email-notice-type-select" name="e20r-email-notice-type">
 					<?php
 					foreach( $types as $type_key => $message_type ) {
 						$current_type_setting = get_post_meta( $post_ID, $message_type['meta_key'], true );
@@ -296,13 +296,13 @@ class Email_Notice_View {
 	public static function add_default_metabox() {
 		
 		?>
-		<div class="submitbox" id="e20r-editor-postmeta">
+		<div class="submitbox" id="e20r-email-notice-postmeta">
 		<div id="minor-publishing">
-			<div id="e20r-editor-configure-types">
-				<p class="e20r-editor-default-message">
+			<div id="e20r-email-notice-configure-types">
+				<p class="e20r-email-notice-default-message">
 					<?php _e('Please specify a Title (the email "Subject"), add some content (the body of the email message) and an excerpt (summary information for the email client), then select the EMail Type (type of email notice.', Email_Notice::plugin_slug ); ?>
 				</p>
-				<p class="e20r-editor-default-message">
+				<p class="e20r-email-notice-default-message">
 					<?php printf( __( '%sThen save this message and then configure it%s.', Email_Notice::plugin_slug ), '<strong>', '</strong>' ); ?>
 				</p>
 			</div>
@@ -316,13 +316,19 @@ class Email_Notice_View {
 	public static function add_css_metabox() {
 		global $post_ID;
 		
-		$custom_css = get_post_meta( $post_ID, '_e20r_editor_custom_css', true );
+		
+		$custom_css = get_post_meta( $post_ID, '_e20r_email_notice_custom_css', true );
+		
+		// Backwards compatible
+		if ( empty( $custom_css ) ) {
+			$custom_css = get_post_meta( $post_ID, '_e20r_editor_custom_css', true );
+		}
 		?>
-		<div class="submitbox" id="e20r-editor-custom-css">
+		<div class="submitbox" id="e20r-email-notice-custom-css">
 		<div id="minor-publishing">
-			<div id="e20r-editor-configure-css">
-				<label for="e20r-editor-custom-css-input"><?php _e( 'Add Custom CSS:', Email_Notice::plugin_slug ); ?></label>
-				<textarea id="e20r-editor-custom-css-input" class="e20r-editor-css" name="e20r-editor-custom-css"><?php echo $custom_css; ?></textarea>
+			<div id="e20r-email-notice-configure-css">
+				<label for="e20r-email-notice-custom-css-input"><?php _e( 'Add Custom CSS:', Email_Notice::plugin_slug ); ?></label>
+				<textarea id="e20r-email-notice-custom-css-input" class="e20r-email-notice-css" name="e20r-email-notice-custom-css"><?php echo $custom_css; ?></textarea>
 			</div>
 		</div>
 		</div><?php
