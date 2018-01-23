@@ -25,8 +25,25 @@ use E20R\Utilities\Utilities;
 
 class Handle_Subscriptions extends E20R_Background_Process {
 	
+	/**
+	 * Instance for this class
+	 *
+	 * @var Handle_Subscriptions|null
+	 */
 	private static $instance = null;
 	
+	/**
+	 * The action name (handler)
+	 *
+	 * @var null|string
+	 */
+	protected $action = null;
+	
+	/**
+	 * The type (add-on module) of the handler
+	 *
+	 * @var null|string
+	 */
 	private $type = null;
 	
 	/**
@@ -40,13 +57,22 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		$util->log( "Instantiated {$type} Handle_Subscriptions class" );
 		
 		self::$instance = $this;
-		$this->type     = $type;
-		$this->action   = "hs_" . strtolower( $type ) . "_subscr";
+		$this->type     = strtolower( $type );
+		$this->action   = "hs_{$this->type}_subscr";
 		
 		$util->log( "Set Action variable to {$this->action} for Handle_Subscriptions" );
 		
 		// Required: Run the parent class constructor
 		parent::__construct();
+	}
+	
+	/**
+	 * Return the type name (i.e. the add-on name) for this background process
+	 *
+	 * @return null|string
+	 */
+	public function get_type() {
+		return $this->type;
 	}
 	
 	/**
@@ -71,11 +97,11 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	protected function task( $user_data ) {
 		
 		$util = Utilities::get_instance();
-		$pw   = Payment_Warning::get_instance();
+		$main   = Payment_Warning::get_instance();
 		
 		$util->log( "Trigger per-addon subscription download for user" );
 		
-		if ( ! is_bool( $user_data ) ) {
+		if ( !empty( $user_data ) && ! is_bool( $user_data )) {
 			
 			$user_id = $user_data->get_user_ID();
 			$user_data->set_reminder_type( 'recurring' );
@@ -86,9 +112,9 @@ class Handle_Subscriptions extends E20R_Background_Process {
 			/**
 			 * @since 2.1 - Allow processing for multiple active payment gateways
 			 */
-			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
+			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data, $this->type );
 			
-			if ( false !== $user_data && true === $user_data->save_to_db() ) {
+			if ( !empty( $user_data )  && true === $user_data->save_to_db() ) {
 				
 				$util->log( "Done processing subscription data for {$user_id}. Removing the user from the queue" );
 				
