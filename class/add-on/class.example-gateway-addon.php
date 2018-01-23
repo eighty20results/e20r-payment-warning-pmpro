@@ -25,9 +25,9 @@ use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Licensing\Licensing;
 
-if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
+if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Gateway_Addon' ) ) {
 	
-	class Example_Addon extends E20R_PW_Gateway_Addon {
+	class Example_Gateway_Addon extends E20R_PW_Gateway_Addon {
   
 		const CACHE_GROUP = 'example_gateway_addon';
   
@@ -39,7 +39,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		private $class_name;
 		
 		/**
-		 * @var Example_Addon
+		 * @var Example_Gateway_Addon
 		 */
 		private static $instance;
 		
@@ -57,7 +57,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		protected $option_name = 'e20r_egwao_example';
 		
 		/**
-		 *  Example_Addon constructor.
+		 *  Example_Gateway_Addon constructor.
 		 */
 		public function __construct() {
 		 
@@ -78,7 +78,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			
 			$this->define_settings();
 		}
-  
+		
+		/**
+		 * Set the class (stub) name
+		 *
+		 * @param null|string $name
+		 *
+		 * @return null|string
+		 */
 		public function set_stub_name( $name = null ) {
 			
 		    $name = strtolower( $this->get_class_name() );
@@ -95,15 +102,96 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		public function load_gateway( $addon_name ) {
 			// TODO: Implement load_gateway() method.
 		}
-        
+		
+		/**
+		 * Loading add-on specific webhook handler for the Payment gateway (late handling to stay out of the way of PMPro itself)
+		 *
+		 * @param string|null $stub
+		 */
         public function load_webhook_handler( $stub = null ) {
 	        // TODO: Implement load_webhook_handler() method.
         }
 		
+		/**
+		 * Fetch the (current) Payment Gateway specific customer ID from the local Database
+		 *
+		 * @param string    $gateway_customer_id
+		 * @param string    $gateway_name
+		 * @param User_Data $user_info
+		 *
+		 * @return mixed
+		 */
         public function get_local_user_customer_id( $gateway_customer_id, $gateway_name, $user_info ) {
 	        // TODO: Implement get_local_user_customer_id() method.
         }
 		
+		/**
+		 * Load subscription (recurring billing) information for the user from the gateway
+		 *
+		 * @param bool|User_Data $user_data
+		 * @param string         $addon The payment gateway module we're processing for
+		 *
+		 * @return bool|User_Data
+		 */
+		public function get_gateway_subscriptions( $user_data, $addon ) {
+			// TODO: Implement get_gateway_subscriptions() filter method.
+			
+			return $user_data;
+		}
+		
+		/**
+		 * Load payment transaction information for the user from the gateway
+		 *
+		 * @param bool|User_Data $user_data
+		 * @param string         $addon The payment gateway module we're processing for
+		 *
+		 * @return bool|User_Data
+		 */
+		public function get_gateway_payments( $user_data, $addon ) {
+			// TODO: Implement gateway specific get_gateway_payments filter method
+			
+			return $user_data;
+		}
+		
+		/**
+		 * Configure the valid subscription statuses for this gateway
+		 *
+		 * @param string[] $statuses
+		 * @param string   $gateway
+		 * @param string   $addon
+		 *
+		 * @return string[]
+		 */
+		public function valid_gateway_subscription_statuses( $statuses, $gateway, $addon ) {
+			
+			
+			// TODO: Implement valid_gateway_subscription_statuses() method.
+			return $statuses;
+		}
+		
+		/**
+		 * Return the gateway name for the matching add-on
+		 *
+		 * @param null|string $gateway_name
+		 * @param string     $addon
+		 *
+		 * @return null|string
+		 */
+		public function get_gateway_class_name( $gateway_name = null , $addon ) {
+			
+			// "Punch through" unless the gateway name matches the addon specified
+			if ( is_null($gateway_name) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
+				$gateway_name =  $this->get_class_name();
+			}
+			
+			return $gateway_name;
+		}
+		
+		/**
+		 * Return the name of this class instance
+		 *
+		 * @return string
+		 */
 		public function get_class_name() {
 			
 			if ( empty( $this->class_name ) ) {
@@ -111,17 +199,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			}
 			
 			return $this->class_name;
-		}
-  
-		private function maybe_extract_class_name( $string ) {
-			
-		    $utils = Utilities::get_instance();
-            $utils->log( "Supplied (potential) class name: {$string}" );
-			
-			$class_array = explode( '\\', $string );
-			$name        = $class_array[ ( count( $class_array ) - 1 ) ];
-			
-			return $name;
 		}
 		
 		/**
@@ -164,19 +241,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			return $license_settings;
 		}
   
-		
-		public function get_gateway_subscriptions( User_Data $user_data ) {
-			// TODO: Implement get_gateway_subscriptions() filter method.
-            
-            return $user_data;
-		}
-		
-		public function get_gateway_payments( User_Data $user_data ) {
-		    // TODO: Implement gateway specific get_gateway_payments filter method
-            
-            return $user_data;
-        }
-        
 		/**
 		 * Action handler: Core E20R Roles for PMPro plugin's deactivation hook
 		 *
@@ -318,6 +382,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			$utils = Utilities::get_instance();
 			global $e20r_pw_addons;
 			
+			$is_enabled = false;
 			// TODO: Set the filter name to match the sub for this plugin.
    
 			/**
@@ -338,34 +403,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
                     10,
                     2
             );
-			add_filter( 'e20r_pw_addon_options_Example_Addon', array( self::get_instance(), 'register_settings', ), 10, 1 );
+			add_filter( 'e20r_pw_addon_options_Example_Gateway_Addon', array( self::get_instance(), 'register_settings', ), 10, 1 );
 			
-			if ( true === parent::is_enabled( $stub ) ) {
+			if ( true === ( $is_enabled = parent::is_enabled( $stub ) ) ) {
 				
 				$utils->log( "Loading other actions/filters for {$e20r_pw_addons[$stub]['label']}" );
 				
-				add_action( 'e20r_pw_addon_save_email_error_data', array(
-					self::get_instance(),
-					'save_email_error',
-				), 10, 3 );
-				add_action( 'e20r_pw_addon_save_subscription_mismatch', array( self::get_instance(), 'save_subscription_mismatch' ), 10, 3 );
-				
-				/**
-				 * Membership related settings for role(s) add-on
-				 */
-				add_action( 'e20r_pw_level_settings', array( self::get_instance(), 'load_level_settings' ), 10, 2 );
-				add_action( 'e20r_pw_level_settings_save', array( self::get_instance(), 'save_level_settings', ), 10, 2 );
-				add_action( 'e20r_pw_level_settings_delete', array( self::get_instance(), 'delete_level_settings', ), 10, 2 );
-				
-				add_action( 'e20r_pw_addon_load_gateway', array( self::get_instance(), 'load_gateway' ), 10, 1 );
-				add_action( 'e20r_pw_addon_get_user_customer_id', array( self::get_instance(), 'get_local_user_customer_id' ), 10, 3 );
-				add_action( 'e20r_pw_addon_get_user_subscriptions', array( self::get_instance(), 'get_gateway_subscriptions' ), 10, 1 );
-				add_action( 'e20r_pw_addon_get_user_payments', array( self::get_instance(), 'get_gateway_payments' ), 10, 1 );
-				add_action( 'e20r_pw_process_warnings', array( self::get_instance(), 'send_warnings' ), 10, 0 );
-				
-				add_filter( 'e20r_pw_addon_gateway_subscr_statuses', array( self::get_instance(), 'valid_gateway_subscription_statuses' ), 10, 2 );
-				add_filter( 'e20r_pw_addon_process_cc_info', array( self::get_instance(), 'update_credit_card_info' ), 10, 3 );
+				// Use the parent class to load all needed action/filter hooks
+				parent::load_hooks_for( self::get_instance() );
 			}
+			
+			return $is_enabled;
 		}
 		
 		
@@ -442,7 +490,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		public function validate_settings( $input ) {
 			
 			if ( WP_DEBUG ) {
-				error_log( "Input for save in Example_Addon:: " . print_r( $input, true ) );
+				error_log( "Input for save in Example_Gateway_Addon:: " . print_r( $input, true ) );
 			}
 			
 			$defaults = $this->load_defaults();
@@ -466,7 +514,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 			}
 			
 			if ( WP_DEBUG ) {
-				error_log( "Example_Addon saving " . print_r( $this->settings, true ) );
+				error_log( "Example_Gateway_Addon saving " . print_r( $this->settings, true ) );
 			}
 			
 			return $this->settings;
@@ -513,7 +561,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		 */
 		public function delete_level_settings( $level_id, $active_addons ) {
 			
-			if ( ! in_array( 'example_addon', $active_addons ) ) {
+			if ( ! in_array( 'example_gateway_addon', $active_addons ) ) {
 				if ( WP_DEBUG ) {
 					error_log( "Example Gateway add-on is not active. Nothing to do!" );
 				}
@@ -656,7 +704,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 		/**
 		 * Fetch the properties for the Example add-on class
 		 *
-		 * @return Example_Addon
+		 * @return Example_Gateway_Addon
 		 *
 		 * @since  1.0
 		 * @access public
@@ -673,14 +721,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Addon' ) ) {
 	}
 }
 
-add_filter( "e20r_pw_addon_example_addon_name", array( Example_Addon::get_instance(), 'set_stub_name' ) );
+add_filter( "e20r_pw_addon_example_gateway_addon_name", array( Example_Gateway_Addon::get_instance(), 'set_stub_name' ) );
 
 // Configure the add-on (global settings array)
 global $e20r_pw_addons;
-$stub = apply_filters( "e20r_pw_addon_example_addon_name", null );
+$stub = apply_filters( "e20r_pw_addon_example_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
-	'class_name'            => 'Example_Addon',
+	'class_name'            => 'Example_Gateway_Addon',
 	'is_active'             => false, // ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
 	'status'                => 'deactivated',
