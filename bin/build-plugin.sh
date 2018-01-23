@@ -17,7 +17,7 @@ kit_name="${kit_path}/${short_name}-${version}"
 
 echo "Building kit for version ${version}"
 
-rm {$src_path}/logs/paypal.log
+rm ${src_path}logs/paypal.log
 
 mkdir -p ${kit_path}
 mkdir -p ${dst_path}
