@@ -50,7 +50,7 @@ if ( ! defined( 'E20R_PW_VERSION' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
-	define( 'E20R_PW_DIR', plugin_basename( __FILE__ ) );
+	define( 'E20R_PW_DIR', plugin_dir_path( __FILE__ ) );
 }
 
 if ( ! defined( 'E20R_WP_TEMPLATES' ) ) {
@@ -63,7 +63,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 	$e20r_pw_addons = array();
 	
 	global $e20rpw_db_version;
-	$e20rpw_db_version = 3; // The current version of the DB schema
+	$e20rpw_db_version = 4; // The current version of the DB schema
 	
 	class Payment_Warning {
 		
@@ -346,7 +346,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
 			
 			add_action( 'pmpro_save_discount_code_level', array( $this, 'updated_discount_codes' ), 10, 2 );
-			add_action( 'pmpro_save_membership_level', array( $this, 'updated_membership_level', 10, 1 ) );
+			add_action( 'pmpro_save_membership_level', array( $this, 'updated_membership_level' ), 10, 1 );
 			
 			// Last thing to do on deactivation (Required for this plugin)
 			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
@@ -363,8 +363,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
 			
 			$utils->log( "Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons" );
+			
 			/** Add all module remote AJAX call actions */
-			do_action( 'e20r_pw_addon_add_remote_call_handler' );
+			do_action( 'e20r_pw_addon_remote_call_handler' );
 			
 			if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG ) {
 				
@@ -503,12 +504,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$util = Utilities::get_instance();
 			
+			$util->log( "Dropping the cache for delay & cron schedules due to a membership level being updated" );
 			// Clear cached values when discount code(s) get updated
 			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
 			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
 			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
-			
-			$util->log( "Dropping the cache for delay & cron schedules due to a membership level being updated" );
 		}
 		
 		/**
@@ -668,7 +668,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						     ! in_array( $addon, array( 'e20r', 'example' ) )
 						) {
 							
-							$utils->log( "Added {$addon} to list of available add-ons" );
+							$utils->log( "Added {$addon} to list of possible add-ons" );
 							$addon_list[] = strtolower( $addon );
 						}
 					}
@@ -753,8 +753,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 								$enabled = $class::is_enabled( $class_name );
 								
 								if ( true == $enabled ) {
-									$utils->log( "Triggering load of filters & hooks for {$class}" );
-									$class::load_addon();
+									$utils->log( "Triggered load of filters & hooks for {$class}" );
+									// $class::configure_addon();
 								}
 							}
 						} else {
@@ -1417,6 +1417,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$classes   = array();
 			$classes[] = new Upgrades\Upgrade_2();
 			$classes[] = new Upgrades\Upgrade_3();
+			$classes[] = new Upgrades\Upgrade_4();
 			
 			return $classes;
 		}
