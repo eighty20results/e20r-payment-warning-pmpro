@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.1
+Version: 3.2
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '3.1' );
+	define( 'E20R_PW_VERSION', '3.2' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -263,6 +263,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				
 				add_filter( "pmpro_send_expiration_warning_email", "__return_false", 999 );
 				remove_action( "pmpro_cron_expiration_warnings", "pmproeewe_extra_emails", 30 );
+				remove_action( "pmpro_cron_expiration_warnings", "pmpro_cron_expiration_warnings", 10 );
 			}
 			
 			// Disable Credit Card Expiration warnings if enabled in plugin
