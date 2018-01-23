@@ -25,8 +25,18 @@ use E20R\Utilities\Utilities;
 
 class Handle_Payments extends E20R_Background_Process {
 	
+	/**
+	 * Instance of this class
+	 *
+	 * @var Handle_Payments|null
+	 */
 	private static $instance = null;
 	
+	/**
+	 * The action name (handler)
+	 *
+	 * @var null|string
+	 */
 	protected $action = null;
 	
 	/**
@@ -34,6 +44,11 @@ class Handle_Payments extends E20R_Background_Process {
 	 */
 	protected $user_info = null;
 	
+	/**
+	 * The type (add-on module) of handler
+	 *
+	 * @var null|string
+	 */
 	private $type = null;
 	
 	/**
@@ -48,10 +63,19 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		self::$instance = $this;
 		$this->type     = $type;
-		$this->action   = "hp_" . strtolower( $type ) . "_paym";
+		$this->action   = "hp_{$this->type}_paym";
 		$util->log( "Set Action variable to {$this->action} for Handle_Payments" );
 		
 		parent::__construct();
+	}
+	
+	/**
+	 * Return the type name (i.e. the add-on name) for this background process
+	 *
+	 * @return null|string
+	 */
+	public function get_type() {
+		return $this->type;
 	}
 	
 	/**
@@ -91,7 +115,7 @@ class Handle_Payments extends E20R_Background_Process {
 			/**
 			 * @since 2.1 - Allow processing for multiple payment gateways
 			 */
-			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data );
+			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data, $this->type );
 			
 			// @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
 			if ( false !== $user_data && true === $user_data->save_to_db() ) {
