@@ -34,7 +34,18 @@ class User_Data {
 	 */
 	private $last_order = null;
 	
+	/**
+	 * Name of the user data table
+	 *
+	 * @var string|null
+	 */
 	private $user_info_table_name = null;
+	
+	/**
+	 * Name of the Credit Card info table
+	 *
+	 * @var string|null
+	 */
 	private $cc_info_table_name = null;
 	
 	/**
@@ -92,8 +103,20 @@ class User_Data {
 	
 	private $failure_description = null;
 	
+	/**
+	 * The Add-on module that processed/downloaded this record
+	 *
+	 * @var string
+	 */
 	private $gateway_module = 'stripe';
 	
+	/**
+	 * Whether there is a record found locally or not
+	 *
+	 * @var bool
+	 */
+	private $no_record_found = false;
+
 	/**
 	 * User_Data constructor.
 	 *
@@ -215,6 +238,8 @@ class User_Data {
 					//$util->log( "Loading {$field} = {$value}" );
 					$this->{$field} = $this->maybe_bool( $field, $value );
 				}
+			} else {
+				$this->no_record_found = true;
 			}
 		} else {
 			return;
@@ -668,10 +693,29 @@ class User_Data {
 		return ( ! empty( $result ) );
 	}
 	
+	/**
+	 * Returns true if the user has a local (cached) record
+	 *
+	 * @return bool
+	 */
+	public function has_record_saved() {
+		return ! $this->no_record_found;
+	}
+	
+	/**
+	 * Save the gateway specific subscription (recurring billing) ID
+	 *
+	 * @param $id
+	 */
 	public function set_gw_subscription_id( $id ) {
 		$this->gateway_subscr_id = $id;
 	}
 	
+	/**
+	 * Return the gateway specific subscription (recurring billing) ID
+	 *
+	 * @return null
+	 */
 	public function get_gw_subscription_id() {
 		
 		if ( ! empty( $this->gateway_subscr_id ) ) {
@@ -912,7 +956,7 @@ class User_Data {
 	 *
 	 * @return null|string Date/Time: YYYY-MM-DD HH:MM:SS)
 	 *
-	 * @since 2.2 - BUG FIX: Didn't use the supplied subscription ID
+	 * @since 2.1 - BUG FIX: Didn't use the supplied subscription ID
 	 */
 	public function get_next_payment( $subscription_id = null ) {
 		
@@ -920,7 +964,7 @@ class User_Data {
 		
 		if ( ! empty( $subscription_id ) && empty( $this->next_payment_date ) ) {
 			
-			$util->log( "Have to attempt to fetch the next payment date from the DB..." );
+			$util->log( "Have to attempt to fetch the next payment date from the DB for {$subscription_id}..." );
 			global $wpdb;
 			
 			$sql = $wpdb->prepare( "SELECT next_payment_date FROM {$this->user_info_table_name} WHERE user_id = %d AND gateway_subscr_id = %s", $this->user->ID, $subscription_id );
@@ -933,7 +977,7 @@ class User_Data {
 			}
 		}
 		
-		$util->log( "Using: {$this->next_payment_date} for subscription" );
+		$util->log( "Returning {$this->next_payment_date} for subscription {$subscription_id}" );
 		
 		return $this->next_payment_date;
 	}
