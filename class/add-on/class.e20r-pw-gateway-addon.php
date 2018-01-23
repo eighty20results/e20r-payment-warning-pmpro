@@ -195,7 +195,7 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		$utils->log( "Checking if {$stub} is enabled" );
 		
-		if ( $stub === 'example_addon' ) {
+		if ( $stub === 'example_gateway_addon' ) {
 			return false;
 		}
 		

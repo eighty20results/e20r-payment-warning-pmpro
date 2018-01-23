@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.0
+Version: 3.1
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '3.0' );
+	define( 'E20R_PW_VERSION', '3.1' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -647,7 +647,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					
 					$excluded = apply_filters( 'e20r_licensing_excluded', array(
 						'e20r_default_license',
-						'example_addon',
+						'example_gateway_addon',
 						'new_licenses',
 					) );
 					
@@ -720,7 +720,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						
 						$excluded = apply_filters( 'e20r_licensing_excluded', array(
 							'e20r_default_license',
-							'example_addon',
+							'example_gateway_addon',
 							'new_licenses',
 						) );
 						
