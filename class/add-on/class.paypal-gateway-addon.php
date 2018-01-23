@@ -158,9 +158,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Loads the default settings (keys & values)
-	 *
-	 * TODO: Specify settings for this add-on
+	 * Loads the default settings for the PayPal add-on (keys & values)
 	 *
 	 * @return array
 	 *
@@ -716,24 +714,15 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * @param Customer $customer -- Stripe Customer Object
+	 * Load the billing info from the customer data as an object
+	 *
+	 * @param array $customer -- Info array for customer billing data
 	 *
 	 * @return \stdClass
 	 */
 	public function get_billing_info( $customer ) {
 		
-		$stripe_billing_info = $customer->sources->data[0];
-		
-		$billing          = new \stdClass();
-		$billing->name    = $stripe_billing_info->name;
-		$billing->street  = $stripe_billing_info->address_line1;
-		$billing->city    = $stripe_billing_info->address_city;
-		$billing->state   = $stripe_billing_info->address_state;
-		$billing->zip     = $stripe_billing_info->address_zip;
-		$billing->country = $stripe_billing_info->address_country;
-		$billing->phone   = null;
-		
-		return $billing;
+		return ( (object) $customer['billing'] );
 	}
 	
 	/**
