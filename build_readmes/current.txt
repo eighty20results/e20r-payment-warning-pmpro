@@ -1,1 +1,1 @@
-ENHANCEMENT: Security update
+BUG FIX: Didn't disable the default PMPro expiration warning emails

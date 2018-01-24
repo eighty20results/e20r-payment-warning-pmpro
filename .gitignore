@@ -47,4 +47,6 @@ fabric.properties
 /build/
 /build_readmes/readme_changelog.txt
 /build_readmes/json_changelog.txt
+/logs/paypal.log
+/class/email-notice/
 /class/utilities/

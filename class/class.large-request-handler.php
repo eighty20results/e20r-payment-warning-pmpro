@@ -22,14 +22,24 @@ namespace E20R\Payment_Warning;
 use E20R\Utilities\E20R_Background_Process;
 use E20R\Utilities\Utilities;
 
+/**
+ * Class Large_Request_Handler
+ *
+ * @package E20R\Payment_Warning
+ * @since 2.1 - ENHANCEMENT: Added documentation for functions/variables
+ */
 class Large_Request_Handler extends E20R_Background_Process {
 	
 	/**
+	 * The action (string) we're processing (used to set the WP_Cron action name)
+	 *
 	 * @var null|string
 	 */
 	protected $action = null;
 	
 	/**
+	 * The Background process handler this large request handler will fire off
+	 *
 	 * @var null|Handle_Subscriptions|Handle_Payments|Handle_Messages
 	 */
 	private $sub_handler = null;
@@ -49,6 +59,11 @@ class Large_Request_Handler extends E20R_Background_Process {
 		parent::__construct();
 	}
 	
+	/**
+	 * Set the type of handler to use for this (large) task
+	 *
+	 * @param Handle_Subscriptions|Handle_Payments|Handle_Messages $handler
+	 */
 	public function set_task_handler( $handler ) {
 		$this->sub_handler = $handler;
 	}
@@ -72,6 +87,9 @@ class Large_Request_Handler extends E20R_Background_Process {
 			$util->log("Error: No task handler found for this data!!! " );
 		}
 		
+		/**
+		 * @var User_Data $user_data
+		 */
 		foreach ( $data['dataset'] as $user_data ) {
 			
 			$util->log( "Check if we need to process for {$data['type']}" );
@@ -91,6 +109,9 @@ class Large_Request_Handler extends E20R_Background_Process {
 		return false;
 	}
 	
+	/**
+	 * Background task complete() function handler
+	 */
 	protected function complete() {
 		
 		parent::complete();

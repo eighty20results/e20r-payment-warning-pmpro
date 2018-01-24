@@ -34,7 +34,18 @@ class User_Data {
 	 */
 	private $last_order = null;
 	
+	/**
+	 * Name of the user data table
+	 *
+	 * @var string|null
+	 */
 	private $user_info_table_name = null;
+	
+	/**
+	 * Name of the Credit Card info table
+	 *
+	 * @var string|null
+	 */
 	private $cc_info_table_name = null;
 	
 	/**
@@ -92,6 +103,20 @@ class User_Data {
 	
 	private $failure_description = null;
 	
+	/**
+	 * The Add-on module that processed/downloaded this record
+	 *
+	 * @var string
+	 */
+	private $gateway_module = 'stripe';
+	
+	/**
+	 * Whether there is a record found locally or not
+	 *
+	 * @var bool
+	 */
+	private $no_record_found = false;
+
 	/**
 	 * User_Data constructor.
 	 *
@@ -213,6 +238,8 @@ class User_Data {
 					//$util->log( "Loading {$field} = {$value}" );
 					$this->{$field} = $this->maybe_bool( $field, $value );
 				}
+			} else {
+				$this->no_record_found = true;
 			}
 		} else {
 			return;
@@ -364,6 +391,7 @@ class User_Data {
 				'end_of_payment_period'          => $this->end_of_payment_period,
 				'end_of_membership_date'         => $this->end_of_membership_date,
 				'reminder_type'                  => $this->reminder_type,
+				'gateway_module'                 => $this->gateway_module,
 				'modified'                       => current_time( 'mysql' ),
 			);
 			
@@ -388,6 +416,7 @@ class User_Data {
 				'%s', // end_of_payment_period
 				'%s', // end_of_membership_date
 				'%s', // reminder_type
+				'%s', // gateway_module
 				'%s', // modified
 			);
 			
@@ -664,10 +693,29 @@ class User_Data {
 		return ( ! empty( $result ) );
 	}
 	
+	/**
+	 * Returns true if the user has a local (cached) record
+	 *
+	 * @return bool
+	 */
+	public function has_record_saved() {
+		return ! $this->no_record_found;
+	}
+	
+	/**
+	 * Save the gateway specific subscription (recurring billing) ID
+	 *
+	 * @param $id
+	 */
 	public function set_gw_subscription_id( $id ) {
 		$this->gateway_subscr_id = $id;
 	}
 	
+	/**
+	 * Return the gateway specific subscription (recurring billing) ID
+	 *
+	 * @return null
+	 */
 	public function get_gw_subscription_id() {
 		
 		if ( ! empty( $this->gateway_subscr_id ) ) {
@@ -719,6 +767,30 @@ class User_Data {
 	}
 	
 	/**
+	 * The gateway module used to collect this data
+	 *
+	 * @return string
+	 */
+	public function from_module() {
+		
+		// Default is stripe if not configured
+		if ( empty( $this->gateway_module ) ) {
+			$this->gateway_module = 'stripe';
+		}
+		
+		return $this->gateway_module;
+	}
+	
+	/**
+	 * Configure the add-on module used to collect this user data
+	 *
+	 * @param string $addon
+	 */
+	public function set_module( $addon ) {
+		$this->gateway_module = $addon;
+	}
+	
+	/**
 	 * Whether the user has an active subscription plan on the payment gateway
 	 *
 	 * @return bool
@@ -752,17 +824,31 @@ class User_Data {
 	/**
 	 * Return the type of reminder this record is for
 	 *
-	 * @param string $type
-	 *
-	 * @return null|string
+	 * @return null|string|int
 	 */
-	public function get_reminder_type( $type ) {
+	public function get_reminder_type() {
 		
-		if ( ! empty( $this->reminder_type ) ) {
-			return $this->reminder_type;
+		$value = null;
+		
+		if ( ! empty( $this->reminder_type ) && is_string( $this->reminder_type )) {
+			
+			switch( $this->reminder_type ) {
+				case 'recurring':
+					$value = E20R_PW_RECURRING_REMINDER;
+					break;
+				case 'expiring':
+					$value = E20R_PW_EXPIRATION_REMINDER;
+					break;
+				case 'ccexpiration':
+					$value = E20R_PW_CREDITCARD_REMINDER;
+					break;
+			}
+			
+		} else if ( !empty( $this->reminder_type ) ) {
+			$value = $this->reminder_type;
 		}
 		
-		return null;
+		return $value;
 	}
 	
 	/**
@@ -869,6 +955,8 @@ class User_Data {
 	 * Next payment date (for subscriptions)
 	 *
 	 * @return null|string Date/Time: YYYY-MM-DD HH:MM:SS)
+	 *
+	 * @since 2.1 - BUG FIX: Didn't use the supplied subscription ID
 	 */
 	public function get_next_payment( $subscription_id = null ) {
 		
@@ -876,10 +964,10 @@ class User_Data {
 		
 		if ( ! empty( $subscription_id ) && empty( $this->next_payment_date ) ) {
 			
-			$util->log( "Have to attempt to fetch the next payment date from the DB..." );
+			$util->log( "Have to attempt to fetch the next payment date from the DB for {$subscription_id}..." );
 			global $wpdb;
 			
-			$sql = $wpdb->prepare( "SELECT next_payment_date FROM {$this->user_info_table_name} WHERE user_id = %d AND gateway_subscr_id = %s", $this->user->ID, $this->gateway_subscr_id );
+			$sql = $wpdb->prepare( "SELECT next_payment_date FROM {$this->user_info_table_name} WHERE user_id = %d AND gateway_subscr_id = %s", $this->user->ID, $subscription_id );
 			
 			$date = $wpdb->get_var( $sql );
 			$util->log( "Received date value: {$date}" );
@@ -889,16 +977,28 @@ class User_Data {
 			}
 		}
 		
-		$util->log( "Using: {$this->next_payment_date}" );
+		$util->log( "Returning {$this->next_payment_date} for subscription {$subscription_id}" );
 		
 		return $this->next_payment_date;
 	}
 	
+	/**
+	 * Return the name for the Credit Card database table
+	 *
+	 * @return string|null
+	 */
 	public function get_cc_table_name() {
 		
 		return $this->cc_info_table_name;
 	}
 	
+	/**
+	 * Search for, and return card data in database
+	 *
+	 * @param $card
+	 *
+	 * @return null|string
+	 */
 	public static function find_card_info( $card ) {
 		
 		global $wpdb;
@@ -920,6 +1020,11 @@ class User_Data {
 		return $result;
 	}
 	
+	/**
+	 * The default format for Credit Card data stored (PCI Compliant)
+	 *
+	 * @return array
+	 */
 	public static function default_card_format() {
 		
 		return array(
@@ -1141,6 +1246,7 @@ class User_Data {
 	
 	/**
 	 * Get the user's Display Name
+	 *
 	 * @return bool|string
 	 */
 	public function get_user_name() {
@@ -1194,6 +1300,11 @@ class User_Data {
 		return null;
 	}
 	
+	/**
+	 * Return the membership level name (string) for the user
+	 *
+	 * @return string|null
+	 */
 	public function get_level_name() {
 		
 		if ( isset( $this->user->current_membership_level->name ) ) {
@@ -1213,6 +1324,11 @@ class User_Data {
 		return array_keys( $this->credit_card );
 	}
 	
+	/**
+	 * Return the credit card info for the current record
+	 *
+	 * @return array|null
+	 */
 	public function get_all_payment_info() {
 		
 		if ( ! empty( $this->credit_card ) ) {
@@ -1553,6 +1669,7 @@ class User_Data {
 					end_of_payment_period datetime NULL,
 					end_of_membership_date datetime NULL,
 					reminder_type enum('recurring', 'expiration', 'ccexpiration' ) NOT NULL DEFAULT 'recurring',
+					gateway_module varchar(255) NULL,
 					modified DATETIME  NOT NULL,
 					PRIMARY KEY (ID),
 					INDEX next_payment USING BTREE (next_payment_date),

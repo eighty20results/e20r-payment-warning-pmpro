@@ -25,28 +25,63 @@ use E20R\Utilities\Utilities;
 
 class Handle_Subscriptions extends E20R_Background_Process {
 	
+	/**
+	 * Instance for this class
+	 *
+	 * @var Handle_Subscriptions|null
+	 */
 	private static $instance = null;
+	
+	/**
+	 * The action name (handler)
+	 *
+	 * @var null|string
+	 */
+	protected $action = null;
+	
+	/**
+	 * The type (add-on module) of the handler
+	 *
+	 * @var null|string
+	 */
+	private $type = null;
 	
 	/**
 	 * Constructor for Handle_Subscriptions class
 	 *
-	 * @param string $handle
+	 * @param string $type
 	 */
-	public function __construct( $handle ) {
+	public function __construct( $type ) {
 		
 		$util = Utilities::get_instance();
-		$util->log("Instantiated Handle_Subscriptions class");
+		$util->log( "Instantiated {$type} Handle_Subscriptions class" );
 		
 		self::$instance = $this;
-		/*
-		$av = get_class( $calling_class );
-		$name = explode( '\\', $av );*/
-		$this->action = "hs_" . strtolower( $handle );
+		$this->type     = strtolower( $type );
+		$this->action   = "hs_{$this->type}_subscr";
 		
-		$util->log("Set Action variable to {$this->action} for Handle_Subscriptions");
+		$util->log( "Set Action variable to {$this->action} for Handle_Subscriptions" );
 		
 		// Required: Run the parent class constructor
 		parent::__construct();
+	}
+	
+	/**
+	 * Return the type name (i.e. the add-on name) for this background process
+	 *
+	 * @return null|string
+	 */
+	public function get_type() {
+		return $this->type;
+	}
+	
+	/**
+	 * Return the action name for this Background Process
+	 *
+	 * @return string
+	 */
+	public function get_action() {
+		return $this->action;
 	}
 	
 	/**
@@ -62,40 +97,36 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	protected function task( $user_data ) {
 		
 		$util = Utilities::get_instance();
+		$main   = Payment_Warning::get_instance();
 		
-		$util->log("Trigger per-addon subscription download for user" );
+		$util->log( "Trigger per-addon subscription download for user" );
 		
-		if ( ! is_bool( $user_data ) ) {
+		if ( !empty( $user_data ) && ! is_bool( $user_data )) {
 			
 			$user_id = $user_data->get_user_ID();
-			$user_data->set_reminder_type('recurring');
+			$user_data->set_reminder_type( 'recurring' );
 			
 			$util->log( "Loading from DB (if record exists) for {$user_id}" );
 			$user_data->maybe_load_from_db();
 			
-			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data );
+			/**
+			 * @since 2.1 - Allow processing for multiple active payment gateways
+			 */
+			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data, $this->type );
 			
-			if ( false !== $user_data && true === $user_data->save_to_db() ) {
+			if ( !empty( $user_data )  && true === $user_data->save_to_db() ) {
 				
 				$util->log( "Done processing subscription data for {$user_id}. Removing the user from the queue" );
+				
 				return false;
 			}
 			
 			$util->log( "User subscription record not saved/processed. May be a-ok..." );
 		} else {
-			$util->log("Incorrect format for user data record (boolean received!)");
+			$util->log( "Incorrect format for user data record (boolean received!)" );
 		}
 		
 		return false;
-	}
-	
-	/**
-	 * Return the action name for this Background Process
-	 *
-	 * @return string
-	 */
-	public function get_action() {
-		return $this->action;
 	}
 	
 	/**
@@ -115,11 +146,11 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		$util = Utilities::get_instance();
 		
 		// @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
-		if ( false === delete_option( 'e20rpw_subscr_fetch_mutex' ) ) {
-			$util->add_message( __( 'Unable to clear lock after loading Subscription data', Payment_Warning::plugin_slug ), 'error', 'backend' );
+		if ( false === delete_option( "e20rpw_subscr_fetch_mutex_{$this->type}" ) ) {
+			$util->add_message( sprintf( __( 'Unable to clear lock after loading Subscription data for %s', Payment_Warning::plugin_slug ), $this->type ), 'error', 'backend' );
 		}
 		
-		$util->log("Completed remote subscription data fetch for all active gateways");
+		$util->log( "Completed remote subscription data fetch for all active gateways" );
 		// $util->add_message( __("Fetched payment data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
 	}
 }

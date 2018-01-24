@@ -1,0 +1,15 @@
+{
+    "config": {
+        "vendor-dir": "libraries/"
+    },
+
+    "scripts": {
+        "post-update-cmd": [
+            "if [ -d \"vendor/paypal/lib/PayPal/PayPalAPI/\" ] \nthen \nmv vendor/paypal/lib/PayPal libraries/ \nfi",
+            "if [ -d \"vendor/paypal/lib/PayPal/PayPalAPI/\" ] \nthen \nrm -R vendor/paypal/ \nfi"
+        ]
+    },
+    "require": {
+        "paypal/merchant-sdk-php": "^3.12"
+    }
+}

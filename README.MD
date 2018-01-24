@@ -3,8 +3,8 @@ E20R Payment Warning for PMPro
     Contributors: eighty20results
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
-    Tested up to: 4.8.2
-    Stable tag: 1.9.16
+    Tested up to: 4.9.2
+    Stable tag: 3.3
 
 
 Generates and sends notices to active Paid Memberships Pro members about their upcoming recurring payment, their expiring memberships, and required updates to their credit card information. The plugin receives its data directly from the supported payment gateway which makes it more reliable and consistent in sending email warnings/notices to your members.
@@ -26,17 +26,95 @@ Frequently Asked Questions
 
 ### I found a bug in the plugin
 
- Please report your issue to us by using the [E20R Payment Warning for PMPro](link="https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-gateway-pmpro/") Support Forum on The Eighty / 20 Website, and we'll try to respond within 1 business day.
+ Please report your issue to us by using the [E20R Payment Warning for PMPro](link="https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-gateway-pmpro/") Support Forum on The Eighty / 20 Website, and we will try to **respond to your initial query within 1 business day**.
 
-### Limitations / Known Issues
+### Can I configure the plugin?
 
-The "Add Media" button when adding a new template in the E20R Template editor is a little troublesome and may required extra clicks to close/update.
+Yes, you can specify your company's billing address, the company name and select the message types to process for as well as the payment gateways to enable data collection for (assuming you have a valid license for it). 
 
-The "Text" window in the E20R Template Editor is mis-sized (doesn't fill the full width of the Visual editor).
+Go to the Payment Warnings settings page. The page can be found by navigating to `/wp-admin/` -> "Settings" -> "Payment Warnings". The key settings should be listed there.
 
-The "Credit Card Expiration" messages will not get sent/processed (upcoming feature).
+There are also a number of filter hooks for a programmer to use that will modify certain details of the plugin configuration. 
 
-The plugin currently supports the Stripe.com payment gateway exclusively.
+### What types of warning messages can this plugin send?
+
+There are 3 default warning message types you can configure the plugin to process and send on the Payment Warnings Settings page. These 3 warning message types are:
+ 
+ * Expiration, 
+ * Recurring Payment Warning and 
+ * Credit Card Expiration messages.
+
+### How do I change/update the email message templates?
+
+All template handling is, as of v3.0 and later, managed as "Email Notices". 
+
+Email Notices are a form of WordPress posts and have their own taxonomy, so the 3 default warning message types can be created by going to the "Email Notices" menu option in the `/wp-admin/` backend and selecting "New Email Notice". 
+
+The plugin creates the "E20R Payment Warning Notices" Email Type for you when it's activated, but **there are no predefined message warning templates created for you**. 
+
+For the plugin to send warning messages, it needs to be able to find at least one template for the Reminder Type it is processing. As a result, **you will have to create that message and configure it to be sent on whatever day before the expiration/payment date**. See the "Message Settings" metabox on the Edit Email Notice page after you have supplied a title and saved the new message template as a "E20R Payment Warning Notices" Email Type.
+
+### How do I select when (what day) to send the warning
+
+After saving a Payment Warning Notice in the Email Notice section, when the message reloads, you'll notice a "Message Settings" metabox on the right-hand side of the Email Notice Editor page.
+
+Here you can add/remove the "Send on day #" value(s). There are no limits to the number of days when that specific message can be sent.
+
+### Can the system send more than 1 message of a given type per day to the same user?
+
+Yes, you can configure multiple different message templates of the same Message Type and for the same day. 
+
+Note that all of the configured message types will be sent at around the same time. 
+
+Messages are typically sent between 4:30am and 6am for the timezone your WordPress server is configured for - see the "Timezone" setting for WordPress on the "Settings" -> "General" page. By default, WordPress uses the "UTC" or GMT timezone. That is, unless you configure it to use something else. We recommend you select a timezone that reflects the majority of your site's audience.
+ 
+### How do I insert user specific information in the template?
+
+The Email Notices supports the use of a predetermined number of what we call 'substitution variables'. You'll recognize a 'substitution variable' by the fact that it has a leading and trailing pair of '!!' (double bangs). For example: To display the first name of the user in the email greeting, you can use the `!!first_name!!` variable. As the plugin processes the message for that user, it will replace the `!!first_name!!` name with the actual first name of the user (assuming they've provided one). 
+
+Each payment warning message type has its own list of variables you can use, and the "Substitution Variables" metabox below the Email Notice editor field will be updated to reflect the supported variables once you select the "Reminder Type" and Save/Update the template (as a draft, for instance).  
+
+### Is this plugin PCI-DSS compliant?
+
+In short; Yes. 
+
+This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so they can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed. 
+
+### What data does the plugin save (from the payment gateway)?
+
+We only fetch data for active members of the site (i.e. their PMPro membership status is "active"). Once a member becomes inactive, we delete their data from the local cache. 
+ 
+For members with recurring billing plans we save;
+
+* an identifier for the recurring billing/subscription plan,
+* the date when the next payment will be charged,
+* the payment status for their most recent payment,
+* a status text if the last payment failed,
+* the amount charged as the last payment,
+* the amount that will be attempted charged for the next payment and
+* whether their subscription/recurring billing plan is still active. 
+   
+For members who's membership was paid with a one-time payment, we save;
+
+* an identifier for the charge/transaction that paid for the membership,
+* the amount they paid,
+* when they paid it (date) and
+* when their membership is scheduled to end (if applicable).
+ 	
+ 	
+### How often does the plugin download data from the gateway?
+
+It depends on the membership level definitions, and to some extent the discount codes defined for the Membership plugin. 
+
+By default, the plugin attempts to calculate the "half-life" of the shortest membership period defined (either as a membership level or in a discount code) and set the schedule for data collection to be once every 1/2 the shortest membership period. For example, if you have a membership level that is defined as a week - 7 day - long membership, the data collection would be scheduled for once every 3 days. 
+ 
+In the cases where the "half-life" of the shortest membership level period is more than 1 week, the plugin will schedule data collection to happen at least once per week. 
+
+## Limitations / Known Issues
+
+The plugin currently **supports the Stripe.com and PayPal payment gateways**. 
+
+The PayPal gateway support does **not** include real-time IPN message handling for updated credit cards and subscription/billing plans.
 
 Adding more gateways is on the roadmap, but will require sponsorships. You can sponsor support for a new gateway by going to[the Eighty / 20 Results Purchase page](link="https://eighty20results.com/shop") and purchase a sponsorship.
 
@@ -44,6 +122,149 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v3.3
+
+* ENHANCEMENT: Allow outside party to configure the message types available with the `e20r-payment-warning-message-types` filter
+* ENHANCEMENT: Default option value for the `e20r_pw_sent_*` options should be `array( $today => array())`
+* ENHANCEMENT: Message type text_value now matches the values from the `e20rpw_warning_message_types` filter
+* ENHANCEMENT: Preserve up to 30 days of message sent to logs (when we sent the message to the specified email address)
+* ENHANCEMENT: Added filter to allow configuration of number of days to preserve (`e20r-payment-warning-admin-notice-log-days`).
+* ENHANCEMENT: Support sending admin notices for user configured message types
+* BUG FIX: Message type text_value in `Reminder_Editor::define_message_types()` didn't match default `e20rpw_warning_message_types` filter values
+* BUG FIX: Sent too many admin notices to admin
+
+###v3.2
+
+* BUG FIX: Didn't disable the default PMPro expiration warning emails
+
+###v3.1
+
+* ENHANCEMENT/FIX: Updated Utilities submodule to v2.0
+* BUG FIX: Didn't clear/remove the debug log(s) for the PayPal Merchants API library
+* BUG FIX: Renamed the example addon class to Example_Gateway_Addon and need to reflect that in licensing and settings/stubs to ignore
+
+###v3.0
+
+* ENHANCEMENT: Add .editorconfig
+* ENHANCEMENT: Remove old Email Editor functionality and replace it with the Email Notice submodule
+* ENHANCEMENT: Adding ability to change the action name for the background process
+* ENHANCEMENT: Add CreditCard Expiration warning admin message (when applicable)
+* ENHANCEMENT: Add data fetch for Credit Card Expiration warnings
+* ENHANCEMENT: Added documentation for functions/variables in Large_Request_Handler
+* ENHANCEMENT: Process multiple payment gateway data fetch operations at the same time
+* ENHANCEMENT: Specify the number of messages sent to each member (warning messages) in the admin notice(s)
+* ENHANCEMENT: Add 'load_schedule()' method to support Email Notice submodule
+* ENHANCEMENT: Refactored and added PHPDoc modules for all methods
+* ENHANCEMENT: Add all methods/capabilities needed to support Email Notice module & deactivate the old Template Editor functionality
+* ENHANCEMENT: Allow processing for multiple payment gateways (in Handle_Subscriptions and Handle_Payments classes)
+* ENHANCEMENT: Add support for processing payment & subscription data from multiple payment gateways at once in Payment Warning Add-on classes
+* ENHANCEMENT: Add support for locking/processing multiple payment gateways at the same time
+* ENHANCEMENT: Start using the Email Notice submodule to send/process/create warning messages
+* ENHANCEMENT: Allow sending multiple different messages on the same day to the same user
+* ENHANCEMENT: Add PHPDoc for all methods in Email_Message class
+* ENHANCEMENT: Refactored class.handle-payments.php
+* ENHANCEMENT: Refactored class.handle-subscriptions.php
+* ENHANCEMENT: Subscription & Payment data collection didn't always work when having multiple active gateways!
+* ENHANCEMENT: Update get_handler() method to support multiple different payment gateways and sending different message types.
+* ENHANCEMENT: Load licensed modules
+* ENHANCEMENT: Make the get_active_addons() method public
+* ENHANCEMENT: Add section to let admin set message types to activate/send warnings for in Payment Warning Settings
+* ENHANCEMENT: Add handlers for !!saved_cc_info!! and !!billing_address!! substitution variables for Payment Warnings
+* ENHANCEMENT: Add get_payment_info() method (generated list of credit card info from payment gateway)
+* ENHANCEMENT: Add format_billing_info() method (generates and formats the PMPro billing address on file for a user)
+* ENHANCEMENT: Add PHPDoc for some functions/methods
+* ENHANCEMENT: Add required implementations for custom_post_column() and set_custom_edit_columns() method (adds message type label in edit.php list for the defined Email Notice).
+* ENHANCEMENT: Renamed !!billing_info!! substitution variable to !!billing_address!!
+* ENHANCEMENT: Moved handlers for billing_address and saved_cc_info substitution variables to Email_Message class
+* ENHANCEMENT: Add PHPDoc blocks for methods in User_Data class
+* ENHANCEMENT: Add company_name setting
+* ENHANCEMENT: Configure the footer of the email notices using Payment Warning settings & filters
+* ENHANCEMENT: Add company_address option to Payment Warnings Settings page
+* ENHANCEMENT: Add render_textarea() method for Settings API
+* ENHANCEMENT: Including PayPal Merchant API library
+* ENHANCEMENT: Removing unused method from Email_Message() class
+* ENHANCEMENT: Refactor maybe_extract_class_name() method (now in parent gateway class)
+* ENHANCEMENT: Add 'gateway_module' column support to database table
+* ENHANCEMENT: Refactor filter/action hook loading to parent class for all add-ons
+* ENHANCEMENT: Make gateway name check more fuzzy in verify_gateway_processor() method
+* ENHANCEMENT: Make load_webhook_handler() method generic
+* ENHANCEMENT: Refactor maybe_extract_class_name() method and move to parent class for all add-ons
+* ENHANCEMENT: Improved PHPDoc blocks for methods & variables in E20R_PW_Gateway_Addon class
+* ENHANCEMENT: Specify the add-on module being processed in debug messages where it makes sense
+* ENHANCEMENT: Renamed from set_active_non_subscription_members() method to get_active_non_subscription_members()
+* ENHANCEMENT: Renamed set_active_subscription_members() to get_active_subscription_members()
+* ENHANCEMENT: Cache user records by type and payment warning add-on module
+* ENHANCEMENT: Added gateway_addon_check() method. Returns true if add-on name and payment gateway module matches
+* ENHANCEMENT: Clear all of the per add-on member data caches
+* ENHANCEMENT: When running in DEBUG mode, clear the cache for members every time
+* ENHANCEMENT: Allow Stripe add-on module to run in parallel with other payment warning add-on modules
+* ENHANCEMENT: Assign the type of add-on used to fetch an upstream user record in the local DB
+* ENHANCEMENT: Stripe specific get_gateway_class_name() method
+* ENHANCEMENT: Moved maybe_extract_class_name() method to parent class
+* ENHANCEMENT: Load standard hooks for this gateway in parent class
+* ENHANCEMENT: Improved documentation of Stripe_Gateway_Addon class
+* ENHANCEMENT: Various minor updates (doc & variable cast) to PayPal_Gateway_Addon class
+* ENHANCEMENT: Implement PayPal API calls with the PayPal Merchants API library
+* ENHANCEMENT: Add upstream fetch of subscription data for PayPal
+* ENHANCEMENT: Add upstream fetch of payment/transaction data for PayPal
+* ENHANCEMENT: Convert PayPal transaction timestamps to local (server local) timestamps
+* ENHANCEMENT: Add stub for handling relevant PayPal IPN messages
+* ENHANCEMENT: Allow admin to configure the PayPal service they use with PMPro
+* ENHANCEMENT: Update the Example_Gateway_Addon with expected/required method stubs & documentation
+* ENHANCEMENT: Rename Example_Addon to Example_Gateway_Addon to match naming structure of other implemented add-ons
+* ENHANCEMENT: Various required updates (required methods etc) for the incomplete Check Payment Gateway add-on
+* ENHANCEMENT: Refactor Cron_Handler class
+* ENHANCEMENT: Load data from all active and licensed payment gateway modules at once
+* ENHANCEMENT: Add @PHPDoc blocks for more variables in User_Data class
+* ENHANCEMENT: Add @PHPDoc blocks for more methods in User_Data class
+* ENHANCEMENT: Link User_Data class to the add-on being processed
+* ENHANCEMENT: Use boolean value to identify whether a local record has been loaded for the User_Data instance
+* ENHANCEMENT: Add public has_record_saved() method
+* ENHANCEMENT: Updated variable documentation (PHPDoc) for Handle_Subscriptions class
+* ENHANCEMENT: Set/get add-on using the Handle_Subscriptions class
+* ENHANCEMENT: Updated variable documentation (PHPDoc) for Handle_Payments class
+* ENHANCEMENT: Set/get add-on using the Handle_Payments class
+* ENHANCEMENT: Limit upstream data fetch operation to the add-on instantiating the Handle_Payments class
+* ENHANCEMENT: Add Upgrade() class/methods for new DB version
+* ENHANCEMENT: Bump required DB version number to support new table column for add-on type
+* ENHANCEMENT: Renamed e20r_pw_addon_add_remote_call_handler action hook to e20r_pw_addon_remote_call_handler
+* ENHANCEMENT: Prevent directory listing of logs directory (for Gateway library debug logs)
+* ENHANCEMENT: Prevent web server access to *.log files in logs/ directory
+* ENHANCEMENT/FIX: Configure Payment_Warning as the module using the Send_Email class
+* ENHANCEMENT/FIX: Don't show 'no records found' warning message for inactive add-on modules
+* BUG FIX: Didn't load the correct pmpro_save_membership_level action hook
+* BUG FIX: Don't trigger add-on check twice in load_addon_settings()
+* BUG FIX: Would try to process empty $user_data in task() method for Handle_Payments class
+* BUG FIX: Would try to process empty $user_data in task() method for Handle_Subscriptions class
+* BUG FIX: Skipped user if there wasn't a pre-existing record in the local DB
+* BUG FIX: Didn't exclude records for other payment gateway modules
+* BUG FIX: Would sometimes double the records to process in the get_all_user_records() method
+* BUG FIX: Only display Payment Warning message types for payment warning messages
+* BUG FIX: Don't internationalize date for payment in Stripe_Gateway_Addon class
+* BUG FIX: Removed e20r_pw_message_substitution_variables filter
+* BUG FIX: Didn't trigger e20r-email-notice-custom-variable-filter handlers for billing address & Credit Card data
+* BUG FIX: PHP Warning message in Email_Message class
+* BUG FIX: Typo in the !!saved_cc_info!! substitution variable handler
+* BUG FIX: Didn't clear the Active Addon cache when saving the Options page
+* BUG FIX: Incorrectly assumed the $e20r_pw_addons (array) list always contains the list of active add-ons
+* BUG FIX: Would cache an empty list of active add-ons (if they existed)
+* BUG FIX: Update get_reminder_type() to handle new Email Notice submodule
+* BUG FIX: Didn't use the supplied subscription ID
+* BUG FIX: Didn't properly handle fetching data from multiple active payment gateways
+* BUG FIX: Didn't dispatch the Payment Reminder queues properly
+* BUG FIX: Didn't always load/locate the proper queue handler for messages
+* BUG FIX: Didn't send all of the messages in the defined list of messages for that warning type
+* BUG FIX: Didn't load Credit Card user data correctly
+* BUG FIX: Didn't always process all types of warning messages
+* BUG FIX: Used localized date
+* BUG FIX: Only include active payment profiles for Credit Card Expiration Warnings
+
+###v2.0
+
+* BUG FIX: Update Email Editor sources
+* BUG FIX: Refresh Utilities submodule to fix licensing issues
+* ENHANCEMENT: Framework for Check Gateway support
 
 ###v1.9.16
 
