@@ -367,6 +367,11 @@ class Reminder_Editor extends Email_Notice {
 			),
 		);
 		
+		/**
+		 * @since 3.3 - ENHANCEMENT: Allow outside party to configure the message types available with the 'e20r-payment-warning-message-types' filter
+		 */
+		$new_types = apply_filters( 'e20r-payment-warning-message-types', $new_types );
+		
 		$types = $types + $new_types;
 		
 		return $types;
