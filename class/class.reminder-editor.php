@@ -328,7 +328,6 @@ class Reminder_Editor extends Email_Notice {
 	 */
 	public function define_message_types( $types ) {
 		
-		global $post;
 		global $post_ID;
 		
 		$meta_key      = '_e20r_pw_message_type';
@@ -349,7 +348,7 @@ class Reminder_Editor extends Email_Notice {
 				'label'      => __( 'Membership Expiration', Payment_Warning::plugin_slug ),
 				'value'      => E20R_PW_EXPIRATION_REMINDER,
 				'meta_key'   => $meta_key,
-				'text_value' => 'expiration',
+				'text_value' => 'expiring',
 				'selected'   => selected( $current_value, E20R_PW_EXPIRATION_REMINDER, false ),
 			),
 			E20R_PW_RECURRING_REMINDER  => array(
@@ -363,7 +362,7 @@ class Reminder_Editor extends Email_Notice {
 				'label'      => __( 'Credit Card Expiration', Payment_Warning::plugin_slug ),
 				'value'      => E20R_PW_CREDITCARD_REMINDER,
 				'meta_key'   => $meta_key,
-				'text_value' => 'creditcard',
+				'text_value' => 'ccexpiring',
 				'selected'   => selected( $current_value, E20R_PW_CREDITCARD_REMINDER, false ),
 			),
 		);
