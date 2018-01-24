@@ -511,8 +511,8 @@ class Email_Message {
 		$to      = $this->user_info->get_user_email();
 		$user_id = $this->user_info->get_user_ID();
 		
-		$users  = get_option( "e20r_pw_sent_{$type}", array() );
-		$today  = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+		$today  = date( 'Y-m-d', current_time( 'timestamp' ) );
+		$users  = get_option( "e20r_pw_sent_{$type}", array( $today => array()) );
 		$status = false;
 		
 		// Option is empty
