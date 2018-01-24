@@ -95,7 +95,6 @@ class Handle_Messages extends E20R_Background_Process {
 		$template_type = $message->get_template_type();
 		$template_name = $message->get_template_name();
 		$schedule      = $message->get_schedule();
-		$send          = false;
 		$check_date    = null;
 		
 		if ( empty( $template_type ) ) {
@@ -116,7 +115,7 @@ class Handle_Messages extends E20R_Background_Process {
 			$uses_recurring = $message->get_user()->has_active_subscription();
 			$next_payment   = $message->get_user()->get_next_payment();
 			$has_enddate    = $message->get_user()->get_end_of_membership_date();
-			$type           = $reminder_notice->get_type_from_string( 'creditcard' );
+			$type           = $reminder_notice->get_type_from_string( 'ccexpiring' );
 			$is_creditcard  = ( $template_type == $type );
 			
 			$util->log( "Processing for a credit card template ({$template_type} vs {$type})? " . ( $is_creditcard ? 'Yes' : 'No' ) );
@@ -160,14 +159,13 @@ class Handle_Messages extends E20R_Background_Process {
 	 * performed, or, call parent::complete().
 	 *
 	 * @since 2.1 - ENHANCEMENT: Add CreditCard Expiration warning admin message (when applicable)
+	 * @since 3.3 - BUG FIX: Sent too many admin notices to admin
 	 */
 	protected function complete() {
 		
 		parent::complete();
 		
-		$this->send_admin_notice( 'recurring' );
-		$this->send_admin_notice( 'expiration' );
-		$this->send_admin_notice( 'creditcard' );
+		$this->send_admin_notice();
 		
 		$util = Utilities::get_instance();
 		$now  = date_i18n( 'H:i:s (m/d)', strtotime( get_option( 'timezone_string' ) ) );
@@ -190,58 +188,75 @@ class Handle_Messages extends E20R_Background_Process {
 	/**
 	 * Send email message notifying administrator user(s) of completion
 	 *
-	 * @param string $type
-	 *
 	 * @return bool
 	 *
 	 * @access private
 	 *
 	 * @since  1.9.4 - BUG FIX: Returned boolean value when looking for email address for recipients of message(s)
 	 * @since  2.1 - ENHANCEMENT/FIX: Use correct message types for new email notice infrastructure
+	 * @since  3.3 - BUG FIX: Sent too many admin notices to admin
 	 */
-	private function send_admin_notice( $type ) {
+	private function send_admin_notice() {
 		
-		$users              = array();
-		$today              = date_i18n( 'Y-m-d', current_time( 'timestamp' ) );
+		$utils = Utilities::get_instance();
+		
+		/**
+		 * @var array[string] $users
+		 */
+		$today        = date( 'Y-m-d', current_time( 'timestamp' ) );
+		$already_sent = get_option( '_e20r_pw_admin_notices', array() );
+		
+		if ( isset( $already_sent[ $this->type ] ) && $today === $already_sent[ $this->type ] ) {
+			$utils->log( "Sent the admin notice for message type {$this->type}" );
+			
+			return true;
+		}
+		
 		$type_text          = null;
-		$subject            = sprintf( __( "Completed processing the %s payment warning type", Payment_Warning::plugin_slug ), $type );
 		$skip_admin_notices = apply_filters( 'e20r-payment-warning-skip-admin-message-if-none-sent', true );
 		$reminder_msg       = Reminder_Editor::get_instance();
-		$type_const         = $reminder_msg->get_type_from_string( $type );
+		$type_const         = $reminder_msg->get_type_from_string( $this->type );
 		
 		// The requested message type doesn't exist???
 		if ( is_null( $type_const ) ) {
 			
 			$utils = Utilities::get_instance();
-			$utils->log( "Error: Unable to map to the appropriate value for the requested type: {$type}" );
+			$utils->log( "Error: Unable to map to the appropriate value for the requested type: {$this->type}" );
 			
 			return false;
 		}
 		
-		switch ( $type ) {
+		switch ( $this->type ) {
 			case 'recurring':
-				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array( $today => array() ) );
 				$type_text = __( "Upcoming recurring payment", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Recurring Payment Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
 			
-			case 'expiration':
-				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
+			case 'expiring':
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array( $today => array() ) );
 				$type_text = __( "Pending membership expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
 			
-			case 'creditcard':
-				$users     = get_option( "e20r_pw_sent_{$type_const}", array() );
+			case 'ccexpiring':
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array( $today => array() ) );
 				$type_text = __( "Credit card expiration", Payment_Warning::plugin_slug );
 				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
 				$subject   = sprintf( __( "Credit Card Expiration Warning sent to %d users on %s", Payment_Warning::plugin_slug ), $count, $today );
 				
 				break;
+			
+			default:
+				$utils->log( "Using default handler for Admin Message type ({$this->type})" );
+				$users     = get_option( "e20r_pw_sent_{$type_const}", array( $today => array() ) );
+				$type_text = sprintf( __( "Payment Warning Message (%s)", Payment_Warning::plugin_slug ), $this->type );
+				$count     = isset( $users[ $today ] ) ? count( $users[ $today ] ) : 0;
+				$subject   = sprintf( __( 'Payment Warning message (%1$s) sent to %2$d users on %3$s', Payment_Warning::plugin_slug ), $this->type, $count, $today );
 			
 		}
 		
@@ -256,8 +271,7 @@ class Handle_Messages extends E20R_Background_Process {
 		// Don't send empty/unneeded admin notices?
 		if ( empty( $users[ $today ] ) && true === $skip_admin_notices ) {
 			
-			$utils = Utilities::get_instance();
-			$utils->log( "No need to send the {$type} admin summary. There were 0 notices sent" );
+			$utils->log( "No need to send the {$this->type} admin summary. There were 0 notices sent" );
 			
 			return true;
 		}
@@ -267,8 +281,8 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		if ( ! empty( $users[ $today ] ) ) {
 			
-			foreach( $users[ $today ] as $user_email => $list ) {
-				$user_list .= sprintf( '%s (messages sent: %d)%s', $user_email,count( $list ), '<br/>' );
+			foreach ( $users[ $today ] as $user_email => $list ) {
+				$user_list .= sprintf( '%s (messages sent: %d)%s', $user_email, count( $list ), '<br/>' );
 			}
 		} else {
 			$user_list .= sprintf( __( "No %s warning emails sent/recorded for %s", Payment_Warning::plugin_slug ), $type_text, $today );
@@ -295,7 +309,33 @@ class Handle_Messages extends E20R_Background_Process {
 			}
 		}
 		
-		return wp_mail( $admin_address, $subject, $body, $headers );
+		if ( true === wp_mail( $admin_address, $subject, $body, $headers ) ) {
+			
+			$already_sent[ $this->type ] = $today;
+			$log_length = intval( apply_filters( 'e20r-payment-warning-admin-notice-log-days', 30 ) );
+			
+			if ( $log_length < 0 ) {
+				$utils->log("Filter provided invalid log length value: [{$log_length}]!");
+				$log_length = 30;
+			}
+			
+			// Maintain user send info for message type option
+			if ( count( $users ) >= $log_length ) {
+				sort( $users );
+				
+				$preserve = array_slice( $users, -$log_length, null, true );
+				$utils->log( "Preserving " . count( $preserve ) . " days worth of send logs" );
+				
+				// Save the log
+				$users = $preserve;
+				update_option( "e20r_pw_sent_{$type_const}", $users, 'no' );
+			}
+		}
+		
+		update_option( '_e20r_pw_admin_notices', $already_sent, 'no' );
+		
+		return true;
 	}
+
 }
 
