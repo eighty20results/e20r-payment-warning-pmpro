@@ -306,7 +306,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
 				$data = Customer::retrieve( $cust_id );
 				
-			} catch ( Api $exception ) {
+			} catch ( \Exception $exception ) {
 				
 				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
@@ -502,7 +502,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
 				$customer = Customer::retrieve( $cust_id );
 				
-			} catch ( Api $exception ) {
+			} catch ( \Exception $exception ) {
 				
 				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				
