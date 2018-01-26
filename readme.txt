@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 4.9.2
-Stable tag: 3.3
+Stable tag: 3.4
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -117,6 +117,11 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v3.4 ==
+
+* BUG FIX: Incorrect class type for try/catch operations in Stripe.com gateway add-on
+* BUG FIX: Incorrect class type for try/catch operations in Check gateway add-on
 
 == v3.3 ==
 

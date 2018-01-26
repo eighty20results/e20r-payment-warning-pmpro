@@ -1,1 +1,2 @@
-BUG FIX: Didn't disable the default PMPro expiration warning emails
+BUG FIX: Incorrect class type for try/catch operations in Stripe.com gateway add-on
+BUG FIX: Incorrect class type for try/catch operations in Check gateway add-on
