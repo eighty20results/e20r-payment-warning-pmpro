@@ -767,6 +767,30 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		}
 		
 		/**
+		 * Returns true if one of the available Gateway add-ons has an active license.
+		 *
+		 * @return bool
+		 */
+		public function has_licensed_gateway() {
+			
+			global $e20r_pw_addons;
+			
+			$has_licensed_gateway = false;
+			
+			if ( !empty( $e20r_pw_addons ) ) {
+				
+				foreach( $e20r_pw_addons as $stub => $settings ) {
+					
+					if ( $stub !== 'standard_gateway_addon' ) {
+						$has_licensed_gateway = $has_licensed_gateway || Licensing::is_licensed( $stub );
+					}
+				}
+			}
+			
+			return $has_licensed_gateway;
+		}
+		
+		/**
 		 * Load settings/options for the plugin
 		 *
 		 * @param $option_name
