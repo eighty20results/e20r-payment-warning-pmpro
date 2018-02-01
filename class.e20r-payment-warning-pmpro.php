@@ -322,7 +322,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_action( 'e20r_check_job_status', array( Cron_Handler::get_instance(), 'clear_mutexes' ) );
 			
 			// Load the admin & settings menu
-			add_action( 'admin_menu', array( $this, 'load_admin_settings_page' ), 10 );
+			add_action( 'admin_menu', array( Global_Settings::get_instance(), 'load_admin_settings_page' ), 10 );
 			add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
 			
 			// Show any licensing warnings
