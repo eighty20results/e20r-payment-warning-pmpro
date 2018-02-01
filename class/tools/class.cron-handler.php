@@ -92,7 +92,6 @@ class Cron_Handler {
 	public function send_cc_warning_messages() {
 		
 		$util = Utilities::get_instance();
-		$main = Payment_Warning::get_instance();
 		
 		$not_first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
 		
@@ -103,7 +102,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_cc_expiration_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_cc_expiration_warnings' ) ) {
 			$util->log( "Running send email handler (cron job) for credit card expiration warnings" );
 			
 			$reminders = Payment_Reminder::get_instance();
@@ -120,7 +119,6 @@ class Cron_Handler {
 	public function send_expiration_messages() {
 		
 		$util          = Utilities::get_instance();
-		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -130,7 +128,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_expiration_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_expiration_warnings' ) ) {
 			$util->log( "Running send email handler (cron job) for expiration warnings" );
 			
 			$reminders = Payment_Reminder::get_instance();
@@ -146,7 +144,6 @@ class Cron_Handler {
 	public function send_reminder_messages() {
 		
 		$util          = Utilities::get_instance();
-		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -156,7 +153,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_payment_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_payment_warnings' ) ) {
 			
 			$util->log( "Running send email handler (cron job) for recurring payment reminders" );
 			
