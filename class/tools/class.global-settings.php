@@ -67,36 +67,6 @@ class Global_Settings {
 		if ( is_null( self::$instance ) ) {
 			
 			self::$instance = new self;
-			
-			// First thing to do on activation (Required for this plugin)
-			add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\User_Data::create_db_tables', - 1 );
-			add_action( 'e20r_pw_addon_activating_core', array(
-				Cron_Handler::get_instance(),
-				'configure_cron_schedules',
-			), 10 );
-			add_action( 'e20r_pw_addon_deactivating_core', array(
-				Cron_Handler::get_instance(),
-				'remove_cron_jobs',
-			), 10 );
-			
-			add_action( 'e20r_run_remote_data_update', array(
-				Cron_Handler::get_instance(),
-				'fetch_gateway_payment_info',
-			) );
-			add_action( 'e20r_send_payment_warning_emails', array(
-				Cron_Handler::get_instance(),
-				'send_reminder_messages',
-			) );
-			add_action( 'e20r_send_expiration_warning_emails', array(
-				Cron_Handler::get_instance(),
-				'send_expiration_messages',
-			) );
-			add_action( 'e20r_send_creditcard_warning_emails', array(
-				Cron_Handler::get_instance(),
-				'send_cc_warning_messages',
-			) );
-			
-			add_action( 'init', array( self::get_instance(), 'disable_pmpro_actions' ), 999 );
 		}
 		
 		return self::$instance;
