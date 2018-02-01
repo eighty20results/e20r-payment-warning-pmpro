@@ -27,7 +27,7 @@ use E20R\Payment_Warning\Payment_Warning;
 class Global_Settings {
 	
 	/**
-	 * Instance of this class (Payment_Warning)
+	 * Instance of this class (Global_Settings)
 	 *
 	 * @var Global_Settings|null $instance
 	 *
@@ -49,8 +49,6 @@ class Global_Settings {
 	 *
 	 * @access private
 	 * @since  1.0
-	 *
-	 * @since  2.1 - ENHANCEMENT: Subscription & Payment data collection didn't work when having multiple active gateways!
 	 */
 	private function __construct() {}
 	
