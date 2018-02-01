@@ -35,6 +35,7 @@ Domain Path: /languages
 namespace E20R\Payment_Warning;
 
 use E20R\Payment_Warning\Editor\Reminder_Editor;
+use E20R\Payment_Warning\Tools\Membership_Settings;
 use E20R\Payment_Warning\Upgrades;
 use E20R\Utilities\Cache;
 use E20R\Payment_Warning\Tools\Cron_Handler;
@@ -337,8 +338,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
 			
-			add_action( 'pmpro_save_discount_code_level', array( $this, 'updated_discount_codes' ), 10, 2 );
-			add_action( 'pmpro_save_membership_level', array( $this, 'updated_membership_level' ), 10, 1 );
+			add_action( 'pmpro_save_discount_code_level', array( Membership_Settings::get_instance(), 'updated_discount_codes' ), 10, 2 );
+			add_action( 'pmpro_save_membership_level', array( Membership_Settings::get_instance(), 'updated_membership_level' ), 10, 1 );
 			
 			// Last thing to do on deactivation (Required for this plugin)
 			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
@@ -494,40 +495,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					$has_loaded = true;
 				}
 			}
-		}
-		
-		/**
-		 * Clear the level delay cache info on membership level save operation(s)
-		 *
-		 * @param $level_id
-		 */
-		public function updated_membership_level( $level_id ) {
-			
-			$util = Utilities::get_instance();
-			
-			$util->log( "Dropping the cache for delay & cron schedules due to a membership level being updated" );
-			// Clear cached values when discount code(s) get updated
-			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
-			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
-		}
-		
-		/**
-		 * Force calculation of next cron scheduled run whenever saving/updating a Discount Code
-		 *
-		 * @param int $discount_code_id
-		 * @param int $level_id
-		 */
-		public function updated_discount_codes( $discount_code_id, $level_id ) {
-			
-			$util = Utilities::get_instance();
-			
-			// Clear cached values when discount code(s) get updated
-			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
-			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
-			
-			$util->log( "Dropping the cache for delay & cron schedules due to Discount Code being updated" );
 		}
 		
 		/**
@@ -774,47 +741,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					}
 				}
 			}
-		}
-		
-		/**
-		 * Generates the PMPro Membership Level Settings section
-		 */
-		public function level_settings_page() {
-			
-			$active_addons = $this->get_active_addons();
-			$level_id      = isset( $_REQUEST['edit'] ) ? intval( $_REQUEST['edit'] ) : ( isset( $_REQUEST['copy'] ) ? intval( $_REQUEST['copy'] ) : null );
-			?>
-			<div class="e20r-pw-for-pmpro-level-settings">
-				<h3 class="topborder"><?php _e( 'Payment Warnings for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
-				<hr style="width: 90%; border-bottom: 2px solid #c5c5c5;"/>
-				<h4 class="e20r-pw-for-pmpro-section"><?php _e( 'Default gateway settings', Payment_Warning::plugin_slug ); ?></h4>
-				<?php do_action( 'e20r_pw_level_settings', $level_id, $active_addons ); ?>
-			</div>
-			<?php
-		}
-		
-		/**
-		 * Global save_level_settings function (calls add-on specific save code)
-		 *
-		 * @param $level_id
-		 */
-		public function save_level_settings( $level_id ) {
-			
-			$active_addons = $this->get_active_addons();
-			
-			do_action( 'e20r_pw_level_settings_save', $level_id, $active_addons );
-		}
-		
-		/**
-		 * Global delete membership level function (calls add-on specific save code)
-		 *
-		 * @param int $level_id
-		 */
-		public function delete_level_settings( $level_id ) {
-			
-			$active_addons = $this->get_active_addons();
-			
-			do_action( 'e20r_pw_level_settings_delete', $level_id, $active_addons );
 		}
 		
 		/**
