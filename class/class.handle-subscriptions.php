@@ -136,6 +136,7 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 * performed, or, call parent::complete().
 	 *
 	 * @since 1.9.4 - ENHANCEMENT: Remove subscription data fetch lock w/error checking & messages to dashboard
+	 * @since 3.7 - ENHANCEMENT: Only remove records if we're configured to do so
 	 */
 	protected function complete() {
 		
@@ -150,7 +151,80 @@ class Handle_Subscriptions extends E20R_Background_Process {
 			$util->add_message( sprintf( __( 'Unable to clear lock after loading Subscription data for %s', Payment_Warning::plugin_slug ), $this->type ), 'error', 'backend' );
 		}
 		
+		$util->log( "Remove old and stale recurring billing user data for Payment Warnings plugin?" );
+		if ( true === apply_filters( 'e20r-payment-warning-clear-old-records', false ) ) {
+			
+			$util->log( "Yes, we're wanting to remove the records");
+			$this->clear_old_subscr_records();
+		}
+		
 		$util->log( "Completed remote subscription data fetch for all active gateways" );
 		// $util->add_message( __("Fetched payment data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
+	}
+	
+	/**
+	 * Remove stale subscription/user data from the database table
+	 */
+	private function clear_old_subscr_records() {
+		
+		global $wpdb;
+		$utils = Utilities::get_instance();
+		
+		$sql = $wpdb->prepare(
+			"SELECT DISTINCT UI.user_id
+					FROM {$wpdb->prefix}e20rpw_user_info AS UI
+					WHERE UI.reminder_type = 'recurring' AND
+					(
+						( UI.user_payment_status = 'stopped' AND UI.modified < %s ) OR
+						( UI.user_payment_status = 'active' AND
+							(
+					        	( UI.end_of_membership_date IS NULL AND UI.next_payment_date < %s )
+					          	OR UI.end_of_membership_date < %s
+				            )
+			            )
+					)",
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) )
+		);
+		
+		$delete_sql = $wpdb->prepare(
+			"DELETE FROM {$wpdb->prefix}e20rpw_user_info AS UI
+					WHERE UI.reminder_type = 'recurring' AND
+					(
+						( UI.user_payment_status = 'stopped' AND UI.modified < %s ) OR
+						( UI.user_payment_status = 'active' AND
+							(
+					        	( UI.end_of_membership_date IS NULL AND UI.next_payment_date < %s )
+					          	OR UI.end_of_membership_date < %s
+				            )
+			            )
+					)",
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time('timestamp' ) )
+		);
+		
+		$user_ids_to_clear = $wpdb->get_col( $sql );
+		
+		if ( ! empty( $user_ids_to_clear ) ) {
+			
+			$utils->log("Found " . count( $user_ids_to_clear ) . ' records to clear from DB');
+			
+			$id_list = implode( "','", array_map( 'absint', $user_ids_to_clear ) );
+			$cc_sql = $wpdb->prepare( "DELETE FROM {$wpdb->prefix}e20rpw_user_cc WHERE user_id IN( %s )", $id_list );
+			
+			$utils->log("Credit Card SQL to use: " . $cc_sql );
+			
+			if ( false === $wpdb->query( $cc_sql ) ) {
+				$utils->log("Error clearing Credit Card info from local cache!");
+			}
+			
+			if ( false === $wpdb->query( $delete_sql ) ) {
+				$utils->log("Error clearing recurring payment records from local cache");
+			}
+		} else {
+			$utils->log("No recurring payment user data to purge");
+		}
 	}
 }

@@ -447,7 +447,7 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		global $e20r_pw_addons;
 		
-		if ( true === $this->is_active( $stub ) ) {
+		if ( true === $this->is_active( $stub ) && ! empty( $e20r_pw_addons[$stub]['handler_name']) ) {
 			
 			$util = Utilities::get_instance();
 			$util->log( "Loading {$stub} Webhook handler functions..." );

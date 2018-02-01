@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.4
+Version: 3.7
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -226,6 +226,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					'send_cc_warning_messages',
 				) );
 				
+				// Show any licensing warnings
+				add_action( 'init', array( self::get_instance(), 'check_license_warnings' ), 10 );
 				add_action( 'init', array( self::get_instance(), 'disable_pmpro_actions' ), 999 );
 			}
 			
@@ -325,10 +327,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_action( 'admin_menu', array( Global_Settings::get_instance(), 'load_admin_settings_page' ), 10 );
 			add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
 			
-			// Show any licensing warnings
-			add_action( 'admin_init', array( $this, 'check_license_warnings' ) );
-			
-			
 			if ( ! empty ( $GLOBALS['pagenow'] )
 			     && ( 'options-general.php' === $GLOBALS['pagenow']
 			          || 'options.php' === $GLOBALS['pagenow']
@@ -407,6 +405,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_filter( 'e20r-email-notice-footer-company-name', array( $this, 'get_company_name' ), 10, 2 );
 			add_filter( 'e20r-email-notice-footer-company-address', array( $this, 'get_company_address' ), 10, 2 );
 			add_filter( 'e20r-email-notice-footer-text', array( $this, 'load_unsubscribe_notice' ), 10, 2 );
+			
+			if ( true === (bool) Global_Settings::load_options( 'enable_clear_old_data' ) ) {
+				
+				$utils->log( "Enable deletion of old/stale records in local DB when cron job(s) complete" );
+				add_filter( 'e20r-payment-warning-clear-old-records', '__return_true' );
+			}
 		}
 		
 		/**
@@ -725,16 +729,49 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$products = array_keys( $e20r_pw_addons );
 			$utils    = Utilities::get_instance();
 			
+			$is_sent     = ( current_time( 'timestamp' ) >= ( intval( get_option( 'e20rpw_license_warning_sent', 0 ) ) ) );
+			$admin_email = get_option( 'admin_email' );
+			
+			$utils->log( "Check for any license warnings!" );
+			
 			foreach ( $products as $stub ) {
 				
-				switch ( Licensing::is_license_expiring( $stub ) ) {
+				$utils->log( "Checking status for {$stub}" );
+				$license_status = Licensing::is_license_expiring( $stub );
+				$utils->log( "Status is: {$license_status}" );
+				
+				if ( true === $license_status ) {
 					
-					case true:
-						$utils->add_message( sprintf( __( 'The license for %s will renew soon. As this is an automatic payment, you will not have to do anything. To modify <a href="%s" target="_blank">your license</a>, you will need to access <a href="%s" target="_blank">your account page</a>' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/', 'https://eighty20results.com/account/' ), 'info', 'backend' );
-						break;
-					case - 1:
-						$utils->add_message( sprintf( __( 'Your add-on license has expired. For continued use of the E20R Roles: %s add-on, you will need to <a href="%s" target="_blank">purchase and install a new license</a>.' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/' ), 'error', 'backend' );
-						break;
+					$msg = sprintf( __( 'The license for the plugin that sends upcoming payment warnings and membership expiration promotions to your members (using the %1$s payment gateway) will renew soon. To keep sending these reminders to your customers who paid via the %1$s payment gateway, please verify that <a href="%2$s" target="_blank">your license</a> will renew automatically by going to <a href="%3$s" target="_blank">your account page</a> and verify the status of your payment method and license' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/', 'https://eighty20results.com/account/' );
+					
+					if ( is_admin() ) {
+						$utils->add_message( $msg, 'warning', 'backend' );
+					}
+					
+					if ( false === $is_sent ) {
+						$utils->log( "Sending license renewing email warning to {$admin_email}" );
+						wp_mail( $admin_email, __( "Important: The payment and expiration warnings license may renew soon", Payment_Warning::plugin_slug ), "<p>{$msg}</p>" );
+						update_option( 'e20rpw_license_warning_sent', current_time( 'timestamp' ), 'no' );
+					}
+					
+					if ( - 1 === $license_status ) {
+						
+						$msg = sprintf( __( 'Your %1$s add-on license for sending upcoming payment reminders and membership expiration promotion messages has expired. To resume sending these warnings to your members (using the %1$s payment gateway), you will need to <a href="%2$s" target="_blank">purchase and install a new %1$s license</a>.' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/' );
+						
+						if ( is_admin() ) {
+							$utils->add_message( $msg, 'error', 'backend' );
+						}
+						
+						if ( false === $is_sent ) {
+							$utils->log( "Sending license expired email warning to {$admin_email}" );
+							wp_mail(
+								$admin_email,
+								__( "CRITICAL: Not sending payment and expiration warnings to your members!", Payment_Warning::plugin_slug ),
+								"<p>{$msg}</p>"
+							);
+							update_option( 'e20rpw_license_warning_sent', current_time( 'timestamp' ), 'no' );
+						}
+					}
 				}
 			}
 		}
@@ -918,7 +955,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$utils = Utilities::get_instance();
 			
-			$installed_ver = get_option( 'e20rpw_db_version', null );
+			$installed_ver = get_option( 'e20rpw_db_version', 1 );
 			
 			$upgraded = $this->load_db_upgrades();
 			

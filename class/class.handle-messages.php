@@ -169,7 +169,7 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		$util = Utilities::get_instance();
 		$now  = date_i18n( 'H:i:s (m/d)', strtotime( get_option( 'timezone_string' ) ) );
-		$util->log( "Completed message transmission operations: {$now}" );
+		$util->log( "Completed message transmission operations: {$now} for {$this->type}" );
 		
 		$this->clear_queue();
 		

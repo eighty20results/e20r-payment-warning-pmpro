@@ -670,6 +670,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function fetch_stripe_api_versions() {
 			
 			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
+				'2018-01-23',
 				'2017-12-14',
 				'2017-08-15',
 				'2017-06-05',

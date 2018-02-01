@@ -109,16 +109,36 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 */
 	protected $option_name = 'e20r_egwao_paypal';
 	/**
-	 * @var array $paypal_settings
-	 */
-	private $paypal_settings;
-	
-	/**
 	 * Timezone string that the current gateway is using
 	 *
 	 * @var string $gateway_timezone
 	 */
 	protected $gateway_timezone = 'GMT';
+	/**
+	 * @var array $paypal_settings
+	 */
+	private $paypal_settings;
+	
+	/**
+	 * PayPal IPN info about the customer being processed
+	 *
+	 * @var array $ipn_customer
+	 */
+	private $ipn_customer = array();
+	
+	/**
+	 * PayPal IPN info about the transaction (recurring billing) being processed
+	 *
+	 * @var array $ipn_payment_info
+	 */
+	private $ipn_payment_info = array();
+	
+	/**
+	 * PayPal IPN info about the/any credit card use(d)/updated
+	 *
+	 * @var array $ipn_cc_info
+	 */
+	private $ipn_cc_info = array();
 	
 	/**
 	 *  PayPal_Gateway_Addon constructor.
@@ -289,15 +309,15 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 * Return the gateway name for the matching add-on
 	 *
 	 * @param null|string $gateway_name
-	 * @param string     $addon
+	 * @param string      $addon
 	 *
 	 * @return null|string
 	 */
-	public function get_gateway_class_name( $gateway_name = null , $addon ) {
+	public function get_gateway_class_name( $gateway_name = null, $addon ) {
 		
 		// "Punch through" unless the gateway name matches the addon specified
-		if ( is_null($gateway_name) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
-			$gateway_name =  $this->get_class_name();
+		if ( is_null( $gateway_name ) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
+			$gateway_name = $this->get_class_name();
 		}
 		
 		return $gateway_name;
@@ -310,7 +330,6 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 */
 	public function webhook_handler() {
 		
-		// TODO: Implement PayPal specific webhook (IPN) handler
 		$util    = Utilities::get_instance();
 		$event   = null;
 		$is_live = false;
@@ -333,7 +352,8 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		$transaction_type = $util->get_variable( 'txn_type', null );
 		$txn_info         = array();
 		
-		$customer = array(
+		$this->ipn_customer = array(
+			'payer_customer_id'     => $util->get_variable( 'payer_id', null ),
 			'payer_email'           => $util->get_variable( 'payer_email', null ),
 			'payer_first_name'      => $util->get_variable( 'first_name', null ),
 			'payer_last_name'       => $util->get_variable( 'last_name', null ),
@@ -345,16 +365,29 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			'payer_address_country' => $util->get_variable( 'address_country', null ),
 		);
 		
-		$payment_info = array(
-			'currency'     => $util->get_variable( 'mc_currency', null ),
-			'payment_date' => $util->get_variable( 'payment_date', null ),
-			'amount'       => $util->get_variable( 'mc_gross', null ),
-			'status'       => $util->get_variable( 'payment_status', null ),
-			'type'         => $util->get_variable( 'payment_type', null ),
+		$this->ipn_payment_info = array(
+			'subscription_id'   => $util->get_variable( 'recurring_payment_id', null ),
+			'currency'          => $util->get_variable( 'mc_currency', null ),
+			'payment_date'      => $util->get_variable( 'payment_date', null ),
+			'next_payment_date' => $util->get_variable( 'next_payment_date', null ),
+			'amount'            => $util->get_variable( 'mc_gross', null ),
+			'status'            => $util->get_variable( 'payment_status', null ),
+			'type'              => $util->get_variable( 'payment_type', null ),
+			'created'           => $util->get_variable( 'time_created', null ),
+			'billing_interval' => $util->get_variable( 'payment_cycle', null ),
+			'billing_period'    => $util->get_variable( 'period_type', null ),
 		);
 		
-		$txn_info['customer'] = $customer;
-		$txn_info['payment']  = $payment_info;
+		$this->ipn_cc_info = array(
+			'last4' => null,
+			'exp_month' => null,
+			'exp_year' => null,
+			'brand' => null,
+		);
+		
+		$txn_info['customer'] = $this->ipn_customer;
+		$txn_info['payment']  = $this->ipn_payment_info;
+		$txn_info['cc_info']  = $this->ipn_cc_info;
 		
 		$this->process_event_data( $transaction_type, $txn_info );
 		
@@ -432,6 +465,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			case 'subscr_eot':
 				
 				$util->log( "Customer subscription plan was deleted" );
+				$this->maybe_send_payment_failure_message( $this->ipn_payment_info );
 				$this->maybe_update_subscription( 'delete', $data_array );
 				break;
 			
@@ -441,12 +475,8 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				$util->log( "Customer subscription/recurring billing plan was added" );
 				$this->maybe_update_subscription( 'add', $data_array );
 				break;
+			
 			/*
-			case 'source.failed': //Payment source failed!
-				$util->log( "Payement by customer's payment source failed" );
-				$this->maybe_send_payment_failure_message( $data_array );
-				break;
-				
 			case 'invoice.upcoming':
 				$util->log( "The customer has an upcoming invoice" );
 				// An invoice is about to be charged in X days (default: 7 days) (options: 3, 7, 15, 30, 45 days)
@@ -480,25 +510,17 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		$util = Utilities::get_instance();
 		$util->log( "Dumping subscription related event data (for: {$operation}) -> " . print_r( $data, true ) );
 		
-		if ( isset( $data->object->object ) && 'subscription' !== $data->object->object ) {
-			$util->log( "Not a subscription object! Exiting" );
+		if ( empty( $this->ipn_payment_info['subscription_id'] ) ) {
+			$util->log( "Not a subscription! Exiting" );
 			
 			return false;
 		}
 		
-		$subscription = $data->object;
-		$customer_id  = isset( $subscription->customer ) ? $subscription->customer : null;
+		$customer_id = isset( $this->ipn_customer['payer_customer_id'] ) ? $this->ipn_customer['payer_customer_id'] : null;
 		
 		if ( ! empty( $customer_id ) ) {
 			
-			try {
-				$customer = Customer::retrieve( $customer_id );
-				$user     = get_user_by( 'email', $customer->email );
-			} catch ( \Exception $e ) {
-				$util->log( "Error fetching customer data from Stripe.com: " . $e->getMessage() );
-				
-				return false;
-			}
+			$user = get_user_by( 'email', $this->ipn_customer['payer_email'] );
 		}
 		
 		if ( empty( $user ) ) {
@@ -507,43 +529,50 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			return false;
 		}
 		
+		/**
+		 * Remove local Payment Warning data for PayPal gateway and user
+		 */
 		if ( 'delete' === $operation ) {
-			$util->log( "Will be removing subscription data for {$subscription->id}/{$customer_id}/{$user->user_email}" );
+			$util->log( "Will be removing subscription data for {$this->ipn_payment_info['subscription_id']}/{$customer_id}/{$user->user_email}" );
 			
-			if ( false === User_Data::delete_subscription_record( $user->ID, $subscription->id ) ) {
-				$util->log( "Error deleting subscription record: {$subscription->id} for {$user->ID}" );
+			if ( false === User_Data::delete_subscription_record( $user->ID, $this->ipn_payment_info['subscription_id'] ) ) {
+				$util->log( "Error deleting subscription record: {$this->ipn_payment_info['subscription_id']} for {$user->ID}" );
+				return false;
 			}
 			
 			return true;
 		}
 		
+		/**
+		 * Add new subscription plan info from PayPal gateway as local Payment Warning data
+		 */
 		if ( 'add' === $operation ) {
 			
 			$util->log( "Wanting to add a new subscription for user {$customer_id}/{$user->ID}" );
 			
-			if ( ! empty( $customer ) && ! empty( $user ) && ! empty( $subscription ) ) {
+			if ( ! empty( $this->ipn_customer ) && ! empty( $user ) && ! empty( $this->ipn_customer ) ) {
 				
-				$util->log( "Adding local PMPro order for {$user->ID}/{$customer->id}" );
-				$user_info = $this->add_local_subscription_order( $customer, $user, $subscription );
+				$util->log( "Adding local PMPro order for {$user->ID}/{$this->ipn_customer['payer_customer_id']}" );
+				$user_info = $this->add_local_subscription_order( $this->ipn_customer, $user );
 				
-				$user_info->set_gw_subscription_id( $subscription->id );
-				$user_info->set_payment_currency( $subscription->items->data[0]->plan->currency );
+				$user_info->set_gw_subscription_id( $this->ipn_payment_info['subscription_id'] );
+				$user_info->set_payment_currency( $this->ipn_payment_info['currency'] );
 				
-				if ( empty( $subscription->cancel_at_period_end ) && empty( $subscription->cancelled_at ) && in_array( $subscription->status, array(
+				if ( ! empty( $this->ipn_payment_info['next_payment_date'] ) && in_array( $this->ipn_payment_info['status'], array(
 						'trialing',
 						'active',
 					) )
 				) {
-					$util->log( "Setting payment status to 'active' for {$customer->id}" );
+					$util->log( "Setting payment status to 'active' for {$this->ipn_customer['payer_customer_id']}" );
 					$user_info->set_payment_status( 'active' );
 				}
 				
-				if ( ! empty( $subscription->cancel_at_period_end ) || ! empty( $subscription->cancelled_at ) || ! in_array( $subscription->status, array(
+				if ( empty( $this->ipn_payment_info['next_payment_date'] ) || ! in_array( $this->ipn_payment_info['status'], array(
 						'trialing',
 						'active',
 					) )
 				) {
-					$util->log( "Setting payment status to 'stopped' for {$customer->id}" );
+					$util->log( "Setting payment status to 'stopped' for {$this->ipn_customer['payer_customer_id']}" );
 					$user_info->set_payment_status( 'stopped' );
 				}
 				
@@ -551,49 +580,40 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				if ( $user_info->get_payment_status() === 'active' ) {
 					
 					// Get the date when the currently paid for period ends.
-					$current_payment_until = date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end );
+					$current_payment_until = date( 'Y-m-d 23:59:59', ( $this->get_pp_time_as_seconds( $this->ipn_payment_info['next_payment_date'] ) - 1 ) );
 					$user_info->set_end_of_paymentperiod( $current_payment_until );
 					$util->log( "End of the current payment period: {$current_payment_until}" );
 					
 					// Add a day (first day of new payment period)
-					$payment_next = date_i18n( 'Y-m-d H:i:s', ( $subscription->current_period_end + 1 ) );
+					$payment_next = date( 'Y-m-d H:i:s', $this->get_pp_time_as_seconds( $this->ipn_payment_info['next_payment_date'] ) );
 					
 					$user_info->set_next_payment( $payment_next );
 					$util->log( "Next payment on: {$payment_next}" );
 					
-					global $pmpro_currencies;
-					$plan_currency = ! empty( $subscription->plan->currency ) ? strtoupper( $subscription->plan->currency ) : 'USD';
+					$plan_currency = ! empty( $this->ipn_payment_info['currency'] ) ? strtoupper( $this->ipn_payment_info['currency'] ) : 'USD';
 					$user_info->set_payment_currency( $plan_currency );
 					
 					$util->log( "Payments are made in: {$plan_currency}" );
-					$has_decimals = true;
-					
-					if ( isset( $pmpro_currencies[ $plan_currency ]['decimals'] ) ) {
-						
-						// Is this for a no-decimal currency?
-						if ( 0 === $pmpro_currencies[ $plan_currency ]['decimals'] ) {
-							$util->log( "The specified currency ({$plan_currency}) doesn't use decimal points" );
-							$has_decimals = false;
-						}
-					}
 					
 					// Get the amount & cast it to a floating point value
-					$amount = number_format_i18n( ( (float) ( $has_decimals ? ( $subscription->plan->amount / 100 ) : $subscription->plan->amount ) ), ( $has_decimals ? 2 : 0 ) );
+					$amount = number_format_i18n( ( (float) $this->ipn_payment_info['amount'] ) );
 					$user_info->set_next_payment_amount( $amount );
 					$util->log( "Next payment of {$plan_currency} {$amount} will be charged within 24 hours of {$payment_next}" );
 					
 					$user_info->set_reminder_type( 'recurring' );
+					$user_info->set_active_subscription( true );
 				} else {
 					
-					$util->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
+					// TODO: Fix the end of the subscription period setting(s)
+					// $util->log( "Subscription payment plan is going to end after: " . date_i18n( 'Y-m-d 23:59:59', $subscription->current_period_end + 1 ) );
 					$user_info->set_subscription_end();
+					$user_info->set_active_subscription( false );
 				}
 				
-				$user_info->set_active_subscription( true );
 				$util->log( "Attempting to load credit card (payment method) info from gateway" );
 				
 				// Trigger handler for credit card data
-				$user_info = $this->process_credit_card_info( $user_info, $customer->sources->data, $this->gateway_name );
+				$user_info = $this->process_credit_card_info( $user_info, $this->ipn_cc_info, $this->gateway_name );
 				
 				$user_info->save_to_db();
 				
@@ -601,8 +621,14 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			}
 		}
 		
+		/**
+		 * Update subscription plan info from PayPal gateway as local Payment Warning data
+		 */
 		if ( 'update' === $operation ) {
-		
+			$util->log("Don't know how to handle a PayPal IPN request to update the subscription yet!");
+			$util->log("Payment info: " . print_r( $this->ipn_payment_info, true ) );
+			$util->log("Payer info: " . print_r( $this->ipn_customer, true ) );
+			$util->log("Payment Method info: " . print_r( $this->ipn_cc_info, true ) );
 		}
 		
 		
@@ -614,26 +640,28 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 *
 	 * @param array    $payer
 	 * @param \WP_User $user
-	 * @param array    $subscription
 	 *
 	 * @return User_Data
 	 */
-	public function add_local_subscription_order( $payer, $user, $subscription ) {
+	public function add_local_subscription_order( $payer, $user ) {
 		
 		$util = Utilities::get_instance();
 		
 		$order = new \MemberOrder();
 		
-		$order->getLastMemberOrderBySubscriptionTransactionID( $subscription->id );
+		$current_gateway_type = $this->load_option( 'primary_service' );
+		$paypal_gateway = $this->get_paypal_gateway( $current_gateway_type );
+		
+		/** Get selected PayPal Gateway type from Payment Warnings settings */
+		$order->setGateway( $paypal_gateway );
+		$order->gateway_environment = pmpro_getOption( "gateway_environment" );
+		
+		$order->getLastMemberOrderBySubscriptionTransactionID( $this->ipn_payment_info['subscription_id'] );
 		
 		// Add a new order record to local system if needed
 		if ( empty( $order->user_id ) ) {
 			
 			$order->getEmptyMemberOrder();
-			
-			$order->setGateway( 'stripe' );
-			$order->gateway_environment = pmpro_getOption( "gateway_environment" );
-			
 			$order->user_id = $user->ID;
 			
 			// Set the current level info if needed
@@ -645,42 +673,27 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			
 			$order->membership_id               = isset( $user->membership_level->id ) ? $user->membership_level->id : 0;
 			$order->membership_name             = isset( $user->membership_level->name ) ? $user->membership_level->name : null;
-			$order->subscription_transaction_id = $subscription->id;
+			$order->subscription_transaction_id = $this->ipn_payment_info['subscription_id'];
 			
 			// No initial payment info found...
 			$order->InitialPayment = 0;
 			
-			if ( isset( $subscription->items ) ) {
+			if ( !empty( $this->ipn_payment_info['subscription_id'] ) ) {
 				
 				// Process the subscription plan(s)
 				global $pmpro_currencies;
-				if ( count( $subscription->items->data ) <= 1 ) {
-					
 					$util->log( "One or less Plans for the Subscription" );
-					$plan = $subscription->items->data[0]->plan;
 					
-					$currency        = $pmpro_currencies[ strtoupper( $plan->currency ) ];
-					$decimal_divisor = 100;
-					$decimals        = 2;
-					
-					if ( isset( $currency['decimals'] ) ) {
-						$decimals = $currency['decimals'];
-					}
-					
-					$decimal_divisor = intval( sprintf( "1'%0{$decimals}d", $decimal_divisor ) );
-					$util->log( "Using decimal divisor of: {$decimal_divisor}" );
-					
-					$order->PaymentAmount    = floatval( $plan->amount / $decimal_divisor );
-					$order->BillingPeriod    = ucfirst( $plan->interval );
-					$order->BillingFrequency = intval( $plan->interval_count );
-					$order->ProfileStartDate = date_i18n( 'Y-m-d H:i:s', $plan->created );
+				$order->PaymentAmount    = floatval( $this->ipn_payment_info['amount'] );
+				$order->BillingPeriod    = ucfirst( $this->ipn_payment_info['billing_period']  );
+				$order->BillingFrequency = intval( $this->ipn_payment_info['billing_interval'] );
+				$order->ProfileStartDate = date( 'Y-m-d H:i:s', $this->get_pp_time_as_seconds( $this->ipn_payment_info['created']) );
 					
 					$order->status = 'success';
 				}
-			}
 			
 			
-			$order->billing   = $this->get_billing_info( $stripe_customer );
+			$order->billing   = $this->get_billing_info( $this->ipn_customer );
 			$order->FirstName = $user->first_name;
 			$order->LastName  = $user->last_name;
 			$order->Email     = $user->user_email;
@@ -693,10 +706,10 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			$order->PhoneNumber = null;
 			
 			// Card data
-			$order->cardtype        = $stripe_customer->sources->data[0]->brand;
-			$order->accountnumber   = hideCardNumber( $stripe_customer->sources->data[0]->last4 );
-			$order->expirationmonth = $stripe_customer->sources->data[0]->exp_month;
-			$order->expirationyear  = $stripe_customer->sources->data[0]->exp_year;
+			$order->cardtype        = $this->ipn_cc_info['brand'];
+			$order->accountnumber   = hideCardNumber( $this->ipn_cc_info['last4'] );
+			$order->expirationmonth = $this->ipn_cc_info['exp_month'];
+			$order->expirationyear  = $this->ipn_cc_info['exp_year'];
 			
 			// Custom card expiration info
 			$order->ExpirationDate        = "{$order->expirationmonth}{$order->expirationyear}";
@@ -722,7 +735,40 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 */
 	public function get_billing_info( $customer ) {
 		
-		return ( (object) $customer['billing'] );
+		return ( (object) $this->ipn_customer );
+	}
+	
+	/**
+	 * Convert PayPal's Zulu time to local timezone (using seconds since epoch)
+	 *
+	 * @param string $time
+	 *
+	 * @return null|int
+	 */
+	private function get_pp_time_as_seconds( $time ) {
+		
+		$utils           = Utilities::get_instance();
+		$payment_next_ts = null;
+		
+		try {
+			
+			$next_payment_time = new \DateTime( $time, new \DateTimeZone( 'GMT' ) );
+			
+			$utils->log( "Time as fetched from PayPal: " . $next_payment_time->format( 'U' ) );
+			$tz_string = get_option( 'timezone_string', 'GMT' );
+			
+			$utils->log( "Local timezone is configured as: {$tz_string}" );
+			$next_payment_time->setTimezone( new \DateTimeZone( $tz_string ) );
+			
+			$utils->log( "Time as converted to {$tz_string}: " . $next_payment_time->format( 'Y-m-d H:i:s' ) );
+			$payment_next_ts = strtotime( $next_payment_time->format( 'Y-m-d H:i:s' ), current_time( 'timestamp' ) );
+			$utils->log( "In seconds as converted to {$tz_string}: {$payment_next_ts}" );
+			
+		} catch ( \Exception $exception ) {
+			$utils->log( "Error creating time object for {$time}: " . $exception->getMessage() );
+		}
+		
+		return $payment_next_ts;
 	}
 	
 	/**
@@ -731,6 +777,8 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	public function maybe_send_payment_failure_message( $data ) {
 		$util = Utilities::get_instance();
 		$util->log( "Dumping Payment failure data from PayPal: " . print_r( $data, true ) );
+		
+		return;
 	}
 	
 	/**
@@ -772,7 +820,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 * Configure the subscription information for the user data for the current Payment Gateway
 	 *
 	 * @param User_Data|bool $user_data The User_Data record to process for
-	 * @param string $addon - The name of the add-on being called by the cron job
+	 * @param string         $addon     - The name of the add-on being called by the cron job
 	 *
 	 * @return bool|User_Data
 	 */
@@ -808,7 +856,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			return false;
 		}
 		
-		$pmpro_order = $user_data->get_last_pmpro_order();
+		$pmpro_order    = $user_data->get_last_pmpro_order();
 		$transaction_id = isset( $pmpro_order->payment_transaction_id ) ? $pmpro_order->payment_transaction_id : null;
 		
 		if ( empty( $transaction_id ) ) {
@@ -831,17 +879,15 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				
 				$utils->log( "Accessing PayPal API service for {$cust_id}" );
 				
-				// $subscription = $this->gateway->TransactionSearch( $find_trans );
 				/**
 				 * @var GetRecurringPaymentsProfileDetailsResponseType $response
 				 */
-				$response     = $this->gateway->GetRecurringPaymentsProfileDetails( $find_recurring );
+				$response = $this->gateway->GetRecurringPaymentsProfileDetails( $find_recurring );
+				
 				/**
 				 * @var GetRecurringPaymentsProfileDetailsResponseDetailsType $subscription
 				 */
 				$subscription = $response->GetRecurringPaymentsProfileDetailsResponseDetails;
-				
-				$utils->log( "Subscription data from PayPal: " . print_r( $subscription, true ) );
 				
 			} catch ( \Exception $exception ) {
 				
@@ -989,39 +1035,6 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Convert PayPal's Zulu time to local timezone (using seconds since epoch)
-	 *
-	 * @param string $time
-	 *
-	 * @return null|int
-	 */
-	private function get_pp_time_as_seconds( $time ) {
-		
-		$utils           = Utilities::get_instance();
-		$payment_next_ts = null;
-		
-		try {
-			
-			$next_payment_time = new \DateTime( $time, new \DateTimeZone( 'GMT' ) );
-			
-			$utils->log( "Time as fetched from PayPal: " . $next_payment_time->format( 'U' ) );
-			$tz_string = get_option( 'timezone_string', 'GMT' );
-			
-			$utils->log( "Local timezone is configured as: {$tz_string}" );
-			$next_payment_time->setTimezone( new \DateTimeZone( $tz_string ) );
-			
-			$utils->log( "Time as converted to {$tz_string}: " . $next_payment_time->format( 'Y-m-d H:i:s' ) );
-			$payment_next_ts = strtotime( $next_payment_time->format( 'Y-m-d H:i:s' ), current_time( 'timestamp' ) );
-			$utils->log( "In seconds as converted to {$tz_string}: {$payment_next_ts}" );
-			
-		} catch ( \Exception $exception ) {
-			$utils->log( "Error creating time object for {$time}: " . $exception->getMessage() );
-		}
-		
-		return $payment_next_ts;
-	}
-	
-	/**
 	 * Filter handler for upstream user Credit Card data...
 	 *
 	 * @filter e20r_pw_addon_process_cc_info
@@ -1145,8 +1158,6 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				 * @var PaymentTransactionType $charge
 				 */
 				$charge = $transaction_data->PaymentTransactionDetails;
-				
-				$utils->log( "Transaction from PayPal related to {$transaction_id}" . print_r( $charge, true ) );
 				
 			} catch ( \Exception $exception ) {
 				
@@ -1462,11 +1473,12 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 						'label'           => __( "PayPal Service used", Payment_Warning::plugin_slug ),
 						'render_callback' => array( $this, 'render_select' ),
 					),
-					array(
+					/* array(
 						'id'              => 'deactivation_reset',
 						'label'           => __( "Clean up on Deactivate", Payment_Warning::plugin_slug ),
 						'render_callback' => array( $this, 'render_cleanup' ),
 					),
+					*/
 				),
 			),
 		);
@@ -1547,30 +1559,56 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		        id="<?php esc_attr_e( $this->option_name ); ?>_primary_service">
 			<option value="0" <?php selected( $primary_service_id, 0 ); ?>>
 				<?php _e( 'Not selected', Payment_Warning::plugin_slug ); ?>
-			</option>
+			</option><?php
+			
+			// Process all of the defined paypal gateway(s)
+			foreach ( $this->get_paypal_gateway() as $service_id => $settings ) { ?>
 			<option
-				value="<?php esc_attr_e( self::E20R_PW_PAYPAL_EXPRESS ); ?>" <?php selected( $primary_service_id, self::E20R_PW_PAYPAL_EXPRESS ); ?>>
-				<?php _e( 'PayPal Express', Payment_Warning::plugin_slug ); ?>
+					value="<?php esc_attr_e( $service_id ); ?>" <?php selected( $primary_service_id, $service_id ); ?>>
+					<?php esc_html_e( $settings['label'] ); ?>
 			</option>
-			<option
-				value="<?php esc_attr_e( self::E20R_PW_PAYPAL_STANDARD ); ?>" <?php selected( $primary_service_id, self::E20R_PW_PAYPAL_STANDARD ); ?>>
-				<?php _e( 'PayPal Standard', Payment_Warning::plugin_slug ); ?>
-			</option>
-			<option
-				value="<?php esc_attr_e( self::E20R_PW_PAYPAL_PAYMENTSPRO ); ?>" <?php selected( $primary_service_id, self::E20R_PW_PAYPAL_PAYMENTSPRO ); ?>>
-				<?php _e( 'PayPal Payments Pro', Payment_Warning::plugin_slug ); ?>
-			</option>
-			<option
-				value="<?php esc_attr_e( self::E20R_PW_PAYPAL_PAYFLOWPRO ); ?>" <?php selected( $primary_service_id, self::E20R_PW_PAYPAL_PAYFLOWPRO ); ?>>
-				<?php _e( 'PayPal PayFlow Pro', Payment_Warning::plugin_slug ); ?>
-			</option>
-			<option
-				value="<?php esc_attr_e( self::E20R_PW_PAYPAL_BRAINTREE ); ?>" <?php selected( $primary_service_id, self::E20R_PW_PAYPAL_BRAINTREE ); ?>>
-				<?php _e( 'PayPal/Braintree', Payment_Warning::plugin_slug ); ?>
-			</option>
+				<?php
+			} ?>
 		
 		</select>
 		<?php
+	}
+	
+	/**
+	 * Return the PayPal gateway type info
+	 *
+	 * @param null|int $type
+	 *
+	 * @return array
+	 */
+	private function get_paypal_gateway( $type = null ) {
+		
+		$paypal_types = apply_filters( 'e20r-payment-warning-available-paypal-gateways', array(
+				self::E20R_PW_PAYPAL_EXPRESS     => array(
+					'label'        => __( 'PayPal Express', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'paypalexpress',
+				),
+				self::E20R_PW_PAYPAL_PAYFLOWPRO  => array(
+					'label'        => __( 'PayFlow Pro', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'payflowpro',
+				),
+				self::E20R_PW_PAYPAL_PAYMENTSPRO => array( 'label'        => __( 'PayPal Payments Pro', Payment_Warning::plugin_slug ),
+				                                           'gateway_name' => 'paypal',
+				),
+				self::E20R_PW_PAYPAL_STANDARD    => array( 'label'        => __( 'PayPal Standard', Payment_Warning::plugin_slug ),
+				                                           'gateway_name' => 'paypalstandard',
+				),
+				self::E20R_PW_PAYPAL_BRAINTREE   => array( 'label'        => __( 'PayPal/Braintree', Payment_Warning::plugin_slug ),
+				                                           'gateway_name' => 'braintree',
+				),
+			)
+		);
+		
+		if ( empty( $type ) ) {
+			return $paypal_types;
+		} else {
+			return $paypal_types[ $type ];
+		}
 	}
 }
 
