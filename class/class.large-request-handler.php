@@ -19,6 +19,7 @@
 
 namespace E20R\Payment_Warning;
 
+use E20R\Payment_Warning\Tools\Global_Settings;
 use E20R\Utilities\E20R_Background_Process;
 use E20R\Utilities\Utilities;
 
@@ -93,7 +94,7 @@ class Large_Request_Handler extends E20R_Background_Process {
 		foreach ( $data['dataset'] as $user_data ) {
 			
 			$util->log( "Check if we need to process for {$data['type']}" );
-			$is_active = $main->load_options( $data['type'] );
+			$is_active = Global_Settings::load_options( $data['type'] );
 			
 			$util->log( "Is {$data['type']} enabled? " . ( $is_active ? 'Yes' : 'No' ) );
 			if ( true == $is_active ) {

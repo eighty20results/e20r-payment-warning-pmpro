@@ -19,7 +19,7 @@
 
 namespace E20R\Payment_Warning;
 
-
+use E20R\Payment_Warning\Tools\Global_Settings;
 use E20R\Utilities\Cache;
 use E20R\Utilities\Utilities;
 
@@ -77,7 +77,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				return false;
 			}
 			
-			if ( false === ( $run_gateway_fetch = (bool) $main->load_options( 'enable_gateway_fetch' ) ) ) {
+			if ( false === ( $run_gateway_fetch = (bool) Global_Settings::load_options( 'enable_gateway_fetch' ) ) ) {
 				
 				$util->log( "User has not enabled subscription download!" );
 				
@@ -197,7 +197,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				return;
 			}
 			
-			if ( false === ( $run_gateway_fetch = (bool) $main->load_options( 'enable_gateway_fetch' ) ) ) {
+			if ( false === ( $run_gateway_fetch = (bool) Global_Settings::load_options( 'enable_gateway_fetch' ) ) ) {
 				
 				$util->log( "User has not enabled payment download!" );
 				

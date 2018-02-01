@@ -19,6 +19,7 @@
 
 namespace E20R\Payment_Warning;
 
+use E20R\Payment_Warning\Tools\Global_Settings;
 use E20R\Utilities\Utilities;
 use DateTime;
 
@@ -1494,8 +1495,7 @@ class User_Data {
 	 */
 	public static function delete_db_tables() {
 		
-		$plugin     = Payment_Warning::get_instance();
-		$deactivate = $plugin->load_options( 'deactivation_reset' );
+		$deactivate = Global_Settings::load_options( 'deactivation_reset' );
 		
 		if ( true == $deactivate ) {
 			
