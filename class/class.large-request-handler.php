@@ -54,9 +54,6 @@ class Large_Request_Handler extends E20R_Background_Process {
 		
 		$this->action = "lhr_{$handle}";
 		
-		$util = Utilities::get_instance();
-		$util->log( "Set Action variable to {$this->action} for the Large_Request_Handler" );
-		
 		parent::__construct();
 	}
 	

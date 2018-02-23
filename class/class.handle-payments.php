@@ -58,13 +58,9 @@ class Handle_Payments extends E20R_Background_Process {
 	 */
 	public function __construct( $type ) {
 		
-		$util = Utilities::get_instance();
-		$util->log( "Instantiated Handle_Payments for {$type} class" );
-		
 		self::$instance = $this;
 		$this->type     = $type;
 		$this->action   = "hp_{$this->type}_paym";
-		$util->log( "Set Action variable to {$this->action} for Handle_Payments" );
 		
 		parent::__construct();
 	}

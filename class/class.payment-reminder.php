@@ -70,7 +70,7 @@ class Payment_Reminder {
 		
 		$reminder = Reminder_Editor::get_instance();
 		
-		$this->settings = $this->get_template_by_name( $this->template_name, false );
+		$this->settings = $reminder->get_template_by_name( $this->template_name, false );
 		$this->schedule = $this->settings['schedule'];
 		
 		return $this->schedule;

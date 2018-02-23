@@ -101,13 +101,18 @@ class Reminder_Editor extends Email_Notice {
 		
 		$utils = Utilities::get_instance();
 		
+		add_action( 'init', array( $this, 'install_taxonomy' ), 99 );
+		
+		if ( ! is_user_logged_in() && false === wp_doing_cron() ) {
+			$utils->log("No loading Reminder_Editor hooks");
+			return;
+		}
+		
 		parent::load_hooks();
 		
 		$utils->log( "Loading Payment Warning Notice email-notice functionality" );
 		
 		add_filter( 'e20r-email-notice-variable-help', array( $this, 'variable_help' ), 10, 2 );
-		
-		add_action( 'init', array( $this, 'install_taxonomy' ), 99 );
 		
 		add_action( 'wp_ajax_e20r_util_save_template', array( $this, 'save_template' ) );
 		add_action( 'wp_ajax_e20r_util_reset_template', array( $this, 'reset_template' ) );

@@ -53,14 +53,9 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 */
 	public function __construct( $type ) {
 		
-		$util = Utilities::get_instance();
-		$util->log( "Instantiated {$type} Handle_Subscriptions class" );
-		
 		self::$instance = $this;
 		$this->type     = strtolower( $type );
 		$this->action   = "hs_{$this->type}_subscr";
-		
-		$util->log( "Set Action variable to {$this->action} for Handle_Subscriptions" );
 		
 		// Required: Run the parent class constructor
 		parent::__construct();

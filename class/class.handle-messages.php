@@ -49,9 +49,6 @@ class Handle_Messages extends E20R_Background_Process {
 	 */
 	public function __construct( $type ) {
 		
-		$util = Utilities::get_instance();
-		$util->log( "Instantiated Handle_Messages class for {$type}" );
-		
 		self::$instance = $this;
 		$this->type     = strtolower( $type );
 		$this->action   = "email_{$this->type}";
