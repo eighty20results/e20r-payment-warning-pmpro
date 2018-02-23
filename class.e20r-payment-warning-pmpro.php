@@ -295,7 +295,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				/**
 				 * @since 3.8 - ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
 				 */
-				if ( true === wp_doing_cron() ) {
+				if ( true === wp_doing_cron() || Utilities::is_admin()) {
 					
 					add_action( 'e20r_pw_addon_activating_core', array(
 						Cron_Handler::get_instance(),
