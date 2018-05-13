@@ -3,8 +3,8 @@ E20R Payment Warning for PMPro
     Contributors: eighty20results
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
-    Tested up to: 4.9.2
-    Stable tag: 3.7
+    Tested up to: 4.9.6
+    Stable tag: 3.8.1
 
 
 Generates and sends notices to active members for the supported membership plugin. The plugin will notify active members about any upcoming recurring payments, membership expirations and of any upcoming credit card expiration dates so the user can be informed and take action. The plugin receives its data directly from the supported payment gateways. This makes this plugin far more reliable and consistent in actually transmitting warnings/notices to your members.
@@ -76,9 +76,17 @@ Each payment warning message type has its own list of variables you can use, and
 
 ### Is this plugin PCI-DSS compliant?
 
-In short; Yes. 
+In short; It depends...
 
-This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so they can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed. 
+This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so they can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed.
+
+Whether something is genuinely "compliant" with a requirement depends on whether it's solely in control of the environment. In this case, we're running as a plug-in for a WordPress based website. We do what we can to not violate the PCI-DSS requirements, but ultimately this plugin isn't in control of whether or not your site is PCI-DSS compliant.
+
+### Is this plugin GDPR compliant
+
+First of all, see the PCI-DSS compliance question about when it comes to the caveat of whether or not this plugin can claim GDPR compliance.
+
+That said, we're not able to provide your users with a list of data that is stored by this plugin, nor can we currently delete the information if they ask you to. So, if you are in a location where GDPR is a hard requirement for your customers, you may want to wait for version 4.0 of this plugin before you install it.
 
 ### What data does the plugin save (from the payment gateway)?
 
@@ -122,6 +130,35 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v3.8.1
+
+* ENHANCEMENT: Updated Utilities infrastructure to prepare for version 4.0 with GDPR support
+
+###v3.8
+
+* ENHANCEMENT: Added has_licensed_gateway() method
+* ENHANCEMENT: Added a standard gateway module
+* ENHANCEMENT: Refactored settings to Global_Settings class
+* ENHANCEMENT: Refactored WP Settings page for Payment Warnings to own class (Global_Settings)
+* ENHANCEMENT: Made load_options a static function for Global_Settings
+* ENHANCEMENT: Refactored membership plugin specific setting handlers
+* ENHANCEMENT: Refactored Membership module level settings
+* ENHANCEMENT: Fixed PHPDoc blocks for Global_Settings
+* ENHANCEMENT: Add new Stripe API versions to list
+* ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
+* ENHANCEMENT: Limit activity when not logged in or executing the CRON jobs
+* ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
+* ENHANCEMENT: Only load certain actions if we're exclusively loading the WP backend
+* ENHANCEMENT: Updated Utilities module (now includes a custom is_admin() method and stub for Support)
+* ENHANCEMENT: Always load the remote webhook/silent post/IPN handler functions for the plugin
+* ENHANCEMENT: Removed unneeded DEBUG output
+* ENHANCEMENT: Don't load hooks for Reminder Editor unless user is logged in or we're executing a Cron job
+* BUG FIX: Fatal error in Payment_Reminder::load_schedule() method
+* BUG FIX: Need to load Cron job handlers when in wp-admin
+* BUG FIX: Changed all non-static calls to load_options() to Global_Settings::load_options()
+* BUG FIX: Attempted to load unneded actions/filters in Global_Settings
+* BUG FIX: Didn't use the Global_Settings::load_admin_settings() method for the admin_menu action
 
 ###v3.7
 

@@ -1,8 +1,1 @@
-BUG FIX: Incorrect class type for try/catch operations in Stripe.com gateway add-on
-BUG FIX: Incorrect class type for try/catch operations in Check gateway add-on
-ENHANCEMENT: Implemented IPN handler for locally cached PayPal gateway data
-ENHANCEMENT: Added default Credit Card fields for PayPal IPN data
-ENHANCEMENT: Added new Stripe API version (2018-01-23)
-ENHANCEMENT: Only remove records if we're configured to do so
-BUG FIX: Didn't properly complete a license status check & post/send warnings to admin
-BUG FIX: Don't load webhook handler if there isn't one defined for the add-on
+ENHANCEMENT: Updated Utilities infrastructure to prepare for version 4.0 with GDPR support

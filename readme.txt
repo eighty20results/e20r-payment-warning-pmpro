@@ -2,8 +2,8 @@
 Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
-Tested up to: 4.9.2
-Stable tag: 3.7
+Tested up to: 4.9.6
+Stable tag: 3.8.1
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -72,9 +72,17 @@ Each payment warning message type has its own list of variables you can use, and
 
 === Is this plugin PCI-DSS compliant? ===
 
-In short; Yes.
+In short; It depends...
 
 This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so they can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed.
+
+Whether something is genuinely "compliant" with a requirement depends on whether it's solely in control of the environment. In this case, we're running as a plug-in for a WordPress based website. We do what we can to not violate the PCI-DSS requirements, but ultimately this plugin isn't in control of whether or not your site is PCI-DSS compliant.
+
+=== Is this plugin GDPR compliant ===
+
+First of all, see the PCI-DSS compliance question about when it comes to the caveat of whether or not this plugin can claim GDPR compliance.
+
+That said, we're not able to provide your users with a list of data that is stored by this plugin, nor can we currently delete the information if they ask you to. So, if you are in a location where GDPR is a hard requirement for your customers, you may want to wait for version 4.0 of this plugin before you install it.
 
 === What data does the plugin save (from the payment gateway)? ===
 
@@ -97,7 +105,6 @@ For members who's membership was paid with a one-time payment, we save;
 * when they paid it (date) and
 * when their membership is scheduled to end (if applicable).
 
-
 === How often does the plugin download data from the gateway? ===
 
 It depends on the membership level definitions, and to some extent the discount codes defined for the Membership plugin.
@@ -117,6 +124,35 @@ Adding more gateways is on the roadmap, but will require sponsorships. You can s
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v3.8.1 ==
+
+* ENHANCEMENT: Updated Utilities infrastructure to prepare for version 4.0 with GDPR support
+
+== v3.8 ==
+
+* ENHANCEMENT: Added has_licensed_gateway() method
+* ENHANCEMENT: Added a standard gateway module
+* ENHANCEMENT: Refactored settings to Global_Settings class
+* ENHANCEMENT: Refactored WP Settings page for Payment Warnings to own class (Global_Settings)
+* ENHANCEMENT: Made load_options a static function for Global_Settings
+* ENHANCEMENT: Refactored membership plugin specific setting handlers
+* ENHANCEMENT: Refactored Membership module level settings
+* ENHANCEMENT: Fixed PHPDoc blocks for Global_Settings
+* ENHANCEMENT: Add new Stripe API versions to list
+* ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
+* ENHANCEMENT: Limit activity when not logged in or executing the CRON jobs
+* ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
+* ENHANCEMENT: Only load certain actions if we're exclusively loading the WP backend
+* ENHANCEMENT: Updated Utilities module (now includes a custom is_admin() method and stub for Support)
+* ENHANCEMENT: Always load the remote webhook/silent post/IPN handler functions for the plugin
+* ENHANCEMENT: Removed unneeded DEBUG output
+* ENHANCEMENT: Don't load hooks for Reminder Editor unless user is logged in or we're executing a Cron job
+* BUG FIX: Fatal error in Payment_Reminder::load_schedule() method
+* BUG FIX: Need to load Cron job handlers when in wp-admin
+* BUG FIX: Changed all non-static calls to load_options() to Global_Settings::load_options()
+* BUG FIX: Attempted to load unneded actions/filters in Global_Settings
+* BUG FIX: Didn't use the Global_Settings::load_admin_settings() method for the admin_menu action
 
 == v3.7 ==
 
