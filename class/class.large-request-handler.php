@@ -96,12 +96,12 @@ class Large_Request_Handler extends E20R_Background_Process {
 			$util->log( "Is {$data['type']} enabled? " . ( $is_active ? 'Yes' : 'No' ) );
 			if ( true == $is_active ) {
 				
-				$util->log( "Adding remote data processing for " . $user_data->get_user_ID() );
+				$util->log( "Adding remote data processing for " . $user_data->get_user_ID() . " to handler: " . $data['task_handler']->get_action() );
 				$data['task_handler']->push_to_queue( $user_data );
 			}
 		}
 		
-		$util->log( "Dispatch the data processing background job" );
+		$util->log( "Dispatch the data processing background job in handler: " . $data['task_handler']->get_action() );
 		$data['task_handler']->save()->dispatch();
 		
 		return false;
