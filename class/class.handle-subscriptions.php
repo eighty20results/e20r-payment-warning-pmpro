@@ -92,8 +92,6 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	protected function task( $user_data ) {
 		
 		$util = Utilities::get_instance();
-		$main   = Payment_Warning::get_instance();
-		
 		$util->log( "Trigger per-addon subscription download for user" );
 		
 		if ( !empty( $user_data ) && ! is_bool( $user_data )) {
