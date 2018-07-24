@@ -87,7 +87,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway for {$addon_name}" );
 			do_action( 'e20r_pw_addon_load_gateway', $addon_name );
 			
-			$util->log( "Grab all active PMPro Members" );
+			$util->log( "Grab all active PMPro Members configured with recurring payments" );
 			$this->active_members = array();
 			
 			/**
@@ -107,7 +107,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$data_count = count( $this->active_members );
 			
-			$util->log( "Process subscription data for {$data_count} active members" );
+			$util->log( "Process subscription data for {$data_count} active recurring members" );
 			
 			$handler = $main->get_handler( 'lhr_subscriptions' );
 			
@@ -138,7 +138,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$util->log( "Added data set # {$i} to subscription request dispatcher: " . $data['task_handler']->get_action() );
 				}
 				
-				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
+				$util->log( "Saving and dispatching large number of subscription workstreams in separate requests" );
 				$handler->save()->dispatch();
 				update_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 1, 'no' );
 				
@@ -207,7 +207,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway', $addon_name );
 			
-			$util->log( "Grab all active Members WITHOUT a subscription plans" );
+			$util->log( "Grab all active Members WITHOUT a subscription plan" );
 			$this->active_members = array();
 			
 			/**
