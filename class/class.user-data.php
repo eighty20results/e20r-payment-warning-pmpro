@@ -327,7 +327,14 @@ class User_Data {
 		if ( ! empty( $order_id ) ) {
 			
 			$sql = $wpdb->prepare(
-				"SELECT * FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND last_order_id = %d AND reminder_type = %s ORDER BY ID DESC LIMIT 1",
+				"SELECT *
+							FROM {$this->user_info_table_name}
+							WHERE user_id = %d AND
+								level_id = %d AND
+								last_order_id = %d
+								AND reminder_type = %s
+							ORDER BY ID DESC
+							LIMIT 1",
 				$user_id,
 				$level_id,
 				$order_id,
@@ -337,7 +344,13 @@ class User_Data {
 		
 		if ( empty( $order_id ) ) {
 			$sql = $wpdb->prepare(
-				"SELECT * FROM {$this->user_info_table_name} WHERE user_id = %d AND level_id = %d AND reminder_type = %s ORDER BY ID DESC LIMIT 1",
+				"SELECT *
+							FROM {$this->user_info_table_name}
+							WHERE user_id = %d
+								AND level_id = %d
+								AND reminder_type = %s
+						ORDER BY ID DESC
+						LIMIT 1",
 				$user_id,
 				$level_id,
 				$this->reminder_type
@@ -978,7 +991,8 @@ class User_Data {
 			}
 		}
 		
-		$util->log( "Returning {$this->next_payment_date} for subscription {$subscription_id}" );
+		$payment_date = ( empty( $this->next_payment_date ) ? 'null' : $this->next_payment_date );
+		$util->log( "Returning {$payment_date} for subscription (ID: {$subscription_id})" );
 		
 		return $this->next_payment_date;
 	}
