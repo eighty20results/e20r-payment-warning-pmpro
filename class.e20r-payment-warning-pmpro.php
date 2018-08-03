@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.8.1
+Version: 3.8.3
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '3.8.1' );
+	define( 'E20R_PW_VERSION', '3.8.3' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -200,7 +200,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				self::$instance = new self;
 				
 				// First thing to do on activation (Required for this plugin)
-				add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\User_Data::create_db_tables', - 1 );
+				add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\Tools\DB_Tables::create', - 1 );
 			}
 			
 			return self::$instance;
@@ -428,7 +428,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			// Last thing to do on deactivation (Required for this plugin)
-			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
+			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\Tools\DB_Tables::remove', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array(
 				Reminder_Editor::get_instance(),
 				'deactivate_plugin',
