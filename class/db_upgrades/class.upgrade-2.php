@@ -41,8 +41,33 @@ class Upgrade_2 {
 		$success = true;
 		
 		$sql = array();
-		$sql[] = "ALTER TABLE {$user_info_table} DROP COLUMN user_subscriptions";
-		$sql[] = "ALTER TABLE {$user_info_table} DROP COLUMN user_charges";
+		$sql[] = $wpdb->prepare( "SET @sql = (
+		SELECT IF(
+			(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = %s AND table_schema = %s AND column_name = %s) > 0,
+			\"SELECT 0\",
+			\"ALTER TABLE {$user_info_table} DROP COLUMN user_subscriptions;\"
+		))",
+			$user_info_table,
+			DB_NAME,
+			'user_subscriptions'
+		);
+		$sql[] = "PREPARE stmt FROM @sql";
+		$sql[] = "EXECUTE stmt";
+		$sql[] = "DEALLOCATE PREPARE stmt";
+		
+		$sql[] = $wpdb->prepare( "SET @sql = (
+		SELECT IF(
+			(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = %s AND table_schema = %s AND column_name = %s) > 0,
+			\"SELECT 0\",
+			\"ALTER TABLE {$user_info_table} DROP COLUMN user_charges;\"
+		))",
+			$user_info_table,
+			DB_NAME,
+			'user_charges'
+		);
+		$sql[] = "PREPARE stmt FROM @sql";
+		$sql[] = "EXECUTE stmt";
+		$sql[] = "DEALLOCATE PREPARE stmt";
 		
 		if ( $current_version < $e20rpw_db_version ) {
 			
