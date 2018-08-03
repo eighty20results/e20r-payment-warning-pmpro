@@ -138,6 +138,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$handler_name          = "process_{$type}";
 				$this->{$handler_name} = new Handle_Messages( $type );
 			}
+			
+			// First thing to do on activation (Required for this plugin)
+			add_action( 'e20r_pw_addon_activating_core', '\E20R\Payment_Warning\Tools\DB_Tables::create', -1 );
+			add_action( 'e20r_pw_addon_activating_core', array(
+				Cron_Handler::get_instance(),
+				'configure_cron_schedules',
+			), 10 );
 		}
 		
 		/**
@@ -198,9 +205,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			if ( is_null( self::$instance ) ) {
 				
 				self::$instance = new self;
-				
-				// First thing to do on activation (Required for this plugin)
-				add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\Tools\DB_Tables::create', - 1 );
 			}
 			
 			return self::$instance;
@@ -297,10 +301,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				 */
 				if ( true === wp_doing_cron() || Utilities::is_admin()) {
 					
-					add_action( 'e20r_pw_addon_activating_core', array(
-						Cron_Handler::get_instance(),
-						'configure_cron_schedules',
-					), 10 );
 					add_action( 'e20r_pw_addon_deactivating_core', array(
 						Cron_Handler::get_instance(),
 						'remove_cron_jobs',
@@ -428,7 +428,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			// Last thing to do on deactivation (Required for this plugin)
-			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\Tools\DB_Tables::remove', 9999, 1 );
+			add_action( 'e20r_pw_addon_deactivating_core', '\E20R\Payment_Warning\Tools\DB_Tables::remove', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array(
 				Reminder_Editor::get_instance(),
 				'deactivate_plugin',
@@ -934,7 +934,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$utils = Utilities::get_instance();
 			
-			$installed_ver = get_option( 'e20rpw_db_version', 1 );
+			$installed_ver = get_option( 'e20rpw_db_version', 0 );
 			
 			$upgraded = $this->load_db_upgrades();
 			
