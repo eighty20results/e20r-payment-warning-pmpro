@@ -24,7 +24,7 @@ use E20R\Utilities\Utilities;
 class DB_Tables {
 	
 	/**
-	 * Plugin activation hook function to create required User data tables
+	 * Plugin activation hook function to create required plugin data tables
 	 */
 	public static function create() {
 		
@@ -125,7 +125,7 @@ class DB_Tables {
 	}
 	
 	/**
-	 * Plugin deactivation hook function to remove user data tables
+	 * Plugin deactivation hook function to remove plugin data tables
 	 */
 	public static function remove() {
 		
