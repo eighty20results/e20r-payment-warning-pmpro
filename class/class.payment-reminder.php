@@ -53,9 +53,9 @@ class Payment_Reminder {
 			
 			$this->template_name = $template_key;
 			$this->load_schedule();
+			
+			add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), 1, 4 );
 		}
-		
-		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), - 1, 4 );
 	}
 	
 	/**
@@ -92,6 +92,29 @@ class Payment_Reminder {
 	
 	public function load_hooks() {
 	
+	}
+	
+	/**
+	 * Override send status when running in E20R_DEBUG_OVERRIDE mode
+	 *
+	 * @param $send
+	 * @param $comparison_date
+	 * @param $interval
+	 * @param $type
+	 *
+	 * @return bool
+	 */
+	public function send_reminder_override( $send, $comparison_date, $interval, $type ) {
+		
+		if ( true === $send ) {
+			return $send;
+		}
+		
+		if ( date( 'Y-m-d', strtotime( $comparison_date, current_time('timestamp') ) ) == date('Y-m-d', current_time('timestamp' ) ) ) {
+			return true;
+		}
+		
+		return false;
 	}
 	
 	/**
