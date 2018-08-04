@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,35 +19,88 @@
 
 namespace E20R\Payment_Warning\Tools;
 
-use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Email_Notice\Send_Email;
 use E20R\Utilities\Utilities;
 
+/**
+ * Class Email_Message
+ * @package E20R\Payment_Warning\Tools
+ */
 class Email_Message {
 	
+	/**
+	 * Instance of the Email_Message class (singleton)
+	 *
+	 * @var Email_Message|null
+	 */
 	private static $instance = null;
 	
+	/**
+	 * Name of the email template
+	 *
+	 * @var string
+	 */
 	private $template_name;
 	
+	/**
+	 * Template specific settings
+	 *
+	 * @var null|array
+	 */
 	private $template_settings;
 	
+	/**
+	 * User information used by Email_Message
+	 *
+	 * @var User_Data
+	 */
 	private $user_info;
 	
+	/**
+	 * Email subject
+	 *
+	 * @var null|string
+	 */
 	private $subject = null;
 	
+	/**
+	 * Current WordPress website name
+	 *
+	 * @var string|null
+	 */
 	private $site_name = null;
 	
+	/**
+	 * The email address for the site admin (configured on the WP "Settings" -> "General" page)
+	 * @var string|null
+	 */
 	private $site_email = null;
 	
+	/**
+	 * Link to the site's Login page
+	 * @var null|string
+	 */
 	private $login_link = null;
 	
+	/**
+	 * Link to the "Cancel membership" page for the site
+	 *
+	 * @var null|string
+	 */
 	private $cancel_link = null;
 	
+	/**
+	 * Email headers used by wp_mail()
+	 *
+	 * @var array
+	 */
 	private $headers = array();
 	
 	/**
+	 * The Class handling transmitting of the message
+	 *
 	 * @var null|Send_Email
 	 */
 	private $sender = null;
@@ -96,7 +149,7 @@ class Email_Message {
 		$this->sender          = new Send_Email();
 		$this->sender->user_id = $user_info->get_user_ID();
 		$this->sender->set_module( Payment_Warning::plugin_slug );
-		$this->sender->from    = apply_filters( 'e20r-email-notice-sender', $this->site_email );
+		$this->sender->from = apply_filters( 'e20r-email-notice-sender', $this->site_email );
 		
 		$util->log( "Instantiated for {$template_name}/{$type}: " . $user_info->get_user_ID() );
 	}
@@ -156,7 +209,7 @@ class Email_Message {
 			case 'recurring':
 				
 				$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
-				$variables['billing_address']        = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
+				$variables['billing_address']     = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 				$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
 				$variables['payment_date']        = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
@@ -171,8 +224,8 @@ class Email_Message {
 			
 			case 'ccexpiration':
 				
-				$variables['billing_address']  = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
-				$variables['saved_cc_info'] = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
+				$variables['billing_address'] = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
+				$variables['saved_cc_info']   = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 				
 				break;
 		}
@@ -369,110 +422,111 @@ class Email_Message {
 	 * @return array
 	 */
 	/**
-	public function configure_default_data( $template_type = null, $force = false ) {
-		
-		$util  = Utilities::get_instance();
-		$data  = array();
-		$level = null;
-		
-		global $pmpro_currency_symbol;
-		
-		$util->log( "Processing for {$template_type}" );
-		
-		if ( function_exists( 'pmpro_getLevel' ) ) {
-			$level = pmpro_getMembershipLevelForUser( $this->user_info->get_user_ID() );
-		}
-		
-		$level = apply_filters( 'e20r_pw_get_user_level', $level, $this->user_info );
-		
-		switch ( $template_type ) {
-			
-			case 'recurring':
-				
-				$data = array(
-					'name'                  => $this->user_info->get_user_name(),
-					'user_login'            => $this->user_info->get_user_login(),
-					'sitename'              => $this->site_name,
-					'membership_id'         => $this->user_info->get_membership_level_ID(),
-					'membership_level_name' => $this->user_info->get_level_name(),
-					'siteemail'             => $this->site_email,
-					'login_link'            => $this->login_link,
-					'display_name'          => $this->user_info->get_user_name(),
-					'user_email'            => $this->user_info->get_user_email(),
-					'currency'              => $pmpro_currency_symbol,
-				);
-				
-				$data['cancel_link']         = $this->cancel_link;
-				$data['billing_info']        = $this->sender->format_billing_address();
-				$data['saved_cc_info']       = $this->get_html_payment_info();
-				$next_payment                = $this->user_info->get_next_payment();
-				$data['next_payment_amount'] = $this->user_info->get_next_payment_amount();
-				
-				$util->log( "Using {$next_payment} as next payment date" );
-				$data['payment_date'] = ! empty( $next_payment ) ? date_i18n( get_option( 'date_format' ), strtotime( $next_payment, current_time( 'timestamp' ) ) ) : 'Not found';
-				
-				$enddate = $this->user_info->get_end_of_membership_date();
-				
-				if ( ! empty( $enddate ) ) {
-					$formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
-					$util->log( "Using {$formatted_date} as membership end date" );
-					$data['membership_ends'] = $formatted_date;
-				} else {
-					$data['membership_ends'] = 'N/A';
-				}
-				
-				break;
-			
-			case 'expiration':
-				
-				$data = array(
-					'name'                  => $this->user_info->get_user_name(),
-					'user_login'            => $this->user_info->get_user_login(),
-					'sitename'              => $this->site_name,
-					'membership_id'         => $this->user_info->get_membership_level_ID(),
-					'membership_level_name' => $this->user_info->get_level_name(),
-					'siteemail'             => $this->site_email,
-					'login_link'            => $this->login_link,
-					'display_name'          => $this->user_info->get_user_name(),
-					'user_email'            => $this->user_info->get_user_email(),
-					'currency'              => $pmpro_currency_symbol,
-				);
-				
-				$enddate = $this->user_info->get_end_of_membership_date();
-				
-				if ( ! empty( $enddate ) ) {
-					$formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
-					$util->log( "Using {$formatted_date} as membership end date" );
-					$data['membership_ends'] = $formatted_date;
-				} else {
-					$data['membership_ends'] = 'Not recorded';
-				}
-				
-				break;
-			
-			case 'ccexpiration':
-				$data = array(
-					'name'                  => $this->user_info->get_user_name(),
-					'user_login'            => $this->user_info->get_user_login(),
-					'sitename'              => $this->site_name,
-					'membership_id'         => $this->user_info->get_membership_level_ID(),
-					'membership_level_name' => $this->user_info->get_level_name(),
-					'siteemail'             => $this->site_email,
-					'login_link'            => $this->login_link,
-					'display_name'          => $this->user_info->get_user_name(),
-					'user_email'            => $this->user_info->get_user_email(),
-					'currency'              => $pmpro_currency_symbol,
-				);
-				
-				$data['billing_info']  = $this->sender->format_billing_address();
-				$data['saved_cc_info'] = $this->get_html_payment_info();
-				
-				break;
-		}
-		
-		return $data;
-	}
-	*/
+	 * public function configure_default_data( $template_type = null, $force = false ) {
+	 *
+	 * $util  = Utilities::get_instance();
+	 * $data  = array();
+	 * $level = null;
+	 *
+	 * global $pmpro_currency_symbol;
+	 *
+	 * $util->log( "Processing for {$template_type}" );
+	 *
+	 * if ( function_exists( 'pmpro_getLevel' ) ) {
+	 * $level = pmpro_getMembershipLevelForUser( $this->user_info->get_user_ID() );
+	 * }
+	 *
+	 * $level = apply_filters( 'e20r_pw_get_user_level', $level, $this->user_info );
+	 *
+	 * switch ( $template_type ) {
+	 *
+	 * case 'recurring':
+	 *
+	 * $data = array(
+	 * 'name'                  => $this->user_info->get_user_name(),
+	 * 'user_login'            => $this->user_info->get_user_login(),
+	 * 'sitename'              => $this->site_name,
+	 * 'membership_id'         => $this->user_info->get_membership_level_ID(),
+	 * 'membership_level_name' => $this->user_info->get_level_name(),
+	 * 'siteemail'             => $this->site_email,
+	 * 'login_link'            => $this->login_link,
+	 * 'display_name'          => $this->user_info->get_user_name(),
+	 * 'user_email'            => $this->user_info->get_user_email(),
+	 * 'currency'              => $pmpro_currency_symbol,
+	 * );
+	 *
+	 * $data['cancel_link']         = $this->cancel_link;
+	 * $data['billing_info']        = $this->sender->format_billing_address();
+	 * $data['saved_cc_info']       = $this->get_html_payment_info();
+	 * $next_payment                = $this->user_info->get_next_payment();
+	 * $data['next_payment_amount'] = $this->user_info->get_next_payment_amount();
+	 *
+	 * $util->log( "Using {$next_payment} as next payment date" );
+	 * $data['payment_date'] = ! empty( $next_payment ) ? date_i18n( get_option( 'date_format' ), strtotime(
+	 * $next_payment, current_time( 'timestamp' ) ) ) : 'Not found';
+	 *
+	 * $enddate = $this->user_info->get_end_of_membership_date();
+	 *
+	 * if ( ! empty( $enddate ) ) {
+	 * $formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
+	 * $util->log( "Using {$formatted_date} as membership end date" );
+	 * $data['membership_ends'] = $formatted_date;
+	 * } else {
+	 * $data['membership_ends'] = 'N/A';
+	 * }
+	 *
+	 * break;
+	 *
+	 * case 'expiration':
+	 *
+	 * $data = array(
+	 * 'name'                  => $this->user_info->get_user_name(),
+	 * 'user_login'            => $this->user_info->get_user_login(),
+	 * 'sitename'              => $this->site_name,
+	 * 'membership_id'         => $this->user_info->get_membership_level_ID(),
+	 * 'membership_level_name' => $this->user_info->get_level_name(),
+	 * 'siteemail'             => $this->site_email,
+	 * 'login_link'            => $this->login_link,
+	 * 'display_name'          => $this->user_info->get_user_name(),
+	 * 'user_email'            => $this->user_info->get_user_email(),
+	 * 'currency'              => $pmpro_currency_symbol,
+	 * );
+	 *
+	 * $enddate = $this->user_info->get_end_of_membership_date();
+	 *
+	 * if ( ! empty( $enddate ) ) {
+	 * $formatted_date = date_i18n( get_option( 'date_format' ), strtotime( $enddate, current_time( 'timestamp' ) ) );
+	 * $util->log( "Using {$formatted_date} as membership end date" );
+	 * $data['membership_ends'] = $formatted_date;
+	 * } else {
+	 * $data['membership_ends'] = 'Not recorded';
+	 * }
+	 *
+	 * break;
+	 *
+	 * case 'ccexpiration':
+	 * $data = array(
+	 * 'name'                  => $this->user_info->get_user_name(),
+	 * 'user_login'            => $this->user_info->get_user_login(),
+	 * 'sitename'              => $this->site_name,
+	 * 'membership_id'         => $this->user_info->get_membership_level_ID(),
+	 * 'membership_level_name' => $this->user_info->get_level_name(),
+	 * 'siteemail'             => $this->site_email,
+	 * 'login_link'            => $this->login_link,
+	 * 'display_name'          => $this->user_info->get_user_name(),
+	 * 'user_email'            => $this->user_info->get_user_email(),
+	 * 'currency'              => $pmpro_currency_symbol,
+	 * );
+	 *
+	 * $data['billing_info']  = $this->sender->format_billing_address();
+	 * $data['saved_cc_info'] = $this->get_html_payment_info();
+	 *
+	 * break;
+	 * }
+	 *
+	 * return $data;
+	 * }
+	 */
 	/**
 	 * Determine whether or not to send the current message (to the user)
 	 *
@@ -502,6 +556,7 @@ class Email_Message {
 	 *
 	 * @since 1.9.6 - BUG FIX: Variable substitution for messages providing incorrect information
 	 * @since 1.9.7 - BUG FIX: Extra slashes in Subject
+	 * @since 3.9.0 - ENHANCEMENT: Refactored send_message() method
 	 */
 	public function send_message( $type ) {
 		
@@ -512,7 +567,7 @@ class Email_Message {
 		$user_id = $this->user_info->get_user_ID();
 		
 		$today  = date( 'Y-m-d', current_time( 'timestamp' ) );
-		$users  = get_option( "e20r_pw_sent_{$type}", array( $today => array()) );
+		$users  = get_option( "e20r_pw_sent_{$type}", array( $today => array() ) );
 		$status = false;
 		
 		// Option is empty
@@ -521,56 +576,62 @@ class Email_Message {
 			$users[ $today ][ $to ] = array();
 		}
 		
-		// Process possible message for user
+		$override = apply_filters( 'e20r-email-notice-send-override', false );
+		
+		/**
+		 * @since 3.9.0 - ENHANCEMENT: Refactored send_message() method
+		 */
+		if ( false === $override && ( isset( $users[ $today ][ $to ] ) && in_array( $this->template_name, $users[ $today ][ $to ] ) ) ) {
+			
+			$util->log( "Already sent message {$this->template_name} on {$today} to {$to}" );
+			
+			return $status;
+		}
+		
 		/**
 		 * Process message to possibly send to user
-		 *
-		 * @since 2.1 - ENHANCEMENT: Allow sending multiple different messages on the same day to the same user
 		 */
-		if ( empty( $users[ $today ][ $to ] ) || ( isset( $users[ $today ][ $to ] ) && ! in_array( $this->template_name, $users[ $today ][ $to ] ) ) ) {
+		
+		/** @since 1.9.7 - BUG FIX: Extra slashes in subject */
+		$this->subject = apply_filters( 'e20r-email-notice-subject', wp_unslash( $this->template_settings['subject'] ), $type, $to, $user_id );
+		$this->subject = $this->sender->substitute_in_text( $this->subject, $type );
+		
+		$util->log( "Sending message to {$to} -> " . $this->subject );
+		$this->sender->template = $this->template_name;
+		
+		// Add filters for billing address & CC info
+		$util->log( "Loading filter handlers for 'e20r-email-notice-custom-variable-filter'" );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 10, 4 );
+		
+		if ( true === ( $status = $this->sender->send( $to, null, null, $this->subject, $this->template_name, $type ) ) ) {
 			
-			/** @since 1.9.7 - BUG FIX: Extra slashes in subject */
-			$this->subject = apply_filters( 'e20r-payment-warning-email-subject', wp_unslash( $this->template_settings['subject'] ), $type );
-			$this->subject = $this->sender->substitute_in_text( $this->subject, $type );
+			$util->log( "Recording that we attempted to send a {$type}/{$this->template_name} message to: {$to}" );
 			
-			$util->log( "Sending message to {$to} -> " . $this->subject );
-			$this->sender->template = $this->template_name;
-			
-			// Add filters for billing address & CC info
-			$util->log("Loading filter handlers for 'e20r-email-notice-custom-variable-filter'");
-			add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
-			add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 10, 4 );
-			
-			if ( true == $this->sender->send( $to, null, null, $this->subject, $this->template_name, $type ) ) {
+			if ( ! isset ( $users[ $today ] ) ) {
 				
-				$util->log( "Recording that we attempted to send a {$type}/{$this->template_name} message to: {$to}" );
+				$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
 				
-				if ( ! isset ( $users[ $today ] ) ) {
+				$users[ $today ] = array();
+				
+				if ( count( $users ) > 1 ) {
 					
-					$util->log( "Adding today's entries to the list of users we've sent {$type} warning messages to" );
-					
-					$users[ $today ] = array();
-					
-					if ( count( $users ) > 1 ) {
-						
-						$util->log( "Cleaning up the array of users" );
-						$new   = array( $today => array() );
-						$users = array_intersect_key( $users, $new );
-					}
+					$util->log( "Cleaning up the array of users" );
+					$new   = array( $today => array() );
+					$users = array_intersect_key( $users, $new );
 				}
-				
-				if ( !isset( $users[ $today ][ $to ] ) || ! is_array( $users[ $today ][ $to ] ) ) {
-					$users[ $today ][ $to ] = array();
-				}
-				
-				$users[ $today ][ $to ][] = $this->template_name;
-				
-				update_option( "e20r_pw_sent_{$type}", $users, 'no' );
-			} else {
-				$util->log( "Error sending message {$this->template_name}/{$type} to {$to}" );
 			}
+			
+			if ( ! isset( $users[ $today ][ $to ] ) || ! is_array( $users[ $today ][ $to ] ) ) {
+				$users[ $today ][ $to ] = array();
+			}
+			
+			$users[ $today ][ $to ][] = $this->template_name;
+			
+			update_option( "e20r_pw_sent_{$type}", $users, 'no' );
+			
 		} else {
-			$util->log( "Already sent message {$this->template_name} on {$today} to {$to}" );
+			$util->log( "Error sending message {$this->template_name}/{$type} to {$to}" );
 		}
 		
 		return $status;
