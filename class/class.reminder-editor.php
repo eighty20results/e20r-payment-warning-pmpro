@@ -20,7 +20,6 @@
 namespace E20R\Payment_Warning\Editor;
 
 use E20R\Payment_Warning\Payment_Warning;
-use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Email_Notice\Email_Notice;
 use E20R\Utilities\Email_Notice\Email_Notice_View;
@@ -104,7 +103,8 @@ class Reminder_Editor extends Email_Notice {
 		add_action( 'init', array( $this, 'install_taxonomy' ), 99 );
 		
 		if ( ! is_user_logged_in() && false === wp_doing_cron() ) {
-			$utils->log("No loading Reminder_Editor hooks");
+			$utils->log( "Not loading Reminder_Editor hooks" );
+			
 			return;
 		}
 		
@@ -156,7 +156,7 @@ class Reminder_Editor extends Email_Notice {
 	 * Get and print the message type (string) for the email notice column
 	 *
 	 * @param string $column
-	 * @param int $post_id
+	 * @param int    $post_id
 	 */
 	public function custom_post_column( $column, $post_id ) {
 		
@@ -165,17 +165,77 @@ class Reminder_Editor extends Email_Notice {
 		if ( $column === 'message_type' ) {
 			
 			$warning_type = get_post_meta( $post_id, '_e20r_pw_message_type', true );
-			$terms = wp_get_object_terms( $post_id, 'e20r_email_type', array( 'fields' => 'slugs') );
+			$terms        = wp_get_object_terms( $post_id, 'e20r_email_type', array( 'fields' => 'slugs' ) );
 			
 			if ( empty( $warning_type ) ) {
-				$warning_type = -1;
+				$warning_type = - 1;
 			}
 			
-			if ( !empty( $warning_type ) && in_array( 'e20r-pw-notices', $terms ) ) {
+			if ( ! empty( $warning_type ) && in_array( 'e20r-pw-notices', $terms ) ) {
 				esc_html_e( $msg_types[ $warning_type ]['label'] );
 			}
 		}
 		
+	}
+	
+	/**
+	 * The list of message types used by this plugin
+	 *
+	 * @filter
+	 *
+	 * @param array $types
+	 *
+	 * @return array
+	 */
+	public function define_message_types( $types ) {
+		
+		global $post_ID;
+		
+		$meta_key      = '_e20r_pw_message_type';
+		$current_value = - 1;
+		
+		if ( ! empty( $post_ID ) ) {
+			$current_value = get_post_meta( $post_ID, $meta_key, true );
+		}
+		
+		$new_types = array(
+			- 1                         => array(
+				'label'    => __( 'Not selected', Payment_Warning::plugin_slug ),
+				'value'    => - 1,
+				'meta_key' => $meta_key,
+				'selected' => selected( $current_value, null, false ),
+			),
+			E20R_PW_EXPIRATION_REMINDER => array(
+				'label'      => __( 'Membership Expiration', Payment_Warning::plugin_slug ),
+				'value'      => E20R_PW_EXPIRATION_REMINDER,
+				'meta_key'   => $meta_key,
+				'text_value' => 'expiring',
+				'selected'   => selected( $current_value, E20R_PW_EXPIRATION_REMINDER, false ),
+			),
+			E20R_PW_RECURRING_REMINDER  => array(
+				'label'      => __( 'Recurring Membership Payment', Payment_Warning::plugin_slug ),
+				'value'      => E20R_PW_RECURRING_REMINDER,
+				'meta_key'   => $meta_key,
+				'text_value' => 'recurring',
+				'selected'   => selected( $current_value, E20R_PW_RECURRING_REMINDER, false ),
+			),
+			E20R_PW_CREDITCARD_REMINDER => array(
+				'label'      => __( 'Credit Card Expiration', Payment_Warning::plugin_slug ),
+				'value'      => E20R_PW_CREDITCARD_REMINDER,
+				'meta_key'   => $meta_key,
+				'text_value' => 'ccexpiring',
+				'selected'   => selected( $current_value, E20R_PW_CREDITCARD_REMINDER, false ),
+			),
+		);
+		
+		/**
+		 * @since 3.3 - ENHANCEMENT: Allow outside party to configure the message types available with the 'e20r-payment-warning-message-types' filter
+		 */
+		$new_types = apply_filters( 'e20r-payment-warning-message-types', $new_types );
+		
+		$types = $types + $new_types;
+		
+		return $types;
 	}
 	
 	/**
@@ -320,66 +380,6 @@ class Reminder_Editor extends Email_Notice {
 		}
 		
 		return ( $is_in_terms || $is_the_type );
-	}
-	
-	/**
-	 * The list of message types used by this plugin
-	 *
-	 * @filter
-	 *
-	 * @param array $types
-	 *
-	 * @return array
-	 */
-	public function define_message_types( $types ) {
-		
-		global $post_ID;
-		
-		$meta_key      = '_e20r_pw_message_type';
-		$current_value = - 1;
-		
-		if ( ! empty( $post_ID ) ) {
-			$current_value = get_post_meta( $post_ID, $meta_key, true );
-		}
-		
-		$new_types = array(
-			- 1                         => array(
-				'label'    => __( 'Not selected', Payment_Warning::plugin_slug ),
-				'value'    => - 1,
-				'meta_key' => $meta_key,
-				'selected' => selected( $current_value, null, false ),
-			),
-			E20R_PW_EXPIRATION_REMINDER => array(
-				'label'      => __( 'Membership Expiration', Payment_Warning::plugin_slug ),
-				'value'      => E20R_PW_EXPIRATION_REMINDER,
-				'meta_key'   => $meta_key,
-				'text_value' => 'expiring',
-				'selected'   => selected( $current_value, E20R_PW_EXPIRATION_REMINDER, false ),
-			),
-			E20R_PW_RECURRING_REMINDER  => array(
-				'label'      => __( 'Recurring Membership Payment', Payment_Warning::plugin_slug ),
-				'value'      => E20R_PW_RECURRING_REMINDER,
-				'meta_key'   => $meta_key,
-				'text_value' => 'recurring',
-				'selected'   => selected( $current_value, E20R_PW_RECURRING_REMINDER, false ),
-			),
-			E20R_PW_CREDITCARD_REMINDER => array(
-				'label'      => __( 'Credit Card Expiration', Payment_Warning::plugin_slug ),
-				'value'      => E20R_PW_CREDITCARD_REMINDER,
-				'meta_key'   => $meta_key,
-				'text_value' => 'ccexpiring',
-				'selected'   => selected( $current_value, E20R_PW_CREDITCARD_REMINDER, false ),
-			),
-		);
-		
-		/**
-		 * @since 3.3 - ENHANCEMENT: Allow outside party to configure the message types available with the 'e20r-payment-warning-message-types' filter
-		 */
-		$new_types = apply_filters( 'e20r-payment-warning-message-types', $new_types );
-		
-		$types = $types + $new_types;
-		
-		return $types;
 	}
 	
 	/**
@@ -558,24 +558,24 @@ class Reminder_Editor extends Email_Notice {
 			$notice_type = $this->taxonomy_name;
 		}
 		?>
-		<div id="e20r-message-editor-variable-info">
-			<div class="e20r-message-template-col">
-				<label for="variable_references"><?php _e( 'Reference', Email_Notice::plugin_slug ); ?>:</label>
-			</div>
-			<div>
-				<div class="template_reference"
-				     style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
-					<p>
-						<em><?php _e( 'Use these variables in the email-notice window above.', Email_Notice::plugin_slug ); ?></em>
-					</p>
+        <div id="e20r-message-editor-variable-info">
+            <div class="e20r-message-template-col">
+                <label for="variable_references"><?php _e( 'Reference', Email_Notice::plugin_slug ); ?>:</label>
+            </div>
+            <div>
+                <div class="template_reference"
+                     style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
+                    <p>
+                        <em><?php _e( 'Use these variables in the email-notice window above.', Email_Notice::plugin_slug ); ?></em>
+                    </p>
 					<?php Email_Notice_View::add_placeholder_variables( $notice_type ); ?>
-				</div>
-				<p class="e20r-message-template-help">
+                </div>
+                <p class="e20r-message-template-help">
 					<?php printf( __( "%sSuggestion%s: Type in a message title, select the Reminder Type and save this notice. It will give you access to even more substitution variables.", Payment_Warning::plugin_slug ), '<strong>', '</strong>' ); ?>
-				</p>
-			
-			</div>
-		</div>
+                </p>
+
+            </div>
+        </div>
 		<?php
 	}
 	
@@ -604,44 +604,44 @@ class Reminder_Editor extends Email_Notice {
 			$schedule = $template['schedule'];
 			$utils->log( "Loading the template array schedule for {$template_type}" );
 		} ?>
-		<div class="submitbox" id="e20r-editor-postmeta">
-			<div id="minor-publishing">
-				<div id="e20r-pw-schedule-settings">
-					<div class="e20r-message-template e20r-message-schedule-info">
-						<th scope="row" valign="top" class="e20r-message-template-col">
-							<label for="e20r-message-schedule">
+        <div class="submitbox" id="e20r-editor-postmeta">
+            <div id="minor-publishing">
+                <div id="e20r-pw-schedule-settings">
+                    <div class="e20r-message-template e20r-message-schedule-info">
+                        <th scope="row" valign="top" class="e20r-message-template-col">
+                            <label for="e20r-message-schedule">
 								<?php _e( 'Send on day #', Payment_Warning::plugin_slug ); ?>
-							</label>
-						</th>
-						<td class="e20r-message-template-col">
+                            </label>
+                        </th>
+                        <td class="e20r-message-template-col">
 							<?php
 							if ( ! empty( $schedule ) ) {
 								foreach ( $schedule as $days ) { ?>
-									<div class="e20r-schedule-entry">
-										<input name="e20r_message_template-schedule[]" type="number"
-										       value="<?php esc_attr_e( $days ); ?>" class="e20r-message-schedule"/>&nbsp;
-										<span class="e20r-message-schedule-remove">
+                                    <div class="e20r-schedule-entry">
+                                        <input name="e20r_message_template-schedule[]" type="number"
+                                               value="<?php esc_attr_e( $days ); ?>" class="e20r-message-schedule"/>&nbsp;
+                                        <span class="e20r-message-schedule-remove">
 											<input type="button"
-											       value="<?php _e( "Remove", Payment_Warning::plugin_slug ); ?>"
-											       class="e20r-delete-schedule-entry button-secondary"/>
+                                                   value="<?php _e( "Remove", Payment_Warning::plugin_slug ); ?>"
+                                                   class="e20r-delete-schedule-entry button-secondary"/>
                                         </span>
-									</div>
+                                    </div>
 								<?php }
 								?>
-								<button
-									class="button-secondary e20r-add-new-schedule"><?php _e( "Add new", Payment_Warning::plugin_slug ); ?></button>
-								<p>
-									<small>
+                                <button
+                                        class="button-secondary e20r-add-new-schedule"><?php _e( "Add new", Payment_Warning::plugin_slug ); ?></button>
+                                <p>
+                                    <small>
 										<?php printf( __( '%3$sHint%4$s: Positive numbers sends the message %1$sbefore%2$s the event, negative numbers sends it %1$safter%2$s the event', Payment_Warning::plugin_slug ), '<em>', '</em>', '<strong>', '</strong>' ); ?>
-									</small>
-								</p>
+                                    </small>
+                                </p>
 								<?php
 							} ?>
-						</td>
-					</div>
-				</div>
-			</div>
-		</div>
+                        </td>
+                    </div>
+                </div>
+            </div>
+        </div>
 		<?php
 	}
 	
@@ -860,7 +860,7 @@ class Reminder_Editor extends Email_Notice {
 				
 				case E20R_PW_RECURRING_REMINDER:
 					$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
-					$variables['billing_address']        = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
+					$variables['billing_address']     = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 					$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 					$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
 					$variables['payment_date']        = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
@@ -868,7 +868,7 @@ class Reminder_Editor extends Email_Notice {
 					break;
 				
 				case E20R_PW_CREDITCARD_REMINDER:
-					$variables['billing_address']       = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
+					$variables['billing_address']    = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 					$variables['saved_cc_info']      = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 					$variables['billing_page_link']  = __( "Link to the Membership billing information page (used to change credit card info)", Payment_Warning::plugin_slug );
 					$variables['billing_page_login'] = __( "Link to the Membership billing information page, via the WordPress login process. (used to change credit card info)", Payment_Warning::plugin_slug );
@@ -911,7 +911,7 @@ class Reminder_Editor extends Email_Notice {
 			'next_payment_amount'   => array( 'type' => 'membership', 'variable' => 'billing_amount' ),
 			'payment_date'          => array( 'type' => 'membership', 'variable' => 'payment_date' ),
 			'currency'              => array( 'type' => 'wp_options', 'variable' => 'pmpro_currency' ),
-			'billing_address'          => array( 'type' => null, 'variable' => null ),
+			'billing_address'       => array( 'type' => null, 'variable' => null ),
 			'saved_cc_info'         => array( 'type' => null, 'variable' => null ),
 			'billing_page_link'     => array( 'type' => 'link', 'variable' => 'billing_page' ),
 			'billing_page_login'    => array( 'type' => 'encoded_link', 'variable' => 'billing_page' ),
@@ -1009,25 +1009,20 @@ class Reminder_Editor extends Email_Notice {
 	 */
 	public function configure_cpt_templates( $alert_type = null ) {
 		
+		$utils = Utilities::get_instance();
+		
+		$utils->log( "Searching for {$this->taxonomy_name} type of " . Email_Notice::cpt_type . " for " . Email_Notice::taxonomy );
+		
 		$query_args = array(
 			'posts_per_page' => - 1,
 			'post_type'      => Email_Notice::cpt_type,
 			'post_status'    => 'publish',
-			'tax_query'      => array(
-				'relation' => 'AND',
-				array(
-					'taxonomy'         => Email_Notice::taxonomy,
-					'field'            => 'slug',
-					'operator'         => 'IN',
-					'include_children' => false,
-					'terms'            => array( $this->taxonomy_name ),
-				),
-			),
+			'meta_key'       => '_e20r_pw_message_type',
+			'meta_value_num' => $alert_type,
+			'meta_compare'   => '=',
 		);
 		
 		$emails = new \WP_Query( $query_args );
-		
-		$utils = Utilities::get_instance();
 		
 		$utils->log( "Number of payment warning templates found: " . $emails->found_posts );
 		$templates = $this->load_template_settings( 'all' );
@@ -1152,7 +1147,7 @@ class Reminder_Editor extends Email_Notice {
 			
 			$notices = $notice->get_posts();
 			
-			$utils->log( "Found {$notice->found_posts} templates for {$template_slug}");
+			$utils->log( "Found {$notice->found_posts} templates for {$template_slug}" );
 			
 			if ( count( $notices ) > 1 ) {
 				$utils->log( "Found more than a single email notice/template for {$template_slug}!!!" );
