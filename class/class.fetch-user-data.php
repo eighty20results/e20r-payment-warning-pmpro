@@ -111,6 +111,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$handler = $main->get_handler( 'lhr_subscriptions' );
 			
+			/**
+			 * Make sure the queue is either empty or contains an array of data to process
+			 */
+			if ( false === $handler->is_queue_good() ) {
+				// Unexpected queue content!
+				$handler->clear_queue();
+			}
+			
+			
 			if ( $data_count > $this->per_request_count ) {
 				
 				$util->log( "Using large request handler for subscription requests for {$addon_name}" );
@@ -150,6 +159,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$util->log( "No need to split the data set to queue for processing for type: {$addon_name}!" );
 					$sub_handler = $main->get_handler( 'subscription', $addon_name );
+					
+					/**
+					 * Make sure the queue is either empty or contains an array of data to process
+					 */
+					if ( false === $sub_handler->is_queue_good() ) {
+						// Unexpected queue content!
+						$sub_handler->clear_queue();
+					}
 					
 					if ( empty( $sub_handler ) ) {
 						$util->log("No handler returned for the {$addon_name} gateway");
