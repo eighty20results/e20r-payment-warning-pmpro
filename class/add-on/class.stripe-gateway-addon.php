@@ -306,7 +306,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
 				$data = Customer::retrieve( $cust_id );
 				
-			} catch ( Api $exception ) {
+			} catch ( \Exception $exception ) {
 				
 				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				$utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
@@ -502,7 +502,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				$utils->log( "Accessing Stripe API service for {$cust_id}" );
 				$customer = Customer::retrieve( $cust_id );
 				
-			} catch ( Api $exception ) {
+			} catch ( \Exception $exception ) {
 				
 				$utils->log( "Error fetching customer data: " . $exception->getMessage() );
 				
@@ -653,11 +653,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 */
 		public function get_gateway_class_name( $gateway_name = null , $addon ) {
 			
-			// "Punch through" unless the gateway name matches the addon specified
-			if ( is_null($gateway_name) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
-				$gateway_name =  $this->get_class_name();
+			$utils = Utilities::get_instance();
+			$utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
+			
+			if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
+			    $utils->log("{$addon} not matching Stripe's expected gateway add-on");
+				return $gateway_name;
 			}
 			
+			$gateway_name =  $this->get_class_name();
 			return $gateway_name;
 		}
 		
@@ -670,6 +674,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function fetch_stripe_api_versions() {
 			
 			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
+                '2018-05-21',
+				'2018-02-28',
+                '2018-02-06',
+				'2018-02-05',
+				'2018-01-23',
 				'2017-12-14',
 				'2017-08-15',
 				'2017-06-05',

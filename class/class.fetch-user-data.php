@@ -19,7 +19,7 @@
 
 namespace E20R\Payment_Warning;
 
-
+use E20R\Payment_Warning\Tools\Global_Settings;
 use E20R\Utilities\Cache;
 use E20R\Utilities\Utilities;
 
@@ -77,7 +77,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				return false;
 			}
 			
-			if ( false === ( $run_gateway_fetch = (bool) $main->load_options( 'enable_gateway_fetch' ) ) ) {
+			if ( false === ( $run_gateway_fetch = (bool) Global_Settings::load_options( 'enable_gateway_fetch' ) ) ) {
 				
 				$util->log( "User has not enabled subscription download!" );
 				
@@ -87,7 +87,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway for {$addon_name}" );
 			do_action( 'e20r_pw_addon_load_gateway', $addon_name );
 			
-			$util->log( "Grab all active PMPro Members" );
+			$util->log( "Grab all active PMPro Members configured with recurring payments" );
 			$this->active_members = array();
 			
 			/**
@@ -107,9 +107,18 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$data_count = count( $this->active_members );
 			
-			$util->log( "Process subscription data for {$data_count} active members" );
+			$util->log( "Process subscription data for {$data_count} active recurring members" );
 			
 			$handler = $main->get_handler( 'lhr_subscriptions' );
+			
+			/**
+			 * Make sure the queue is either empty or contains an array of data to process
+			 */
+			if ( false === $handler->is_queue_good() ) {
+				// Unexpected queue content!
+				$handler->clear_queue();
+			}
+			
 			
 			if ( $data_count > $this->per_request_count ) {
 				
@@ -138,7 +147,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					$util->log( "Added data set # {$i} to subscription request dispatcher: " . $data['task_handler']->get_action() );
 				}
 				
-				$util->log( "Save and dispatch the request handler for a large number of subscriptions" );
+				$util->log( "Saving and dispatching large number of subscription workstreams in separate requests" );
 				$handler->save()->dispatch();
 				update_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 1, 'no' );
 				
@@ -150,6 +159,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					$util->log( "No need to split the data set to queue for processing for type: {$addon_name}!" );
 					$sub_handler = $main->get_handler( 'subscription', $addon_name );
+					
+					/**
+					 * Make sure the queue is either empty or contains an array of data to process
+					 */
+					if ( false === $sub_handler->is_queue_good() ) {
+						// Unexpected queue content!
+						$sub_handler->clear_queue();
+					}
 					
 					if ( empty( $sub_handler ) ) {
 						$util->log("No handler returned for the {$addon_name} gateway");
@@ -197,7 +214,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				return;
 			}
 			
-			if ( false === ( $run_gateway_fetch = (bool) $main->load_options( 'enable_gateway_fetch' ) ) ) {
+			if ( false === ( $run_gateway_fetch = (bool) Global_Settings::load_options( 'enable_gateway_fetch' ) ) ) {
 				
 				$util->log( "User has not enabled payment download!" );
 				
@@ -207,7 +224,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util->log( "Trigger load of the active add-on gateway(s)" );
 			do_action( 'e20r_pw_addon_load_gateway', $addon_name );
 			
-			$util->log( "Grab all active Members WITHOUT a subscription plans" );
+			$util->log( "Grab all active Members WITHOUT a subscription plan" );
 			$this->active_members = array();
 			
 			/**

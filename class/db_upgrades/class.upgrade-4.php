@@ -41,8 +41,32 @@ class Upgrade_4 {
 		$success = true;
 		
 		$sql = array();
-		$sql[] = "ALTER TABLE {$user_info_table} ADD COLUMN gateway_module varchar(255) NULL AFTER reminder_type";
-		$sql[] = "ALTER TABLE {$user_info_table} ADD INDEX gateway_module USING BTREE ( gateway_module )";
+		$sql[] = $wpdb->prepare( "SET @sql = (
+		SELECT IF(
+			(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = %s AND table_schema = %s AND column_name = %s) > 0,
+			\"SELECT 0\",
+			\"ALTER TABLE {$user_info_table} ADD COLUMN gateway_module varchar(255) NULL AFTER reminder_type;\"
+		))",
+			$user_info_table,
+			DB_NAME,
+			'gateway_module'
+		);
+		$sql[] = "PREPARE stmt FROM @sql";
+		$sql[] = "EXECUTE stmt";
+		$sql[] = "DEALLOCATE PREPARE stmt";
+		$sql[] = $wpdb->prepare( "SET @sql = (
+		SELECT IF(
+			(SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = %s AND table_name = %s AND index_name = %s) > 0,
+			\"SELECT 0\",
+			\"ALTER TABLE {$user_info_table} ADD INDEX gateway_module USING BTREE ( gateway_module )\"
+			))",
+			DB_NAME,
+		$user_info_table,
+		'gateway_module'
+			);
+		$sql[] = "PREPARE stmt FROM @sql";
+		$sql[] = "EXECUTE stmt";
+		$sql[] = "DEALLOCATE PREPARE stmt";
 		
 		if ( intval($current_version ) < $e20rpw_db_version ) {
 			

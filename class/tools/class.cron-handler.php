@@ -92,7 +92,6 @@ class Cron_Handler {
 	public function send_cc_warning_messages() {
 		
 		$util = Utilities::get_instance();
-		$main = Payment_Warning::get_instance();
 		
 		$not_first_run = get_option( 'e20r_pw_firstrun_cc_msg', false );
 		
@@ -103,7 +102,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_cc_expiration_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_cc_expiration_warnings' ) ) {
 			$util->log( "Running send email handler (cron job) for credit card expiration warnings" );
 			
 			$reminders = Payment_Reminder::get_instance();
@@ -120,7 +119,6 @@ class Cron_Handler {
 	public function send_expiration_messages() {
 		
 		$util          = Utilities::get_instance();
-		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_exp_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -130,7 +128,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_expiration_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_expiration_warnings' ) ) {
 			$util->log( "Running send email handler (cron job) for expiration warnings" );
 			
 			$reminders = Payment_Reminder::get_instance();
@@ -146,7 +144,6 @@ class Cron_Handler {
 	public function send_reminder_messages() {
 		
 		$util          = Utilities::get_instance();
-		$main          = Payment_Warning::get_instance();
 		$not_first_run = get_option( 'e20r_pw_firstrun_reminder_msg', false );
 		
 		if ( false === $not_first_run ) {
@@ -156,7 +153,7 @@ class Cron_Handler {
 			return;
 		}
 		
-		if ( true == $main->load_options( 'enable_payment_warnings' ) ) {
+		if ( true == Global_Settings::load_options( 'enable_payment_warnings' ) ) {
 			
 			$util->log( "Running send email handler (cron job) for recurring payment reminders" );
 			
@@ -175,6 +172,8 @@ class Cron_Handler {
 	 *        action
 	 */
 	public function fetch_gateway_payment_info() {
+		
+		global $e20r_pw_addons;
 		
 		$util = Utilities::get_instance();
 		$main = Payment_Warning::get_instance();
@@ -234,39 +233,36 @@ class Cron_Handler {
 			$util->log( "Cron job running to trigger update of existing Payment Gateway data (may have been overridden)" );
 			
 			$fetch_data = Fetch_User_Data::get_instance();
-			$addon_list = $main->get_addons();
 			
-			$util->log( "Addon list consists of: " . print_r( $addon_list, true ) );
-			
-			foreach ( $addon_list as $addon_name ) {
+			foreach ( $e20r_pw_addons as $addon_name => $addon_config  ) {
 				
-				$gateway_name = apply_filters( 'e20r_pw_get_gateway_name_for_addon', null, $addon_name );
-				$util->log( "Processing payment and subscription load for {$addon_name}/{$gateway_name}" );
+				$gateway_name = isset( $addon_config['class_name'] ) ? $addon_config['class_name'] : null;
 				
-				if ( ! empty( $gateway_name ) ) {
-					
-					$class_name = "E20R\\Payment_Warning\\Addon\\{$gateway_name}";
-					
-					/**
-					 * @var PayPal_Gateway_Addon|Stripe_Gateway_Addon|Check_Gateway_Addon $class_name
-					 */
-					$class = $class_name::get_instance();
-					
-					if ( true === $class->is_active( strtolower( $gateway_name ) ) ) {
-						
-						// Trigger fetch of subscription data from Payment Gateways
-						$util->log( "Triggering remote subscription fetch configuration with {$addon_name}" );
-						$fetch_data->configure_remote_subscription_data_fetch( $addon_name );
-						
-						
-						// Trigger fetch of one-time payment data from Payment Gateways
-						$util->log( "Triggering remote payment (expiring memberships) fetch configuration with {$addon_name}" );
-						$fetch_data->configure_remote_payment_data_fetch( $addon_name );
-					} else {
-						$util->log( "{$addon_name} is either inactive or we didn't find the gateway name (Gateway class: {$gateway_name})" );
-					}
-					
+				if ( empty( $gateway_name )) {
+					continue;
 				}
+				
+				$class_name = sprintf( 'E20R\Payment_Warning\Addon\%s', $gateway_name );
+				
+				/**
+				 * @var PayPal_Gateway_Addon|Stripe_Gateway_Addon|Check_Gateway_Addon $class_name
+				 */
+				$class = $class_name::get_instance();
+				
+				if ( true === $class->is_active( $addon_name ) ) {
+					
+					// Trigger fetch of subscription data from Payment Gateways
+					$util->log( "Triggering remote subscription fetch configuration with " . $addon_name );
+					$fetch_data->configure_remote_subscription_data_fetch( strtolower( $addon_config['label'] ) );
+					
+					
+					// Trigger fetch of one-time payment data from Payment Gateways
+					$util->log( "Triggering remote payment (expiring memberships) fetch configuration with " . $addon_name );
+					$fetch_data->configure_remote_payment_data_fetch( strtolower( $addon_config['label'] ) );
+				} else {
+					$util->log( "{$addon_name} is either inactive or we didn't find the gateway name (Gateway class: {$gateway_name})" );
+				}
+				
 			}
 			
 			// Configure when to run this job the next time

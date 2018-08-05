@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.3
+Version: 4.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -35,18 +35,20 @@ Domain Path: /languages
 namespace E20R\Payment_Warning;
 
 use E20R\Payment_Warning\Editor\Reminder_Editor;
+use E20R\Payment_Warning\Tools\Membership_Settings;
 use E20R\Payment_Warning\Upgrades;
 use E20R\Utilities\Cache;
 use E20R\Payment_Warning\Tools\Cron_Handler;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Licensing\Licensing;
+use E20R\Payment_Warning\Tools\Global_Settings;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	wp_die( __( "Cannot access", Payment_Warning::plugin_slug ) );
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '3.3' );
+	define( 'E20R_PW_VERSION', '4.0' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -85,14 +87,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @since  1.0
 		 */
 		static private $instance = null;
-		
-		private $addon_settings = array();
-		
-		private $settings_page_hook = null;
-		
-		private $settings_name = 'e20r_payment_warning';
-		
-		private $settings = array();
 		
 		protected $process_subscriptions = null;
 		
@@ -144,6 +138,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$handler_name          = "process_{$type}";
 				$this->{$handler_name} = new Handle_Messages( $type );
 			}
+			
+			// First thing to do on activation (Required for this plugin)
+			add_action( 'e20r_pw_addon_activating_core', '\E20R\Payment_Warning\Tools\DB_Tables::create', -1 );
+			add_action( 'e20r_pw_addon_activating_core', array(
+				Cron_Handler::get_instance(),
+				'configure_cron_schedules',
+			), 10 );
+			
+			// Add Plugin deactivation actions
+			add_action( 'e20r_pw_addon_deactivating_core', array(
+				Cron_Handler::get_instance(),
+				'remove_cron_jobs',
+			), 10 );
 		}
 		
 		/**
@@ -204,36 +211,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			if ( is_null( self::$instance ) ) {
 				
 				self::$instance = new self;
-				
-				// First thing to do on activation (Required for this plugin)
-				add_action( 'e20r_pw_addon_activating_core', 'E20R\Payment_Warning\User_Data::create_db_tables', - 1 );
-				add_action( 'e20r_pw_addon_activating_core', array(
-					Cron_Handler::get_instance(),
-					'configure_cron_schedules',
-				), 10 );
-				add_action( 'e20r_pw_addon_deactivating_core', array(
-					Cron_Handler::get_instance(),
-					'remove_cron_jobs',
-				), 10 );
-				
-				add_action( 'e20r_run_remote_data_update', array(
-					Cron_Handler::get_instance(),
-					'fetch_gateway_payment_info',
-				) );
-				add_action( 'e20r_send_payment_warning_emails', array(
-					Cron_Handler::get_instance(),
-					'send_reminder_messages',
-				) );
-				add_action( 'e20r_send_expiration_warning_emails', array(
-					Cron_Handler::get_instance(),
-					'send_expiration_messages',
-				) );
-				add_action( 'e20r_send_creditcard_warning_emails', array(
-					Cron_Handler::get_instance(),
-					'send_cc_warning_messages',
-				) );
-				
-				add_action( 'init', array( self::get_instance(), 'disable_pmpro_actions' ), 999 );
 			}
 			
 			return self::$instance;
@@ -247,7 +224,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$util = Utilities::get_instance();
 			
 			// Disable Recurring payment warnings if enabled in plugin
-			if ( true == $this->load_options( 'enable_payment_warnings' ) ) {
+			if ( true == Global_Settings::load_options( 'enable_payment_warnings' ) ) {
 				
 				// Disable default PMPro (addon) recurring payment notice;
 				$util->log( "Disable recurring payment emails action if present" );
@@ -256,7 +233,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			// Disable expiration warnings if enabled in plugin
-			if ( true == $this->load_options( 'enable_expiration_warnings' ) ) {
+			if ( true == Global_Settings::load_options( 'enable_expiration_warnings' ) ) {
 				
 				// Disable default PMPro expiration warnings;
 				$util->log( "Disable membership expiration warning emails, if present" );
@@ -267,7 +244,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			// Disable Credit Card Expiration warnings if enabled in plugin
-			if ( true == $this->load_options( 'enable_cc_expiration_warnings' ) ) {
+			if ( true == Global_Settings::load_options( 'enable_cc_expiration_warnings' ) ) {
 				
 				// Disable PMPro Credit Card Expiration warning messages
 				$util->log( "Disable credit card expiration warning emails action if present" );
@@ -282,6 +259,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @access public
 		 * @since  1.0
 		 * @since  1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
+		 * @since 3.8 - ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
 		 */
 		public function plugins_loaded() {
 			
@@ -296,121 +274,182 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				return;
 			}
 			
-			$this->load_addon_settings();
-			
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ), 10, 1 );
-			
-			// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
-			// add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
-			
-			add_action( 'e20r_pw_cron_trigger_capture_data', array(
-				self::$instance,
-				'load_active_subscriptions',
-			), 10, 2 );
-			add_action( 'e20r_pw_cron_trigger_send_messages', array(
-				self::$instance,
-				'send_recurring_payment_warnings',
-			), 10 );
-			
 			add_action( 'init', array( $this, 'load_translation' ) );
 			
-			/**
-			 * Add 30 minute cron job schedule
-			 *
-			 * @since v1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
-			 */
-			add_filter( 'cron_schedules', array( Cron_Handler::get_instance(), 'cron_schedules' ), 10, 1 );
-			
-			/**
-			 * Add hook to monitor background job mutext settings
-			 *
-			 * @since v1.9.9 - ENHANCEMENT: WP_Cron hook that monitors background data collection jobs
-			 */
-			add_action( 'e20r_check_job_status', array( Cron_Handler::get_instance(), 'clear_mutexes' ) );
-			
-			// Load the admin & settings menu
-			add_action( 'admin_menu', array( $this, 'load_admin_settings_page' ), 10 );
-			add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
-			
-			// Show any licensing warnings
-			add_action( 'admin_init', array( $this, 'check_license_warnings' ) );
-			
-			
-			if ( ! empty ( $GLOBALS['pagenow'] )
-			     && ( 'options-general.php' === $GLOBALS['pagenow']
-			          || 'options.php' === $GLOBALS['pagenow']
-			     )
-			) {
-				add_action( 'admin_init', array( $this, 'register_settings_page' ), 10 );
+			// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
+			if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {
+				
+				$utils->log( "Admin requested that we ignore the schedule delays/settings for testing purposes" );
+				add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
+				add_filter( 'e20r-email-notice-send-override', '__return_true' );
+				add_filter( 'e20r-payment-warning-send-email', array( Payment_Reminder::get_instance(), 'send_reminder_override' ), 9999, 4 );
 			}
 			
-			add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
+			$this->load_addon_settings();
 			
-			add_action( 'pmpro_save_discount_code_level', array( $this, 'updated_discount_codes' ), 10, 2 );
-			add_action( 'pmpro_save_membership_level', array( $this, 'updated_membership_level' ), 10, 1 );
+			/**
+			 * Limit activity when not logged in or executing the CRON jobs
+			 *
+			 * @since v3.8 - ENHANCEMENT: Limit activity when not logged in or executing the CRON jobs
+			 */
+			if ( is_user_logged_in() || true === wp_doing_cron() ) {
+				
+				// Maybe upgrade the DB
+				add_action( 'init', array( Payment_Warning::get_instance(), 'trigger_db_upgrade' ), -1 );
+				
+				// Add any licensing warnings
+				add_action( 'init', array( self::get_instance(), 'check_license_warnings' ), 10 );
+				
+				// Deactivate PMPro actions
+				add_action( 'init', array( self::get_instance(), 'disable_pmpro_actions' ), 999 );
+				
+				add_action( 'current_screen', array( $this, 'check_admin_screen' ), 10 );
+				
+				/**
+				 * Add 30 minute cron job schedule
+				 *
+				 * @since v1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
+				 */
+				add_filter( 'cron_schedules', array( Cron_Handler::get_instance(), 'cron_schedules' ), 10, 1 );
+				
+				/**
+				 * @since 3.8 - ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
+				 */
+				if ( true === wp_doing_cron() || Utilities::is_admin()) {
+					
+					add_action( 'e20r_run_remote_data_update', array(
+						Cron_Handler::get_instance(),
+						'fetch_gateway_payment_info',
+					) );
+					add_action( 'e20r_send_payment_warning_emails', array(
+						Cron_Handler::get_instance(),
+						'send_reminder_messages',
+					) );
+					add_action( 'e20r_send_expiration_warning_emails', array(
+						Cron_Handler::get_instance(),
+						'send_expiration_messages',
+					) );
+					add_action( 'e20r_send_creditcard_warning_emails', array(
+						Cron_Handler::get_instance(),
+						'send_cc_warning_messages',
+					) );
+					
+					/**
+					 * Add hook to monitor background job mutext settings
+					 *
+					 * @since v1.9.9 - ENHANCEMENT: WP_Cron hook that monitors background data collection jobs
+					 */
+					add_action( 'e20r_check_job_status', array( Cron_Handler::get_instance(), 'clear_mutexes' ) );
+					
+					add_action( 'e20r_pw_cron_trigger_capture_data', array(
+						self::$instance,
+						'load_active_subscriptions',
+					), 10, 2 );
+					add_action( 'e20r_pw_cron_trigger_send_messages', array(
+						self::$instance,
+						'send_recurring_payment_warnings',
+					), 10 );
+				}
+				
+				/**
+				 * @since 3.8 - ENHANCEMENT - Only load certain actions if we're exclusively loading the WP backend
+				 */
+				if ( Utilities::is_admin() ) {
+					
+					// Load the admin & settings menu
+					add_action( 'admin_menu', array( Global_Settings::get_instance(), 'load_admin_settings_page' ), 10 );
+					add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
+					
+					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
+					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
+					
+					if ( ! empty ( $GLOBALS['pagenow'] )
+					     && ( 'options-general.php' === $GLOBALS['pagenow']
+					          || 'options.php' === $GLOBALS['pagenow']
+					     )
+					) {
+						add_action( 'admin_init', array( Global_Settings::get_instance(), 'register_settings_page' ), 10 );
+					}
+					
+					add_action( 'pmpro_save_discount_code_level', array( Membership_Settings::get_instance(), 'updated_discount_codes' ), 10, 2 );
+					add_action( 'pmpro_save_membership_level', array( Membership_Settings::get_instance(), 'updated_membership_level' ), 10, 1 );
+					
+					add_action( 'wp_ajax_e20rpw_save_template', array( Reminder_Editor::get_instance(), 'save_template' ) );
+					add_action( 'wp_ajax_e20rpw_reset_template', array( Reminder_Editor::get_instance(), 'reset_template' ) );
+					
+					// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
+					
+					if ( Utilities::is_admin() || true === wp_doing_cron() ) {
+						
+						$this->load_licensed_modules();
+						
+						add_filter( 'e20r-email-notice-footer-company-name', array( $this, 'get_company_name' ), 10, 2 );
+						add_filter( 'e20r-email-notice-footer-company-address', array( $this, 'get_company_address' ), 10, 2 );
+						add_filter( 'e20r-email-notice-footer-text', array( $this, 'load_unsubscribe_notice' ), 10, 2 );
+						
+						if ( true === (bool) Global_Settings::load_options( 'enable_clear_old_data' ) ) {
+							
+							$utils->log( "Enable deletion of old/stale records in local DB when cron job(s) complete" );
+							add_filter( 'e20r-payment-warning-clear-old-records', '__return_true' );
+						}
+					}
+					
+					// Only load if both DEBUG and TEST_HOOKS is enabled
+					if ( Utilities::is_admin() && ( defined( 'WP_DEBUG' ) && true === WP_DEBUG ) &&
+					     ( defined( 'E20R_PW_TEST_HOOKS' ) && true === E20R_PW_TEST_HOOKS )
+					) {
+						
+						add_action( 'wp_ajax_test_get_remote_fetch', array(
+							Fetch_User_Data::get_instance(),
+							'configure_remote_subscription_data_fetch',
+						) );
+						add_action( 'wp_ajax_test_get_remote_payment', array(
+							Fetch_User_Data::get_instance(),
+							'configure_remote_payment_data_fetch',
+						) );
+						add_action( 'wp_ajax_test_fetch_remote_info', array(
+							Cron_Handler::get_instance(),
+							'fetch_gateway_payment_info',
+						) );
+						add_action( 'wp_ajax_test_run_record_check', array(
+							Payment_Reminder::get_instance(),
+							'process_reminders',
+						) );
+						add_action( 'wp_ajax_test_clear_cache', array(
+							Fetch_User_Data::get_instance(),
+							'clear_member_cache',
+						) );
+						add_action( 'wp_ajax_test_update_period', array(
+							Cron_Handler::get_instance(),
+							'find_shortest_recurring_period',
+						) );
+						add_action( 'wp_ajax_test_send_reminder', array(
+							Cron_Handler::get_instance(),
+							'send_reminder_messages',
+						) );
+					}
+				}
+			}
 			
 			// Last thing to do on deactivation (Required for this plugin)
-			add_action( 'e20r_pw_addon_deactivating_core', 'E20R\Payment_Warning\User_Data::delete_db_tables', 9999, 1 );
+			add_action( 'e20r_pw_addon_deactivating_core', '\E20R\Payment_Warning\Tools\DB_Tables::remove', 9999, 1 );
 			add_action( 'e20r_pw_addon_deactivating_core', array(
 				Reminder_Editor::get_instance(),
 				'deactivate_plugin',
 			), 10, 1 );
+			
 			// add_action( 'e20r_pw_addon_deactivating_core', array( Handle_Subscriptions::get_instance(), 'deactivate' ), 10, 1);
 			// add_action( 'e20r_pw_addon_activating_core', array( Cron_Handler::get_instance(), 'configure_cron_schedules'), 10, 0);
 			
-			add_action( 'wp_ajax_e20rpw_save_template', array( Reminder_Editor::get_instance(), 'save_template' ) );
-			add_action( 'wp_ajax_e20rpw_reset_template', array( Reminder_Editor::get_instance(), 'reset_template' ) );
-			
-			// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
-			
 			$utils->log( "Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons" );
-			
-			/** Add all module remote AJAX call actions */
+
+			/**
+			 * Add all module remote AJAX call actions
+			 *
+			 * @since v3.8 - ENHANCEMENT: Always load the remote webhook/silent post/IPN handler functions for the plugin
+			 */
 			do_action( 'e20r_pw_addon_remote_call_handler' );
-			
-			if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG ) {
-				
-				add_action( 'wp_ajax_test_get_remote_fetch', array(
-					Fetch_User_Data::get_instance(),
-					'configure_remote_subscription_data_fetch',
-				) );
-				add_action( 'wp_ajax_test_get_remote_payment', array(
-					Fetch_User_Data::get_instance(),
-					'configure_remote_payment_data_fetch',
-				) );
-				add_action( 'wp_ajax_test_fetch_remote_info', array(
-					Cron_Handler::get_instance(),
-					'fetch_gateway_payment_info',
-				) );
-				add_action( 'wp_ajax_test_run_record_check', array(
-					Payment_Reminder::get_instance(),
-					'process_reminders',
-				) );
-				add_action( 'wp_ajax_test_clear_cache', array(
-					Fetch_User_Data::get_instance(),
-					'clear_member_cache',
-				) );
-				add_action( 'wp_ajax_test_update_period', array(
-					Cron_Handler::get_instance(),
-					'find_shortest_recurring_period',
-				) );
-				add_action( 'wp_ajax_test_send_reminder', array(
-					Cron_Handler::get_instance(),
-					'send_reminder_messages',
-				) );
-				
-				// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
-				if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {
-					$utils->log( "Admin requested that we ignore the schedule delays/settings for testing purposes" );
-					add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
-				}
-			}
-			
-			$this->load_licensed_modules();
-			
-			add_filter( 'e20r-email-notice-footer-company-name', array( $this, 'get_company_name' ), 10, 2 );
-			add_filter( 'e20r-email-notice-footer-company-address', array( $this, 'get_company_address' ), 10, 2 );
-			add_filter( 'e20r-email-notice-footer-text', array( $this, 'load_unsubscribe_notice' ), 10, 2 );
 		}
 		
 		/**
@@ -445,7 +484,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function get_company_address( $company_address, $plugin ) {
 			
 			if ( $plugin === Payment_Warning::plugin_slug ) {
-				$company_address = $this->load_options('company_address');
+				$company_address = Global_Settings::load_options('company_address');
 			}
 			
 			return $company_address;
@@ -464,7 +503,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function get_company_name( $company_name, $plugin ) {
 			
 			if ( $plugin === Payment_Warning::plugin_slug ) {
-				$company_name = $this->load_options('company_name');
+				$company_name = Global_Settings::load_options('company_name');
 			}
 			
 			return $company_name;
@@ -476,58 +515,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function load_licensed_modules() {
 			
 			$utils = Utilities::get_instance();
+			$utils->log( "Loading licensed functionality for..." );
 			
 			// Load licensed modules (if applicable)
 			add_action( 'e20r-pw-load-licensed-modules', array( Reminder_Editor::get_instance(), 'load_hooks' ) );
-			
-			$utils->log( "Loading licensed functionality for..." );
 			
 			$active_addons = array( 'stripe_gateway_addon', 'paypal_gateway_addon', 'check_gateway_addon' );
 			$has_loaded    = false;
 			
 			foreach ( $active_addons as $addon_name ) {
 				
-				if ( true === Licensing::is_licensed( $addon_name ) && false === $has_loaded ) {
+				if ( true === Licensing::is_licensed( $addon_name ) ) {
 					
-					$utils->log( "Trigger load action for licensed module(s)" );
-					do_action( 'e20r-pw-load-licensed-modules' );
+					$utils->log( "Enable licensed module: {$addon_name}" );
 					$has_loaded = true;
 				}
 			}
-		}
-		
-		/**
-		 * Clear the level delay cache info on membership level save operation(s)
-		 *
-		 * @param $level_id
-		 */
-		public function updated_membership_level( $level_id ) {
 			
-			$util = Utilities::get_instance();
-			
-			$util->log( "Dropping the cache for delay & cron schedules due to a membership level being updated" );
-			// Clear cached values when discount code(s) get updated
-			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
-			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
-		}
-		
-		/**
-		 * Force calculation of next cron scheduled run whenever saving/updating a Discount Code
-		 *
-		 * @param int $discount_code_id
-		 * @param int $level_id
-		 */
-		public function updated_discount_codes( $discount_code_id, $level_id ) {
-			
-			$util = Utilities::get_instance();
-			
-			// Clear cached values when discount code(s) get updated
-			Cache::delete( "start_delay_{$level_id}", Utilities::get_util_cache_key() );
-			Cache::delete( "shortest_recurring_level", Payment_Warning::cache_group );
-			update_option( 'e20r_pw_next_gateway_check', null, 'no' );
-			
-			$util->log( "Dropping the cache for delay & cron schedules due to Discount Code being updated" );
+			if ( true === $has_loaded ) {
+				$utils->log( "Loading licensed modules/functionality!" );
+				do_action( 'e20r-pw-load-licensed-modules' );
+			}
 		}
 		
 		/**
@@ -558,73 +566,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		}
 		
 		/**
-		 * Configure the default (global) settings for this add-on
-		 * @return array
+		 * Load language/translation file(s)
 		 */
-		private function default_settings() {
+		public function load_translation() {
 			
-			return array(
-				'deactivation_reset'            => false,
-				'enable_gateway_fetch'          => false,
-				'enable_expiration_warnings'    => false,
-				'enable_payment_warnings'       => false,
-				'enable_cc_expiration_warnings' => false,
-				'company_name' => null,
-				'company_address' => null,
-			);
-		}
-		
-		/**
-		 * Set the options for this plugin
-		 */
-		private function define_settings() {
+			$locale = apply_filters( "plugin_locale", get_locale(), Payment_Warning::plugin_slug );
+			$mo     = Payment_Warning::plugin_slug . "-{$locale}.mo";
 			
-			$this->settings = get_option( $this->settings_name, $this->default_settings() );
-		}
-		
-		/**
-		 * Validating the returned values from the Settings API page on save/submit
-		 *
-		 * @param array $input Changed values from the settings page
-		 *
-		 * @return array Validated array
-		 *
-		 * @since  1.0
-		 * @since  2.1 - BUG FIX: Didn't clear the Active Addon cache when saving the Options page
-		 *
-		 * @access public
-		 */
-		public function validate_settings( $input ) {
+			// Paths to local (plugin) and global (WP) language files
+			$local_mo  = plugin_dir_path( __FILE__ ) . "/languages/{$mo}";
+			$global_mo = WP_LANG_DIR . "/" . Payment_Warning::plugin_slug . "/{$mo}";
 			
-			global $e20r_pw_addons;
+			// Load global version first
+			load_textdomain( Payment_Warning::plugin_slug, $global_mo );
 			
-			$utils = Utilities::get_instance();
+			// Load local version second
+			load_textdomain( Payment_Warning::plugin_slug, $local_mo );
 			
-			$utils->log( "E20R Payment Warning input settings: " . print_r( $input, true ) );
-			
-			foreach ( $e20r_pw_addons as $addon_name => $settings ) {
-				
-				$utils->log( "Trigger local toggle_addon action for {$addon_name}: is_active = " . ( isset( $input["is_{$addon_name}_active"] ) ? 'Yes' : 'No' ) );
-				
-				do_action( 'e20r_pw_addon_toggle_addon', $addon_name, isset( $input["is_{$addon_name}_active"] ) );
-			}
-			
-			$defaults = $this->default_settings();
-			
-			foreach ( $defaults as $key => $value ) {
-				
-				if ( isset( $input[ $key ] ) ) {
-					$this->settings[ $key ] = $input[ $key ];
-				} else {
-					$this->settings[ $key ] = $defaults[ $key ];
-				}
-			}
-			
-			// Force update of the active addon cache
-			Cache::delete( 'e20r_pw_active_addons', Payment_Warning::cache_group );
-			
-			// Validated & updated settings
-			return $this->settings;
 		}
 		
 		/**
@@ -767,22 +725,27 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		}
 		
 		/**
-		 * Load settings/options for the plugin
+		 * Returns true if one of the available Gateway add-ons has an active license.
 		 *
-		 * @param $option_name
-		 *
-		 * @return bool|mixed
+		 * @return bool
 		 */
-		public function load_options( $option_name ) {
+		public function has_licensed_gateway() {
 			
-			$this->settings = get_option( "{$this->settings_name}", $this->default_settings() );
+			global $e20r_pw_addons;
 			
-			if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
+			$has_licensed_gateway = false;
+			
+			if ( !empty( $e20r_pw_addons ) ) {
 				
-				return $this->settings[ $option_name ];
+				foreach( $e20r_pw_addons as $stub => $settings ) {
+					
+					if ( $stub !== 'standard_gateway_addon' ) {
+						$has_licensed_gateway = $has_licensed_gateway || Licensing::is_licensed( $stub );
+					}
+				}
 			}
 			
-			return false;
+			return $has_licensed_gateway;
 		}
 		
 		/**
@@ -794,391 +757,51 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$products = array_keys( $e20r_pw_addons );
 			$utils    = Utilities::get_instance();
 			
+			$is_sent     = ( current_time( 'timestamp' ) >= ( intval( get_option( 'e20rpw_license_warning_sent', 0 ) ) ) );
+			$admin_email = get_option( 'admin_email' );
+			
+			$utils->log( "Check for any license warnings!" );
+			
 			foreach ( $products as $stub ) {
 				
-				switch ( Licensing::is_license_expiring( $stub ) ) {
+				$utils->log( "Checking status for {$stub}" );
+				$license_status = Licensing::is_license_expiring( $stub );
+				$utils->log( "Status is: {$license_status}" );
+				
+				if ( true === $license_status ) {
 					
-					case true:
-						$utils->add_message( sprintf( __( 'The license for %s will renew soon. As this is an automatic payment, you will not have to do anything. To modify <a href="%s" target="_blank">your license</a>, you will need to access <a href="%s" target="_blank">your account page</a>' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/', 'https://eighty20results.com/account/' ), 'info', 'backend' );
-						break;
-					case - 1:
-						$utils->add_message( sprintf( __( 'Your add-on license has expired. For continued use of the E20R Roles: %s add-on, you will need to <a href="%s" target="_blank">purchase and install a new license</a>.' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/' ), 'error', 'backend' );
-						break;
-				}
-			}
-		}
-		
-		/**
-		 * Generate the options page for this plugin
-		 */
-		public function load_admin_settings_page() {
-			
-			$utils = Utilities::get_instance();
-			
-			$utils->log( "Loading options page for Payment Warnings" );
-			
-			$this->settings_page_hook = add_options_page(
-				__( "Payment Warnings for Paid Memberships Pro", Payment_Warning::plugin_slug ),
-				__( "Payment Warnings", Payment_Warning::plugin_slug ),
-				apply_filters( 'e20rpw_min_settings_capabilities', 'manage_options' ),
-				'e20r-payment-warning-settings',
-				array( $this, 'global_settings_page' )
-			);
-			
-			Licensing::add_options_page();
-		}
-		
-		/**
-		 * Configure options page for the plugin and include any configured add-ons if needed.
-		 */
-		public function register_settings_page() {
-			
-			$utils = Utilities::get_instance();
-			$utils->log( "Register settings for Payment Warnings" );
-			
-			// Configure our own settings
-			register_setting( Payment_Warning::option_group, "{$this->settings_name}", array(
-				$this,
-				'validate_settings',
-			) );
-			
-			$utils->log( "Added Global Settings" );
-			add_settings_section(
-				'e20r_pw_global',
-				__( 'Global Settings: E20R Payment Warnings for PMPro', Payment_Warning::plugin_slug ),
-				array( $this, 'render_global_settings_text', ),
-				'e20r-payment-warning-settings'
-			);
-			
-			add_settings_field(
-				'e20r_pw_global_reset',
-				__( "Reset data on deactivation", Payment_Warning::plugin_slug ),
-				array( $this, 'render_checkbox' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_global',
-				array( 'option_name' => 'deactivation_reset' )
-			);
-			
-			add_settings_field(
-				'e20r_pw_company_name',
-				__( "Company Name", Payment_Warning::plugin_slug ),
-				array( $this, 'render_input' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_global',
-				array( 'option_name' => 'company_name' )
-			);
-			
-			add_settings_field(
-				'e20r_pw_company_address',
-				__( "Company Address", Payment_Warning::plugin_slug ),
-				array( $this, 'render_textarea' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_global',
-				array( 'option_name' => 'company_address' )
-			);
-			
-			/**
-			 *                 'enable_payment_warnings' => false,
-			 * 'enable_cc_expiration_warnings' => false,
-			 */
-			add_settings_field(
-				'e20r_pw_global_gateway_fetch',
-				__( "Fetch data: Payment Gateways", Payment_Warning::plugin_slug ),
-				array( $this, 'render_checkbox' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_global',
-				array( 'option_name' => 'enable_gateway_fetch' )
-			);
-			
-			add_settings_section(
-				'e20r_pw_messages',
-				__( 'Active Message Types', Payment_Warning::plugin_slug ),
-				array( $this, 'render_message_type_text', ),
-				'e20r-payment-warning-settings'
-			);
-			
-			add_settings_field(
-				'e20r_pw_global_expiration_warning',
-				__( "Membership Expiration", Payment_Warning::plugin_slug ),
-				array( $this, 'render_checkbox' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_messages',
-				array( 'option_name' => 'enable_expiration_warnings' )
-			);
-			
-			add_settings_field(
-				'e20r_pw_global_payment_warnings',
-				__( "Recurring Payment", Payment_Warning::plugin_slug ),
-				array( $this, 'render_checkbox' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_messages',
-				array( 'option_name' => 'enable_payment_warnings' )
-			);
-			
-			add_settings_field(
-				'e20r_pw_global_cc_warning',
-				__( "Credit Card Expiration", Payment_Warning::plugin_slug ),
-				array( $this, 'render_checkbox' ),
-				'e20r-payment-warning-settings',
-				'e20r_pw_messages',
-				array( 'option_name' => 'enable_cc_expiration_warnings' )
-			);
-			
-			$utils->log( "Added Add-on Settings for Payment Warnings" );
-			add_settings_section(
-				'e20r_pw_addons',
-				__( 'Gateways', Payment_Warning::plugin_slug ),
-				array( $this, 'render_addon_header' ),
-				'e20r-payment-warning-settings'
-			);
-			
-			global $e20r_pw_addons;
-			
-			/*
-			if ( WP_DEBUG ) {
-			    error_log("Register Settings - List of add-ons: " . print_r( $e20r_payment_gateways, true ));
-            }
-			*/
-			foreach ( $e20r_pw_addons as $addon => $settings ) {
-				
-				$utils->log( "Adding settings for {$addon}: {$settings['label']}" );
-				
-				add_settings_field(
-					"e20r_pw_addons_{$addon}",
-					$settings['label'],
-					array( $this, 'render_addon_entry' ),
-					'e20r-payment-warning-settings',
-					'e20r_pw_addons',
-					$settings
-				);
-			}
-			
-			// Load/Register settings for all active add-ons
-			foreach ( $e20r_pw_addons as $name => $info ) {
-				
-				$utils->log( "Settings for {$name}..." );
-				
-				if ( true == $info['is_active'] ) {
+					$msg = sprintf( __( 'The license for the plugin that sends upcoming payment warnings and membership expiration promotions to your members (using the %1$s payment gateway) will renew soon. To keep sending these reminders to your customers who paid via the %1$s payment gateway, please verify that <a href="%2$s" target="_blank">your license</a> will renew automatically by going to <a href="%3$s" target="_blank">your account page</a> and verify the status of your payment method and license' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/', 'https://eighty20results.com/account/' );
 					
-					$addon_fields = apply_filters( "e20r_pw_addon_options_{$info['class_name']}", array() );
+					if ( is_admin() ) {
+						$utils->add_message( $msg, 'warning', 'backend' );
+					}
 					
-					foreach ( $addon_fields as $type => $config ) {
+					if ( false === $is_sent ) {
+						$utils->log( "Sending license renewing email warning to {$admin_email}" );
+						wp_mail( $admin_email, __( "Important: The payment and expiration warnings license may renew soon", Payment_Warning::plugin_slug ), "<p>{$msg}</p>" );
+						update_option( 'e20rpw_license_warning_sent', current_time( 'timestamp' ), 'no' );
+					}
+					
+					if ( - 1 === $license_status ) {
 						
-						if ( 'setting' === $type ) {
-							$utils->log( sprintf( "Loading: %s/{$config['option_name']}", Payment_Warning::option_group ) );
-							register_setting( Payment_Warning::option_group, $config['option_name'], $config['validation_callback'] );
+						$msg = sprintf( __( 'Your %1$s add-on license for sending upcoming payment reminders and membership expiration promotion messages has expired. To resume sending these warnings to your members (using the %1$s payment gateway), you will need to <a href="%2$s" target="_blank">purchase and install a new %1$s license</a>.' ), $e20r_pw_addons[ $stub ]['label'], 'https://eighty20results.com/licenses/' );
+						
+						if ( is_admin() ) {
+							$utils->add_message( $msg, 'error', 'backend' );
 						}
 						
-						if ( 'section' === $type ) {
-							
-							$utils->log( "Processing " . count( $config ) . " sections" );
-							
-							// Iterate through the section(s)
-							foreach ( $config as $section ) {
-								
-								$utils->log( "Loading: {$section['id']}/{$section['label']}" );
-								add_settings_section( $section['id'], $section['label'], $section['render_callback'], 'e20r-payment-warning-settings' );
-								
-								$utils->log( "Processing " . count( $section['fields'] ) . " fields" );
-								
-								foreach ( $section['fields'] as $field ) {
-									
-									$utils->log( "Loading: {$field['id']}/{$field['label']}" );
-									
-									add_settings_field( $field['id'], $field['label'], $field['render_callback'], 'e20r-payment-warning-settings', $section['id'] );
-								}
-							}
+						if ( false === $is_sent ) {
+							$utils->log( "Sending license expired email warning to {$admin_email}" );
+							wp_mail(
+								$admin_email,
+								__( "CRITICAL: Not sending payment and expiration warnings to your members!", Payment_Warning::plugin_slug ),
+								"<p>{$msg}</p>"
+							);
+							update_option( 'e20rpw_license_warning_sent', current_time( 'timestamp' ), 'no' );
 						}
 					}
-				} else {
-					$utils->log( "Addon settings are disabled for {$name}" );
 				}
 			}
-			
-			$utils->log( "Configure licensing info for Payment Warning plugin" );
-			// Load settings for the Licensing code
-			Licensing::register_settings();
-		}
-		
-		/**
-		 * Loads the text for the add-on list (to enable/disable add-ons)
-		 */
-		public function render_addon_header() {
-			?>
-			<p class="e20r-pw-addon-header-text">
-			<?php _e( "Use checkbox to enable/disable any licensed gateways", Payment_Warning::plugin_slug ); ?>
-			</p><?php
-		}
-		
-		/**
-		 * Render the checkbox for the specific add-on (based on passed config)
-		 *
-		 * @param array $config
-		 */
-		public function render_addon_entry( $config ) {
-			
-			if ( ! empty( $config ) ) {
-				$is_active  = $config['is_active'];
-				$addon_name = strtolower( $config['class_name'] );
-				?>
-				<input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
-				       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_attr_e( "is_{$addon_name}_active" ); ?>]"
-				       value="1" <?php checked( $is_active, true ); ?> />
-				<?php
-			}
-		}
-		
-		/**
-		 * Render description for the global plugin settings
-		 */
-		public function render_global_settings_text() {
-			$next_run = get_option( 'e20r_pw_next_gateway_check', null );
-			
-			if ( empty( $next_run ) ) {
-				$next_run = wp_next_scheduled( 'e20r_run_remote_data_update' );
-			}
-			?>
-			<p class="e20r-pw-global-settings-text">
-				<?php _e( "Configure plugin settings", Payment_Warning::plugin_slug ); ?>
-			</p>
-			<p class="e20r-pw-global-settings-info">
-				<?php printf( __( '%1$sNext scheduled data fetch from the payment gateway(s) will happen on or after %2$s%3$s', Payment_Warning::plugin_slug ),
-					'<span class="e20r-pw-gateway-fetch-status">',
-					date_i18n( get_option( 'date_format' ), $next_run ),
-					'</span>'
-				); ?>
-			</p>
-			<?php
-		}
-		
-		/**
-		 * Render the description for the types to send messages for
-		 */
-		public function render_message_type_text() {
-			?>
-			<p class="e20r-pw-global-messages-text">
-				<?php _e( "Select (check) the warning message types you want the plugin to send.", Payment_Warning::plugin_slug ); ?>
-			</p>
-			
-			<?php
-		}
-		
-		/**
-		 * Render description for the Reminder Schedule settings
-		 */
-		public function render_upcoming_payment_text() {
-			?>
-			<p class="e20r-pw-global-settings-text">
-				<?php _e( "Reminder Schedule settings", Payment_Warning::plugin_slug ); ?>
-			</p>
-			<?php
-		}
-		
-		/**
-		 * Render a checkbox for the Settings page
-		 *
-		 * @param array $settings
-		 */
-		public function render_checkbox( $settings ) {
-			
-			$value = $this->load_options( $settings['option_name'] );
-			?>
-			<input type="checkbox"
-			       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
-			       value="1" <?php checked( 1, $value ); ?> />
-			<?php
-		}
-		
-		/**
-		 * Render an input field for the Settings page
-		 *
-		 * @param array $settings
-		 */
-		public function render_input( $settings ) {
-			
-			$value = $this->load_options( $settings['option_name'] );
-			$type = empty( $settings['type'] ) ? 'text' : $settings['type'];
-			?>
-			<input type="<?php esc_attr_e( $type ); ?>"
-			       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
-			       value="<?php esc_attr_e( $value ); ?>" />
-			<?php
-		}
-		
-		/**
-		 * Render a textarea field on the Settings page
-		 *
-		 * @param array $settings
-		 */
-		public function render_textarea( $settings ) {
-			$value = $this->load_options( $settings['option_name'] );
-			?>
-			<textarea name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]" rows="5" cols="50" placeholder="<?php _e("Enter address using the &lt;br/&gt; html element for line breaks", Payment_Warning::plugin_slug ); ?>" ><?php trim( esc_html_e( $value ) ); ?></textarea>
-			<?php
-		}
-		/**
-		 * Generates the Settings API compliant option page
-		 */
-		public function global_settings_page() {
-			?>
-			<div class="e20r-pw-settings">
-				<div class="wrap">
-					<h2 class="e20r-pw-pmpro-settings"><?php _e( 'Settings: Eighty / 20 Results - Payment Warnings for Paid Memberships Pro', Payment_Warning::plugin_slug ); ?></h2>
-					<p class="e20r-pw-pmpro-settings">
-						<?php _e( "Configure global 'E20R Payment Warnings for Paid Memberships Pro' settings", Payment_Warning::plugin_slug ); ?>
-					</p>
-					<form method="post" action="options.php">
-						<?php settings_fields( Payment_Warning::option_group ); ?>
-						<?php do_settings_sections( 'e20r-payment-warning-settings' ); ?>
-						<p class="submit">
-							<input type="submit" class="button-primary" value="<?php _e( 'Save Changes' ); ?>"/>
-						</p>
-					</form>
-				
-				</div>
-			</div>
-			<?php
-		}
-		
-		/**
-		 * Generates the PMPro Membership Level Settings section
-		 */
-		public function level_settings_page() {
-			
-			$active_addons = $this->get_active_addons();
-			$level_id      = isset( $_REQUEST['edit'] ) ? intval( $_REQUEST['edit'] ) : ( isset( $_REQUEST['copy'] ) ? intval( $_REQUEST['copy'] ) : null );
-			?>
-			<div class="e20r-pw-for-pmpro-level-settings">
-				<h3 class="topborder"><?php _e( 'Payment Warnings for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
-				<hr style="width: 90%; border-bottom: 2px solid #c5c5c5;"/>
-				<h4 class="e20r-pw-for-pmpro-section"><?php _e( 'Default gateway settings', Payment_Warning::plugin_slug ); ?></h4>
-				<?php do_action( 'e20r_pw_level_settings', $level_id, $active_addons ); ?>
-			</div>
-			<?php
-		}
-		
-		/**
-		 * Global save_level_settings function (calls add-on specific save code)
-		 *
-		 * @param $level_id
-		 */
-		public function save_level_settings( $level_id ) {
-			
-			$active_addons = $this->get_active_addons();
-			
-			do_action( 'e20r_pw_level_settings_save', $level_id, $active_addons );
-		}
-		
-		/**
-		 * Global delete membership level function (calls add-on specific save code)
-		 *
-		 * @param int $level_id
-		 */
-		public function delete_level_settings( $level_id ) {
-			
-			$active_addons = $this->get_active_addons();
-			
-			do_action( 'e20r_pw_level_settings_delete', $level_id, $active_addons );
 		}
 		
 		/**
@@ -1297,8 +920,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 */
 		public static function deactivate() {
 			
-			$class    = self::$instance;
-			$clean_up = $class->load_options( 'deactivation_reset' );
+			$clean_up = Global_Settings::load_options( 'deactivation_reset' );
 			$utils    = Utilities::get_instance();
 			
 			$utils->log( "Deleting all first-run trigger options" );
@@ -1320,7 +942,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$utils = Utilities::get_instance();
 			
-			$installed_ver = get_option( 'e20rpw_db_version', null );
+			$installed_ver = get_option( 'e20rpw_db_version', 0 );
 			
 			$upgraded = $this->load_db_upgrades();
 			
@@ -1330,6 +952,21 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$utils->log( "Trigger database upgrade to version {$e20rpw_db_version} from {$installed_ver}" );
 				do_action( "e20rpw_trigger_database_upgrade_{$e20rpw_db_version}", $installed_ver );
 			}
+		}
+		
+		/**
+		 * Define list of upgrade classes to use/include
+		 *
+		 * @return array
+		 */
+		public function load_db_upgrades() {
+			
+			$classes   = array();
+			$classes[] = new Upgrades\Upgrade_2();
+			$classes[] = new Upgrades\Upgrade_3();
+			$classes[] = new Upgrades\Upgrade_4();
+			
+			return $classes;
 		}
 		
 		/**
@@ -1387,43 +1024,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				}
 			}
 		}
-		
-		/**
-		 * Load language/translation file(s)
-		 */
-		public function load_translation() {
-			
-			$locale = apply_filters( "plugin_locale", get_locale(), Payment_Warning::plugin_slug );
-			$mo     = Payment_Warning::plugin_slug . "-{$locale}.mo";
-			
-			// Paths to local (plugin) and global (WP) language files
-			$local_mo  = plugin_dir_path( __FILE__ ) . "/languages/{$mo}";
-			$global_mo = WP_LANG_DIR . "/" . Payment_Warning::plugin_slug . "/{$mo}";
-			
-			// Load global version first
-			load_textdomain( Payment_Warning::plugin_slug, $global_mo );
-			
-			// Load local version second
-			load_textdomain( Payment_Warning::plugin_slug, $local_mo );
-			
-		}
-		
-		/**
-		 * Define list of upgrade classes to use/include
-		 *
-		 * @return array
-		 */
-		public function load_db_upgrades() {
-			
-			$classes   = array();
-			$classes[] = new Upgrades\Upgrade_2();
-			$classes[] = new Upgrades\Upgrade_3();
-			$classes[] = new Upgrades\Upgrade_4();
-			
-			return $classes;
-		}
 	}
-	
 }
 
 /**
@@ -1436,7 +1037,6 @@ register_deactivation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warni
 
 // Load this plugin
 add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'plugins_loaded' ), 10 );
-add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'trigger_db_upgrade' ), 11 );
 
 // One-click update handler
 if ( ! class_exists( '\\Puc_v4_Factory' ) ) {

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2017 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,30 +19,20 @@
 
 namespace E20R\Payment_Warning\Addon;
 
-use Braintree\Exception;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
-use E20R\Utilities\Cache;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Licensing\Licensing;
-use Stripe\Account;
-use Stripe\Charge;
-use Stripe\Customer;
-use Stripe\Error\Api;
-use Stripe\Event;
-use Stripe\Invoice;
-use Stripe\Stripe;
-use Stripe\Subscription;
 
-if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
+if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 	
-	if ( ! defined( 'DEBUG_CHECK_KEY' ) ) {
-		define( 'DEBUG_CHECK_KEY', null );
+	if ( ! defined( 'DEBUG_DEFAULT_KEY' ) ) {
+		define( 'DEBUG_DEFAULT_KEY', null );
 	}
 	
-	class Check_Gateway_Addon extends E20R_PW_Gateway_Addon {
+	class Standard_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		
-		const CACHE_GROUP = 'e20r_check_addon';
+		const CACHE_GROUP = 'e20r_std_addon';
 		
 		/**
 		 * The name of this class
@@ -109,7 +99,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 *
 		 * @var string $option_name
 		 */
-		protected $option_name = 'e20r_egwao_check';
+		protected $option_name = 'e20r_egwao_standard';
 		
 		/**
 		 * Return the array of supported subscription statuses to capture data about
@@ -168,8 +158,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		private function load_check_libs() {
 			
-			$this->pmpro_gateway = new \PMProGateway_check();
-			// $this->pmpro_gateway->loadStripeLibrary();
+			if ( function_exists( 'pmpro_getOption' ) ) {
+				$gateway = pmpro_getGateway();
+			}
+			
+			$gateway_class = "\\PMProGateway_{$gateway}";
+			$this->pmpro_gateway = new $gateway_class();;
 			$this->gateway_loaded = true;
 			
 		}
@@ -186,47 +180,19 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			$util = Utilities::get_instance();
 			
 			if ( $addon_name !== 'check' ) {
-				$util->log( "Not processing for this addon (check): {$addon_name}" );
+				$util->log( "Not processing for this addon (default): {$addon_name}" );
 				
 				return false;
 			}
 			
 			// This will load the Check/PMPro Gateway class _and_ its library(ies)
 			$util->log( "PMPro loaded? " . ( defined( 'PMPRO_VERSION' ) ? 'Yes' : 'No' ) );
-			$util->log( "PMPro check gateway loaded? " . ( class_exists( "\PMProGateway_check" ) ? 'Yes' : 'No' ) );
 			
-			if ( defined( 'PMPRO_VERSION' ) && class_exists( "\PMProGateway_check" ) && false === $this->gateway_loaded ) {
-				$util->log( "Loading the PMPro Check Gateway instance" );
-				$this->load_check_libs();
-				
-			} else {
-				$util->log( "Egad! Check library is missing/not loaded!!!" );
-				$this->load_check_libs();
-			}
+			// Configure Stripe API call version
+			$this->gateway_timezone = get_option( 'timezone_string' );
+			$util->log( "Using {$this->gateway_timezone} as the timezone value" );
 			
-			try {
-				
-				if ( defined( 'DEBUG_CHECK_KEY' ) && '' != DEBUG_CHECK_KEY ) {
-					
-					$util->log( "Using Test Key for CHECK API" );
-					$api_key = DEBUG_CHECK_KEY;
-				} else {
-					$util->log( "Using PMPro specified Key for Check API" );
-				}
-				
-				// Configure Stripe API call version
-				$this->gateway_timezone = get_option( 'timezone_string' );
-				$util->log( "Using {$this->gateway_timezone} as the timezone value" );
-				
-				return true;
-			} catch ( \Exception $e ) {
-				
-				$utils = Utilities::get_instance();
-				$utils->add_message( sprintf( __( 'Unable to load the Check Payment Gateway settings of PMPro (%s)', Payment_Warning::plugin_slug ), $e->getMessage() ), 'error', 'backend' );
-				
-				return false;
-			}
-			
+			return true;
 		}
 		
 		/**
@@ -239,7 +205,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		public function get_gateway_subscriptions( $user_data, $addon ) {
 			
 			$utils = Utilities::get_instance();
-			$stub  = apply_filters( "e20r_pw_addon_check_gateway_addon_name", null );
+			$stub  = apply_filters( "e20r_pw_addon_standard_gateway_addon_name", null );
 			$data  = null;
 			
 			if ( 1 !== preg_match( "/check/i", $addon ) ) {
@@ -584,20 +550,20 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		public function get_gateway_class_name( $gateway_name = null , $addon ) {
 			
-			$utils = Utilities::get_instance();
-			$utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
-			
-			if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
-				$utils->log("{$addon} not matching the expected gateway add-on for the Check gateway");
-				return $gateway_name;
-			}
-			
-			$gateway_name =  $this->get_class_name();
+		    $utils = Utilities::get_instance();
+		    $utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
+		    
+		    if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
+			    $utils->log("{$addon} not matching the standard gateway's expected add-on");
+		        return $gateway_name;
+            }
+            
+            $gateway_name =  $this->get_class_name();
 			return $gateway_name;
 		}
 		
 		/**
-		 *  Check_Gateway constructor.
+		 *  Stripe_Gateway_Addon constructor.
 		 */
 		public function __construct() {
 			
@@ -659,31 +625,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		public function add_new_license_info( $license_settings, $plugin_settings ) {
 			
-			global $e20r_pw_addons;
-			
-			$utils = Utilities::get_instance();
-			
-			if ( ! isset( $license_settings['new_licenses'] ) ) {
-				$license_settings['new_licenses'] = array();
-				$utils->log( "Init array of licenses entry" );
-			}
-			
-			$stub = strtolower( $this->get_class_name() );
-			$utils->log( "Have " . count( $license_settings['new_licenses'] ) . " new licenses to process already. Adding {$stub}... " );
-			
-			$license_settings['new_licenses'][ $stub ] = array(
-				'label_for'     => $stub,
-				'fulltext_name' => $e20r_pw_addons[ $stub ]['label'],
-				'new_product'   => $stub,
-				'option_name'   => "e20r_license_settings",
-				'name'          => 'license_key',
-				'input_type'    => 'password',
-				'value'         => null,
-				'email_field'   => "license_email",
-				'email_value'   => null,
-				'placeholder'   => sprintf( __( "Paste Payment Warning %s key here", "e20r-licensing" ), $e20r_pw_addons[ $stub ]['label'] ),
-			);
-			
+			//No license to add for the default functionality
 			return $license_settings;
 		}
 		
@@ -837,31 +779,35 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		final public static function is_enabled( $stub ) {
 			
 			$utils = Utilities::get_instance();
+			$controller = Payment_Warning::get_instance();
+			
 			global $e20r_pw_addons;
 			
 			// TODO: Set the filter name to match the sub for this plugin.
 			$utils->log( "Running for {$stub}" );
-			/**
-			 * Toggle ourselves on/off, and handle any deactivation if needed.
-			 */
-			add_action( 'e20r_pw_addon_toggle_addon', array( self::get_instance(), 'toggle_addon' ), 10, 2 );
-			add_action( 'e20r_pw_addon_activating_core', array( self::get_instance(), 'activate_addon', ), 10, 0 );
-			add_action( 'e20r_pw_addon_deactivating_core', array( self::get_instance(), 'deactivate_addon', ), 10, 1 );
 			
-			/**
-			 * Configuration actions & filters
-			 */
-			add_filter( 'e20r-license-add-new-licenses', array(
-				self::get_instance(),
-				'add_new_license_info',
-			), 10, 2 );
-			add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array(
-				self::get_instance(),
-				'register_settings',
-			), 10, 1 );
-			
-			if ( true === parent::is_enabled( $stub ) ) {
+			if ( false === $controller->has_licensed_gateway() ) {
 				
+				$utils->log("Only loading the Default Gateway if there are no licensed Payment Gateway Add-ons loaded");
+
+				/**
+				 * Toggle ourselves on/off, and handle any deactivation if needed.
+				 */
+				add_action( 'e20r_pw_addon_toggle_addon', array( self::get_instance(), 'toggle_addon' ), 10, 2 );
+				add_action( 'e20r_pw_addon_activating_core', array( self::get_instance(), 'activate_addon', ), 10, 0 );
+				add_action( 'e20r_pw_addon_deactivating_core', array( self::get_instance(), 'deactivate_addon', ), 10, 1 );
+				
+				/**
+				 * Configuration actions & filters
+				 */
+				add_filter( 'e20r-license-add-new-licenses', array(
+					self::get_instance(),
+					'add_new_license_info',
+				), 10, 2 );
+				add_filter( "e20r_pw_addon_options_{$e20r_pw_addons[$stub]['class_name']}", array(
+					self::get_instance(),
+					'register_settings',
+				), 10, 1 );
 				$utils->log( "{$e20r_pw_addons[$stub]['label']} active: Loading add-on specific actions/filters" );
 				
 				parent::load_hooks_for( self::get_instance() );
@@ -872,6 +818,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 						'test_gateway_subscriptions',
 					) );
 				}
+			} else {
+				$utils->log("Not enabling the Standard Gateway Add-on since we have an active and licensed add-on module");
 			}
 		}
 		
@@ -891,7 +839,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			
 			parent::load_webhook_handler( $stub );
 			
-			$util->log( "Site has the expected Check Webhook action: " . (
+			$util->log( "Site has the expected Default Webhook action: " . (
 				has_action(
 					"wp_ajax_{$e20r_pw_addons[$stub]['handler_name']}",
 					array( self::get_instance(), 'webhook_handler', ) ) ? 'Yes' : 'No' )
@@ -905,131 +853,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 */
 		public function webhook_handler() {
 			
-			global $pmpro_check_event;
-			
-			$util    = Utilities::get_instance();
-			$event   = null;
-			$is_live = false;
-			
-			if ( ! function_exists( 'pmpro_getOption' ) ) {
-				$util->log( "The Paid Memberships Pro plugin is _not_ loaded and activated! Exiting..." );
-				
-				return false;
-			}
-			
-			$util->log( "In the Check Payment Gateway Webhook handler for Payment Warnings plugin" );
-			
-			$util->log( "Incoming request: " . print_r( $_REQUEST, true ) );
-			
-			if ( false === $this->gateway_loaded ) {
-				$util->log( "Loading the PMPro Check Gateway instance" );
-				$this->load_check_libs();
-			}
-			
-			// Have what we believe to be a Stripe event object
-			if ( ! empty( $event ) ) {
-				
-				$util->log( "Loading data for {$event->id}" );
-				
-				$is_live   = is_bool( $event->livemode ) ? (bool) $event->livemode : false;
-				$data_list = $event->data;
-				
-				if ( ( true === $is_live && ! empty( $data_list ) ) || ( true === WP_DEBUG && ! empty( $data_list ) ) ) {
-					
-					$util->log( "Sending data to processing by event type. In DEBUG mode? " . ( true === WP_DEBUG ? 'Yes' : 'No' ) );
-					
-					return $this->process_event_data( $event->type, $data_list );
-				}
-			}
-			
 			return false;
-		}
-		
-		/**
-		 * Process and select the event type handler for this webhook event
-		 *
-		 * @param string $event_type
-		 * @param array  $data_array
-		 */
-		public function process_event_data( $event_type, $data_array ) {
-			
-			$util = Utilities::get_instance();
-			
-			switch ( $event_type ) {
-				
-				case 'customer.source.updated': // Credit Card was updated by Stripe.com
-					$util->log( "Customer payment source was updated" );
-					$this->maybe_update_credit_card( 'update', $data_array );
-					break;
-				
-				case 'customer.source.deleted': // Credit Card was deleted at Stripe.com
-					$util->log( "Customer payment source was deleted" );
-					$this->maybe_update_credit_card( 'delete', $data_array );
-					break;
-				
-				case 'customer.source.created': // Credit Card was added at Stripe.com
-					$util->log( "Customer payment source was added" );
-					$this->maybe_update_credit_card( 'add', $data_array );
-					break;
-				
-				case 'customer.subscription.deleted': // Subscription plan was deleted / expired / ended
-					$util->log( "Customer subscription plan was deleted" );
-					$this->maybe_update_subscription( 'delete', $data_array );
-					break;
-				
-				case 'customer.subscription.created': // Subscription plan was deleted / expired / ended
-					$util->log( "Customer subscription plan was deleted" );
-					$this->maybe_update_subscription( 'add', $data_array );
-					break;
-				/*
-				//				case 'customer.subscription.updated': // Subscription plan was deleted / expired / ended
-				//					$util->log( "Customer subscription plan was deleted" );
-				//					$this->maybe_update_subscription( 'update', $data_array );
-				//					break;
-				*/
-				case 'source.failed': //Payment source failed!
-					$util->log( "Payement by customer's payment source failed" );
-					$this->maybe_send_payment_failure_message( $data_array );
-					break;
-				
-				case 'invoice.upcoming':
-					$util->log( "The customer has an upcoming invoice" );
-					// An invoice is about to be charged in X days (default: 7 days) (options: 3, 7, 15, 30, 45 days)
-					$this->maybe_update_subscription( 'update', $data_array );
-					break;
-				
-				case 'customer.subscription.trial_will_end': // Triggers when the first _recurring_ payment is about to happen (3 days before)
-					$util->log( "The customer's first automatic membership payment will be charged in 3 days" );
-					$this->maybe_update_subscription( 'update', $data_array );
-					
-					break;
-				
-				default:
-					$util->log( "No processing defined for {$event_type}: " . print_r( $data_array, true ) );
-			}
-			
-		}
-		
-		public function maybe_send_payment_failure_message( $data ) {
-			$util = Utilities::get_instance();
-			$util->log( "Dumping Payment failure data: " . print_r( $data, true ) );
-		}
-		
-		/**
-		 * @param $operation
-		 * @param $data
-		 *
-		 * @return bool
-		 */
-		public function maybe_update_credit_card( $operation, $data ) {
-			
-			$util = Utilities::get_instance();
-			$util->log( "Dumping Credit Card event data (for: {$operation}): " . print_r( $data, true ) );
-			$customer_id = null;
-			$customer    = null;
-			$user        = null;
-			
-			return true;
 		}
 		
 		/**
@@ -1285,7 +1109,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		/**
 		 * Fetch the properties for the Stripe Gateway add-on class
 		 *
-		 * @return Check_Gateway_Addon
+		 * @return Standard_Gateway_Addon
 		 *
 		 * @since  1.0
 		 * @access public
@@ -1302,23 +1126,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 	}
 }
 
-add_filter( "e20r_pw_addon_check_gateway_addon_name", array(
-	Check_Gateway_Addon::get_instance(),
+add_filter( "e20r_pw_addon_standard_gateway_addon_name", array(
+	Standard_Gateway_Addon::get_instance(),
 	'set_stub_name',
 ) );
 
 // Configure the add-on (global settings array)
 global $e20r_pw_addons;
-$stub = apply_filters( "e20r_pw_addon_check_gateway_addon_name", null );
+$stub = apply_filters( "e20r_pw_addon_standard_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
-	'class_name'            => 'Check_Gateway_Addon',
-	'handler_name'          => 'check_webhook',
+	'class_name'            => 'Standard_Gateway_Addon',
+	'handler_name'          => null,
 	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
 	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
 	'status'                => 'deactivated',
 	// ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
-	'label'                 => 'Check',
+	'label'                 => 'Standard',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
 		'paid-memberships-pro/paid-memberships-pro.php' => array(
