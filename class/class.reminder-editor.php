@@ -70,6 +70,13 @@ class Reminder_Editor extends Email_Notice {
 	protected $user_id;
 	
 	/**
+	 * List of templates to use
+	 *
+	 * @var array
+	 */
+	private $templates = array();
+	
+	/**
 	 * Reminder_Editor constructor.
 	 */
 	public function __construct() {
@@ -94,7 +101,7 @@ class Reminder_Editor extends Email_Notice {
 	}
 	
 	/**
-	 * Loading all Notice Editor hooks and filters
+	 * Loading all Reminder Editor hooks and filters
 	 */
 	public function load_hooks() {
 		
@@ -117,39 +124,15 @@ class Reminder_Editor extends Email_Notice {
 		add_action( 'wp_ajax_e20r_util_save_template', array( $this, 'save_template' ) );
 		add_action( 'wp_ajax_e20r_util_reset_template', array( $this, 'reset_template' ) );
 		
-		/*
-		add_action( 'e20r_sequence_module_deactivating_core', array( self::$instance, 'deactivate_plugin' ), 10, 1 );
-		add_action( 'e20r_sequence_module_activating_core', array( self::$instance, 'activate_plugin' ), 10 );
-		*/
-		/*
-		
-		add_action( 'e20r-sequence-template-email-notice-email-entry', array( self::$instance, 'add_email_options' ), 10, 2 );
-		*/
-		
 		add_filter( 'e20r-email-notice-loaded', '__return_true' );
 		
 		add_action( 'e20r-email-notice-load-message-meta', array( $this, 'load_message_metabox' ), 10, 1 );
-		add_action( 'e20r-email-notice-load-message-meta', array(
-			$this,
-			'load_send_schedule_metabox',
-		), 11, 1 );
+		add_action( 'e20r-email-notice-load-message-meta', array( $this, 'load_send_schedule_metabox', ), 11, 1 );
 		add_action( 'e20r-email-notice-load-message-meta', array( $this, 'load_template_help' ), 10, 1 );
+		
 		add_action( 'save_post', array( $this, 'save_message_meta' ), 10, 1 );
 		
-		add_filter( 'e20r-email-notice-data-variables', array( $this, 'default_data_variables' ), 10, 2 );
 		add_filter( 'e20r-email-notice-message-types', array( $this, 'define_message_types' ), 10, 1 );
-		add_filter( 'e20r-email-notice-content', array( $this, 'load_template_content' ), 10, 2 );
-		add_filter( 'e20r-email-notice-template-contents', array(
-			self::$instance,
-			'load_template_content',
-		), 10, 2 );
-		
-		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'load_filter_value' ), 10, 4 );
-		
-		add_filter( 'e20r-email-notice-membership-level-for-user', array( $this, 'get_member_level_for_user' ), 10, 3 );
-		add_filter( 'e20r-email-notice-membership-page-for-user', array( $this, 'get_member_page_for_user' ), 10, 3 );
-		
-		add_filter( 'e20r-payment-warning-billing-info-page', array( $this, 'load_billing_page' ), 10, 1 );
 	}
 	
 	/**
@@ -851,6 +834,7 @@ class Reminder_Editor extends Email_Notice {
 				'login_link'            => __( "A link to the login page for this site. Can be used to send the user to the content after they've logged in/authenticated. Specify the link as HTML: `<a href=\"!!login_link!!?redirect_to=!!encoded_content_link!!\">Access the content</a>`", Payment_Warning::plugin_slug ),
 				'account_page_link'     => __( "Link to the member account information page", Payment_Warning::plugin_slug ),
 				'account_page_login'    => __( "Link to the member account information page, forced via the WordPress login page.", Payment_Warning::plugin_slug ),
+				'previous_payment_date' => __( "Date of the previous payment for the membership level", Payment_Warning::plugin_slug ),
 			);
 			
 			switch ( $type ) {
@@ -859,12 +843,14 @@ class Reminder_Editor extends Email_Notice {
 					break;
 				
 				case E20R_PW_RECURRING_REMINDER:
-					$variables['cancel_link']         = __( 'A link to the Membership Cancellation page', Payment_Warning::plugin_slug );
+					$variables['cancel_link']         = __( 'Link (href) to the Membership Cancellation page', Payment_Warning::plugin_slug );
+					$variables['cancel_link_login']   = __( 'Link (href) to the member \'cancel membership\' page, forced via the WordPress login page.', Payment_Warning::plugin_slug );
 					$variables['billing_address']     = __( 'The stored PMPro billing address (formatted)', Payment_Warning::plugin_slug );
 					$variables['saved_cc_info']       = __( "The stored Credit Card info for the payment method used when paying for the membership by the user receiving this message. The data is stored in a PCI-DSS compliant manner (the last 4 digits of the card, the type of card, and its expiration date)", Payment_Warning::plugin_slug );
 					$variables['next_payment_amount'] = __( "The amount of the upcoming recurring payment for the user who's receving this message", Payment_Warning::plugin_slug );
 					$variables['payment_date']        = __( "The date when the recurring payment will be charged to the user's payment method", Payment_Warning::plugin_slug );
 					$variables['membership_ends']     = __( "If there is a termination date saved for the recipient's membership, it will be formatted per the 'Settings' => 'General' date settings.", Payment_Warning::plugin_slug );
+					
 					break;
 				
 				case E20R_PW_CREDITCARD_REMINDER:
@@ -909,7 +895,7 @@ class Reminder_Editor extends Email_Notice {
 			'membership_level_name' => array( 'type' => 'membership', 'variable' => 'membership_level_name' ),
 			'login_link'            => array( 'type' => 'link', 'variable' => 'wp_login' ),
 			'next_payment_amount'   => array( 'type' => 'membership', 'variable' => 'billing_amount' ),
-			'payment_date'          => array( 'type' => 'membership', 'variable' => 'payment_date' ),
+			'payment_date'          => array( 'type' => null, 'variable' => null ),
 			'currency'              => array( 'type' => 'wp_options', 'variable' => 'pmpro_currency' ),
 			'billing_address'       => array( 'type' => null, 'variable' => null ),
 			'saved_cc_info'         => array( 'type' => null, 'variable' => null ),
@@ -919,6 +905,9 @@ class Reminder_Editor extends Email_Notice {
 			'account_page_login'    => array( 'type' => 'encoded_link', 'variable' => 'account_page' ),
 			'membership_ends'       => array( 'type' => 'membership', 'variable' => 'enddate' ),
 			'enddate'               => array( 'type' => 'membership', 'variable' => 'enddate' ),
+			'cancel_link'           => array( 'type' => 'link', 'variable' => 'cancel_page' ),
+			'cancel_link_login'     => array( 'type' => 'encoded_link', 'variable' => 'cancel_page' ),
+			'previous_payment_date' => array( 'type' => null, 'variable' => null ),
 		);
 		
 		// }
@@ -965,6 +954,20 @@ class Reminder_Editor extends Email_Notice {
 			
 		}
 		
+		if ( 'previous_payment_date' === $var_name ) {
+			
+			$sql            = $wpdb->prepare( "SELECT timestamp FROM {$wpdb->pmpro_membership_orders} WHERE user_id = %d ORDER BY ID DESC LIMIT 1", $user_id );
+			$upstream_value = $wpdb->get_var( $sql );
+			
+			$utils->log( "Received info: {$upstream_value}" );
+			
+			// Only update the default value (local user level info) if there's data from the gateway
+			if ( ! empty( $upstream_value ) ) {
+				$value = date( get_option( 'date_format' ), strtotime( $upstream_value, current_time( 'timestamp' ) ) );
+				$sql   = null;
+			}
+		}
+		
 		// Load the data when we're filtering for something that creates a custom SQL statement
 		if ( ! empty( $sql ) ) {
 			
@@ -990,7 +993,7 @@ class Reminder_Editor extends Email_Notice {
 		
 		$templates = $this->configure_cpt_templates( $type );
 		
-		foreach ( $templates as $template ) {
+		foreach ( $templates as $name => $template ) {
 			printf(
 				'<option label="%1$s" value="%2$s" %3$s>%2$s</option>',
 				esc_attr( $template['description'] ),
@@ -1006,6 +1009,8 @@ class Reminder_Editor extends Email_Notice {
 	 * @param mixed $alert_type E20R_PW_EXPIRATION_REMINDER|E20R_PW_RECURRING_REMINDER|E20R_PW_CREDITCARD_REMINDER
 	 *
 	 * @return array
+	 *
+	 * @since v3.9.0 - BUG FIX: Didn't load the body of the email message
 	 */
 	public function configure_cpt_templates( $alert_type = null ) {
 		
@@ -1029,11 +1034,14 @@ class Reminder_Editor extends Email_Notice {
 		
 		foreach ( $templates as $key => $settings ) {
 			if ( $settings['type'] != $alert_type ) {
-				$utils->log( "Skipping template of type {$settings['typs']}" );
+				$utils->log( "Skipping template of type {$settings['type']}" );
 				unset( $templates[ $key ] );
 			}
 		}
 		
+		/**
+		 * @var \WP_Post $msg
+		 */
 		foreach ( $emails->get_posts() as $msg ) {
 			
 			$msg_type     = get_post_meta( $msg->ID, '_e20r_pw_message_type', true );
@@ -1041,29 +1049,31 @@ class Reminder_Editor extends Email_Notice {
 			
 			$utils->log( "Processing {$msg->ID}/{$msg->post_name} with type {$msg_type}" );
 			
-			if ( is_null( $alert_type ) || $msg_type == $alert_type || $msg->post_name === $alert_type ) {
+			if ( is_null( $alert_type ) || ( $msg_type == $alert_type || $msg->post_name === $alert_type ) ) {
 				
-				$utils->log( "Adding message {$msg->ID} to template list" );
+				$utils->log( "Adding message {$msg->post_name} to template list" );
 				
-				$templates[ $msg->ID ]                   = $this->default_template_settings( $msg->ID );
-				$templates[ $msg->ID ]['subject']        = $msg->post_title;
-				$templates[ $msg->ID ]['active']         = true;
-				$templates[ $msg->ID ]['type']           = ! empty( $msg_type ) ? $msg_type : E20R_PW_RECURRING_REMINDER;
-				$templates[ $msg->ID ]['body']           = $msg->post_content;
-				$templates[ $msg->ID ]['data_variables'] = apply_filters( 'e20r-email-notice-data-variables', array(), $this->taxonomy_name );
-				$templates[ $msg->ID ]['description']    = $msg->post_excerpt;
-				$templates[ $msg->ID ]['file_name']      = "{$msg->ID}.html";
-				$templates[ $msg->ID ]['file_path']      = E20R_WP_TEMPLATES;
-				$templates[ $msg->ID ]['schedule']       = empty( $msg_schedule ) ? $this->load_schedule( array(), $msg_type, Payment_Warning::plugin_slug ) : $msg_schedule;
+				$this->templates[ $msg->post_name ]                   = $this->default_template_settings( $msg->ID );
+				$this->templates[ $msg->post_name ]['ID']             = $msg->ID;
+				$this->templates[ $msg->post_name ]['subject']        = $msg->post_title;
+				$this->templates[ $msg->post_name ]['slug']           = $msg->post_name;
+				$this->templates[ $msg->post_name ]['active']         = true;
+				$this->templates[ $msg->post_name ]['type']           = ! empty( $msg_type ) ? $msg_type : E20R_PW_RECURRING_REMINDER;
+				$this->templates[ $msg->post_name ]['body']           = $msg->post_content;
+				$this->templates[ $msg->post_name ]['data_variables'] = apply_filters( 'e20r-email-notice-data-variables', array(), $this->taxonomy_name );
+				$this->templates[ $msg->post_name ]['description']    = $msg->post_excerpt;
+				$this->templates[ $msg->post_name ]['file_name']      = "{$msg->ID}.html";
+				$this->templates[ $msg->post_name ]['file_path']      = E20R_WP_TEMPLATES;
+				$this->templates[ $msg->post_name ]['schedule']       = empty( $msg_schedule ) ? $this->load_schedule( array(), $msg_type, Payment_Warning::plugin_slug ) : $msg_schedule;
 				
 			}
 		}
 		
-		// $utils->log( "Templates: " . print_r( $templates, true ) );
+		// $utils->log( "Templates: " . print_r( $this->templates, true ) );
 		
 		wp_reset_postdata();
 		
-		return $templates;
+		return $this->templates;
 	}
 	
 	/**
@@ -1091,80 +1101,68 @@ class Reminder_Editor extends Email_Notice {
 	/**
 	 * Filter handler to load the Reminder Editor notice content
 	 *
-	 * @filter 'e20r-email-email-notice-notice-content'
+	 * @filter 'e20r-email-notice-content'
 	 *
 	 * @param string $content
-	 * @param mixed  $template_slug
+	 * @param mixed  $template_info
 	 *
 	 * @return string|null
 	 */
-	public function load_template_content( $content, $template_slug ) {
+	public function load_template_content( $content, $template_info ) {
 		
 		$utils = Utilities::get_instance();
+		$utils->log( "Loading body of email message for {$template_info}" );
 		
-		if ( 1 === preg_match( '/\.html/i', $template_slug ) ) {
-			$utils->log( "Removing trailing .html (added by option for compatibility reasons)" );
-			$template_slug = preg_replace( '/\.html/i', '', $template_slug );
+		if ( is_numeric( $template_info ) ) {
+			
+			$utils->log( "Given a template ID, loading slug" );
+			$template      = get_post( $template_info );
+			$template_slug = $template->post_name;
+			unset( $template );
+		} else {
+			$utils->log( "Given a template slug" );
+			$template_slug = $template_info;
 		}
 		
 		$utils->log( "Searching for: {$template_slug}" );
+		$template = $this->find_template_by_slug( $template_slug );
 		
-		if ( is_numeric( $template_slug ) ) {
-			$utils->log( "Given a numeric value, so looking it up by ID" );
-			$notice = new \WP_Query( array(
-				'post_type' => Email_Notice::cpt_type,
-				'p'         => $template_slug,
-				'tax_query' => array(
-					'relation' => 'AND',
-					array(
-						'taxonomy'         => Email_Notice::taxonomy,
-						'field'            => 'slug',
-						'operator'         => 'IN',
-						'terms'            => array( $this->taxonomy_name ),
-						'include_children' => true,
-					),
-				),
-			) );
-		} else {
-			
-			$notice = new \WP_Query( array(
-				'post_type' => Email_Notice::cpt_type,
-				'name'      => $template_slug,
-				'tax_query' => array(
-					'relation' => 'AND',
-					array(
-						'taxonomy'         => Email_Notice::taxonomy,
-						'field'            => 'slug',
-						'operator'         => 'IN',
-						'terms'            => array( $this->taxonomy_name ),
-						'include_children' => true,
-					),
-				),
-			) );
-		}
+		$utils->log( "Found template settings: " . print_r( $template, true ) );
 		
-		if ( ! empty( $notice ) ) {
-			
-			$notices = $notice->get_posts();
-			
-			$utils->log( "Found {$notice->found_posts} templates for {$template_slug}" );
-			
-			if ( count( $notices ) > 1 ) {
-				$utils->log( "Found more than a single email notice/template for {$template_slug}!!!" );
-			} else if ( count( $notices ) === 1 ) {
-				$utils->log( "Found a single email template to use for {$template_slug}" );
-			}
-			
-			/**
-			 * @var \WP_Post $email_notice
-			 */
-			$email_notice = array_pop( $notices );
-			$content      = wpautop( do_shortcode( wp_unslash( $email_notice->post_content ) ) );
+		if ( ! empty( $template ) && ! empty( $template['body'] ) ) {
+			$content = wpautop( do_shortcode( wp_unslash( $template['body'] ) ) );
 		} else {
 			$content = $this->load_default_template_body( $template_slug );
 		}
 		
 		return $content;
+	}
+	
+	/**
+	 * Search the loaded template(s) for the proper content.
+	 *
+	 * @param string $slug
+	 *
+	 * @return array|null
+	 */
+	public function find_template_by_slug( $slug ) {
+		
+		if ( empty( $this->templates ) ) {
+			return null;
+		}
+		
+		foreach ( $this->templates as $template_id => $template_settings ) {
+			
+			if ( ! in_array( 'slug', array_keys( $template_settings ) ) ) {
+				continue;
+			}
+			
+			if ( $slug === $this->templates[ $template_id ]['slug'] ) {
+				return $template_settings;
+			}
+		}
+		
+		return null;
 	}
 	
 	/**
