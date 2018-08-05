@@ -19,6 +19,7 @@
 
 namespace E20R\Payment_Warning\Tools;
 
+use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Email_Notice\Send_Email;
@@ -151,6 +152,10 @@ class Email_Message {
 		$this->sender->set_module( Payment_Warning::plugin_slug );
 		$this->sender->from = apply_filters( 'e20r-email-notice-sender', $this->site_email );
 		
+		if ( !empty( $template_settings ) ) {
+			$this->sender->body = $template_settings['body'];
+		}
+		
 		$util->log( "Instantiated for {$template_name}/{$type}: " . $user_info->get_user_ID() );
 	}
 	
@@ -257,11 +262,14 @@ class Email_Message {
 	 */
 	public function get_billing_address( $value, $var_name, $user_id, $settings ) {
 		
-		$utils = Utilities::get_instance();
+		if ( 'billing_address' !== $var_name ) {
+			return $value;
+		}
 		
+		$utils = Utilities::get_instance();
 		$utils->log( "Generate billing address as HTML for {$user_id}/{$var_name}" );
 		
-		if ( $user_id == $this->user_info->get_user_ID() && 'billing_address' === $var_name ) {
+		if ( $user_id == $this->user_info->get_user_ID() ) {
 			$value = $this->format_billing_address( $user_id );
 		}
 		
@@ -347,10 +355,14 @@ class Email_Message {
 	 */
 	public function get_cc_info( $value, $var_name, $user_id, $settings ) {
 		
+		if ( 'saved_cc_info' !== $var_name ) {
+			return $value;
+		}
+		
 		$utils = Utilities::get_instance();
 		$utils->log( "Generate credit card info list in HTML for {$var_name}/{$user_id}" );
 		
-		if ( $user_id == $this->user_info->get_user_ID() && 'saved_cc_info' === $var_name ) {
+		if ( $user_id == $this->user_info->get_user_ID() ) {
 			$value = $this->get_html_payment_info();
 		}
 		
@@ -584,7 +596,6 @@ class Email_Message {
 		if ( false === $override && ( isset( $users[ $today ][ $to ] ) && in_array( $this->template_name, $users[ $today ][ $to ] ) ) ) {
 			
 			$util->log( "Already sent message {$this->template_name} on {$today} to {$to}" );
-			
 			return $status;
 		}
 		
@@ -602,7 +613,19 @@ class Email_Message {
 		// Add filters for billing address & CC info
 		$util->log( "Loading filter handlers for 'e20r-email-notice-custom-variable-filter'" );
 		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
-		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 10, 4 );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 11, 4 );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array( Reminder_Editor::get_instance(), 'load_filter_value' ), 99, 4 );
+		
+		add_filter( 'e20r-email-notice-content-body', array( $this, 'load_message_body' ), 10, 2 );
+		add_filter( 'e20r-email-notice-data-variables', array( Reminder_Editor::get_instance(), 'default_data_variables' ), 10, 2 );
+		add_filter( 'e20r-email-notice-membership-level-for-user', array( Reminder_Editor::get_instance(), 'get_member_level_for_user' ), 10, 3 );
+		add_filter( 'e20r-email-notice-membership-page-for-user', array( Reminder_Editor::get_instance(), 'get_member_page_for_user' ), 10, 3 );
+		add_filter( 'e20r-payment-warning-billing-info-page', array( Reminder_Editor::get_instance(), 'load_billing_page' ), 10, 1 );
+		
+		/**
+		 * @since v3.9.0 - BUG FIX: Didn't load the body of the email message
+		 */
+		add_filter( 'e20r-email-notice-loaded', '__return_true' );
 		
 		if ( true === ( $status = $this->sender->send( $to, null, null, $this->subject, $this->template_name, $type ) ) ) {
 			
@@ -635,6 +658,24 @@ class Email_Message {
 		}
 		
 		return $status;
+	}
+	
+	/**
+	 * @param string $body
+	 * @param string|int $template_slug
+	 *
+	 * @return string
+	 */
+	public function load_message_body( $body, $template_slug ) {
+		
+		$utils = Utilities::get_instance();
+		
+		if ( 1 === preg_match( "/{$template_slug}/i", $this->template_name ) ) {
+			$utils->log("Already loaded body for {$template_slug}");
+			return $this->get_body();
+		}
+		
+		return $body;
 	}
 	
 	/**
