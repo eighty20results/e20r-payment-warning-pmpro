@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '3.8.3' );
+	define( 'E20R_PW_VERSION', '4.0' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {

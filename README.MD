@@ -3,8 +3,8 @@ E20R Payment Warning for PMPro
     Contributors: eighty20results
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
-    Tested up to: 4.9.6
-    Stable tag: 3.8.1
+    Tested up to: 4.9.8
+    Stable tag: 4.0
 
 
 Generates and sends notices to active members for the supported membership plugin. The plugin will notify active members about any upcoming recurring payments, membership expirations and of any upcoming credit card expiration dates so the user can be informed and take action. The plugin receives its data directly from the supported payment gateways. This makes this plugin far more reliable and consistent in actually transmitting warnings/notices to your members.
@@ -130,6 +130,54 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v4.0
+
+* ENHANCEMENT: Refactored send_message() method
+* BUG FIX: Didn't process all activation activities consistently.
+* BUG FIX: SQL error when column & index exists prior to upgrade
+* BUG FIX: Possible DB error when upgrading table schema for plugin
+* BUG FIX: Incorrect namespace for DB_Tables() class
+* BUG FIX: DB_Tables() class had incorrect file name for autoloader
+* BUG FIX: Would sometimes fail to run due to bad queue data
+* BUG FIX: Didn't always find the Email Notices for this plugin to transmit/send
+* BUG FIX: Failed to generate a complete message with substitution variables expanded
+* BUG FIX: Didn't try to load message body when instantiating Email_Message() class
+* BUG FIX: Reminder override (only used to debug) was too strict
+* BUG FIX: Couldn't locate templates in some situations
+* BUG FIX: Moved message content filters to Email_Message() class
+* BUG FIX: payment_date substitution variable was incorrectly defined
+* BUG FIX: Numerous updates to Reminder_Editor::configure_cpt_templates() method
+* BUG FIX: Didn't load the Payment_Warning templates in a lot of circumstances
+* BUG FIX: Didn't process deactivation logic
+* BUG FIX: Load the expected module logic in all situations
+* BUG FIX: Load modules dependent on licensing
+* ENHANCEMENT: Add overrides when E20R_DEBUG_OVERRIDE constant is defined and true
+* ENHANCEMENT: Refactored get_gateway_class_name() method in payment gateway modules
+* ENHANCEMENT: Allow searching for a template by it's slug value (Reminder_Editor::find_template_by_slug())
+* ENHANCEMENT: Special processing for previous_payment_date substitution variable in Reminder_Editor::load_filter_value() method
+* ENHANCEMENT: Added previous_payment_date substitution variable (and help)
+* ENHANCEMENT: Added cancel_link substitution variable (and help)
+* ENHANCEMENT: Added cancel_link_login substitution variable (and help)
+* ENHANCEMENT: More efficient processing of substitution variables
+* ENHANCEMENT: Specifically handling email message body processing
+* ENHANCEMENT: Move DB Table create/remove operation to own class (DB_Tables)
+* ENHANCEMENT: Moved DB updates to own DB_Tables() class
+* ENHANCEMENT: Enable message transmission override when running in Payment Warning Debug mode
+* ENHANCEMENT: More efficient and consistent way of loading gateway modules
+
+###v3.8.3
+
+* ENHANCEMENT: Remove unused class instantiation
+* ENHANCEMENT: More precise debug logging in Fetch_User_Data class
+* ENHANCEMENT: Include the type of sub-handler being processed in the Large_Request_Handler class
+* ENHANCEMENT: Add support for version 2018-05-21 of the Stripe API
+* ENHANCEMENT: Better debug info for the next_payment_date() module
+* ENHANCEMENT: Add bug fixes from the Utilities submodule
+
+###v3.8.2
+
+* ENHANCEMENT: Added the 2/28/2018 API version support for Stripe
 
 ###v3.8.1
 
