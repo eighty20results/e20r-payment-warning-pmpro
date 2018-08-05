@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 3.8.3
+Version: 4.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -145,6 +145,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				Cron_Handler::get_instance(),
 				'configure_cron_schedules',
 			), 10 );
+			
+			// Add Plugin deactivation actions
+			add_action( 'e20r_pw_addon_deactivating_core', array(
+				Cron_Handler::get_instance(),
+				'remove_cron_jobs',
+			), 10 );
 		}
 		
 		/**
@@ -271,6 +277,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ), 10, 1 );
 			add_action( 'init', array( $this, 'load_translation' ) );
 			
+			// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
+			if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {
+				
+				$utils->log( "Admin requested that we ignore the schedule delays/settings for testing purposes" );
+				add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
+				add_filter( 'e20r-email-notice-send-override', '__return_true' );
+				add_filter( 'e20r-payment-warning-send-email', array( Payment_Reminder::get_instance(), 'send_reminder_override' ), 9999, 4 );
+			}
+			
+			$this->load_addon_settings();
+			
 			/**
 			 * Limit activity when not logged in or executing the CRON jobs
 			 *
@@ -300,11 +317,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				 * @since 3.8 - ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
 				 */
 				if ( true === wp_doing_cron() || Utilities::is_admin()) {
-					
-					add_action( 'e20r_pw_addon_deactivating_core', array(
-						Cron_Handler::get_instance(),
-						'remove_cron_jobs',
-					), 10 );
 					
 					add_action( 'e20r_run_remote_data_update', array(
 						Cron_Handler::get_instance(),
@@ -349,7 +361,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					add_action( 'admin_menu', array( Global_Settings::get_instance(), 'load_admin_settings_page' ), 10 );
 					add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
 					
-					$this->load_addon_settings();
 					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
 					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
 					
@@ -417,12 +428,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 							Cron_Handler::get_instance(),
 							'send_reminder_messages',
 						) );
-						
-						// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
-						if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {
-							$utils->log( "Admin requested that we ignore the schedule delays/settings for testing purposes" );
-							add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
-						}
 					}
 				}
 			}
@@ -510,23 +515,26 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function load_licensed_modules() {
 			
 			$utils = Utilities::get_instance();
+			$utils->log( "Loading licensed functionality for..." );
 			
 			// Load licensed modules (if applicable)
 			add_action( 'e20r-pw-load-licensed-modules', array( Reminder_Editor::get_instance(), 'load_hooks' ) );
-			
-			$utils->log( "Loading licensed functionality for..." );
 			
 			$active_addons = array( 'stripe_gateway_addon', 'paypal_gateway_addon', 'check_gateway_addon' );
 			$has_loaded    = false;
 			
 			foreach ( $active_addons as $addon_name ) {
 				
-				if ( true === Licensing::is_licensed( $addon_name ) && false === $has_loaded ) {
+				if ( true === Licensing::is_licensed( $addon_name ) ) {
 					
-					$utils->log( "Trigger load action for licensed module(s)" );
-					do_action( 'e20r-pw-load-licensed-modules' );
+					$utils->log( "Enable licensed module: {$addon_name}" );
 					$has_loaded = true;
 				}
+			}
+			
+			if ( true === $has_loaded ) {
+				$utils->log( "Loading licensed modules/functionality!" );
+				do_action( 'e20r-pw-load-licensed-modules' );
 			}
 		}
 		
