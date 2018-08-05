@@ -550,11 +550,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 		 */
 		public function get_gateway_class_name( $gateway_name = null , $addon ) {
 			
-			// "Punch through" unless the gateway name matches the addon specified
-			if ( is_null($gateway_name) && 1 === preg_match( "/{$addon}/i", $this->gateway_name ) ) {
-				$gateway_name =  $this->get_class_name();
-			}
-			
+		    $utils = Utilities::get_instance();
+		    $utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
+		    
+		    if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
+			    $utils->log("{$addon} not matching the standard gateway's expected add-on");
+		        return $gateway_name;
+            }
+            
+            $gateway_name =  $this->get_class_name();
 			return $gateway_name;
 		}
 		
