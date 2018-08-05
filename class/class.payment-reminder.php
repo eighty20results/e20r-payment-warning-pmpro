@@ -110,7 +110,7 @@ class Payment_Reminder {
 			return $send;
 		}
 		
-		if ( date( 'Y-m-d', strtotime( $comparison_date, current_time('timestamp') ) ) == date('Y-m-d', current_time('timestamp' ) ) ) {
+		if ( date( 'Y-m-d', strtotime( $comparison_date, current_time('timestamp') ) ) >= date('Y-m-d', current_time('timestamp' ) ) ) {
 			return true;
 		}
 		
