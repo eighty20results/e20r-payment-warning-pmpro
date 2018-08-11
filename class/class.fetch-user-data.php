@@ -64,11 +64,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 */
 		public function configure_remote_subscription_data_fetch( $addon_name ) {
 			
-			$util  = Utilities::get_instance();
-			$main  = Payment_Warning::get_instance();
+			$util = Utilities::get_instance();
+			$main = Payment_Warning::get_instance();
 			
 			$mutex = intval( get_option( "e20rpw_subscr_fetch_mutex_{$addon_name}", 0 ) );
-			$util->log("Checking subscription mutex for {$addon_name}: {$mutex}" );
+			$util->log( "Checking subscription mutex for {$addon_name}: {$mutex}" );
 			
 			if ( 1 === $mutex ) {
 				
@@ -169,7 +169,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					}
 					
 					if ( empty( $sub_handler ) ) {
-						$util->log("No handler returned for the {$addon_name} gateway");
+						$util->log( "No handler returned for the {$addon_name} gateway" );
+						
 						return false;
 					}
 					
@@ -205,7 +206,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$main = Payment_Warning::get_instance();
 			
 			$mutex = intval( get_option( 'e20rpw_paym_fetch_mutex', 0 ) );
-			$util->log("Checking payment mutex for {$addon_name}: {$mutex}" );
+			$util->log( "Checking payment mutex for {$addon_name}: {$mutex}" );
 			
 			if ( 1 === $mutex ) {
 				
@@ -314,7 +315,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since v2.1 - BUG FIX: Didn't exclude records for other payment gateway modules
 		 * @since 2.1 - ENHANCEMENT: Renamed from set_active_non_subscription_members to get_active_non_subscription_members
 		 */
-		public function get_active_non_subscription_members( $for_addon) {
+		public function get_active_non_subscription_members( $for_addon ) {
 			
 			$this->active_members = array();
 			$utils                = Utilities::get_instance();
@@ -371,10 +372,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						$utils->log( "Found existing order object for {$user->ID}: {$last_order->code}. Is recurring? " . ( false === $record->get_recurring_membership_status() ? 'No' : 'Yes' ) );
 					} else if ( true === $this->gateway_addon_check( $for_addon, $last_order->gateway ) ) {
 						
-							$record = new User_Data( $user, null, 'expiration' );
-							$utils->log( "No pre-existing active order for {$user->ID} with {$for_addon}" );
+						$record = new User_Data( $user, null, 'expiration' );
+						$utils->log( "No pre-existing active order for {$user->ID} with {$for_addon}" );
 					} else {
-						$utils->log("No local order found, or the gateway didn't match the required add-on module: {$for_addon}");
+						$utils->log( "No local order found, or the gateway didn't match the required add-on module: {$for_addon}" );
 						continue;
 					}
 					
@@ -491,14 +492,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					if ( ! empty( $last_order->code ) && true === $this->gateway_addon_check( $for_addon, $last_order->gateway ) ) {
 						
-						$utils->log( "Checking if {$for_addon} links to {$last_order->gateway}");
+						$utils->log( "Checking if {$for_addon} links to {$last_order->gateway}" );
 						$record = new User_Data( $user, $last_order, 'recurring' );
-					} else if ( true === $this->gateway_addon_check( $for_addon, $last_order->gateway ) )  {
+					} else if ( true === $this->gateway_addon_check( $for_addon, $last_order->gateway ) ) {
 						
-							$record = new User_Data( $user, null, 'recurring' );
-							$utils->log( "No pre-existing active order for {$user->ID}" );
+						$record = new User_Data( $user, null, 'recurring' );
+						$utils->log( "No pre-existing active order for {$user->ID}" );
 					} else {
-						$utils->log("No local order found, or the gateway didn't match the required add-on module: {$for_addon}");
+						$utils->log( "No local order found, or the gateway didn't match the required add-on module: {$for_addon}" );
 						continue;
 					}
 					
@@ -536,7 +537,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				// Save to cache
 				if ( ! empty( $this->active_members ) ) {
 					$utils->log( "Saving active member subscribers list to cache" );
-					Cache::set(  "active_subscr_{$for_addon}", $this->active_members, 12 * 3600, Payment_Warning::cache_group );
+					Cache::set( "active_subscr_{$for_addon}", $this->active_members, 12 * 3600, Payment_Warning::cache_group );
 				}
 			}
 			
@@ -610,7 +611,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						$record->set_recurring_membership_status();
 						$utils->log( "No pre-existing active order for {$user->ID}" );
 					} else {
-						$utils->log("No local order found, or the gateway didn't match the required add-on module: {$for_addon}");
+						$utils->log( "No local order found, or the gateway didn't match the required add-on module: {$for_addon}" );
 						continue;
 					}
 					
@@ -671,8 +672,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$matches = false;
 			
-			if ( 'paypal' === strtolower( $addon_name )  ) {
-				$matches = ( 1 === preg_match( "/{$addon_name}/i", $order_gateway ) ||  preg_match( "/payflow/i", $order_gateway ) );
+			if ( 'paypal' === strtolower( $addon_name ) ) {
+				$matches = ( 1 === preg_match( "/{$addon_name}/i", $order_gateway ) || preg_match( "/payflow/i", $order_gateway ) );
 			} else {
 				$matches = ( 1 === preg_match( "/{$addon_name}/i", $order_gateway ) );
 			}
@@ -746,15 +747,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 * @since 1.9.6 - ENHANCEMENT: Set cache duration to last 4 hours
 		 * @since 2.1 - BUG FIX: Would sometimes double the records to process
 		 */
-		public function get_all_user_records( $type = 'ccexpiration', $for_addon  ) {
+		public function get_all_user_records( $type = 'ccexpiration', $for_addon ) {
 			
 			$util = Utilities::get_instance();
 			
-			$util->log("Processing for the {$for_addon} add-on");
+			$util->log( "Processing for the {$for_addon} add-on" );
 			$records = array();
 			
 			$this->active_members = Cache::get( "current_{$type}_{$for_addon}", Payment_Warning::cache_group );
-			$util->log("Active member cache for {$type} and {$for_addon} contains " . count( $this->active_members ) . " records" );
+			$util->log( "Active member cache for {$type} and {$for_addon} contains " . count( $this->active_members ) . " records" );
 			
 			if ( empty( $this->active_members ) ) {
 				
@@ -765,7 +766,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				 */
 				switch ( $type ) {
 					case 'recurring':
-						$this->get_active_subscription_members( $for_addon) ;
+						$this->get_active_subscription_members( $for_addon );
 						break;
 					case 'expiration':
 						$this->get_active_non_subscription_members( $for_addon );
@@ -783,7 +784,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				
 				if ( ! empty( $this->active_members ) ) {
 					
-					$util->log("DB query resulted in " . count( $this->active_members ) . " {$type} records for {$for_addon}");
+					$util->log( "DB query resulted in " . count( $this->active_members ) . " {$type} records for {$for_addon}" );
 					
 					foreach ( $this->active_members as $key => $user_data ) {
 						
@@ -814,16 +815,16 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 								( in_array( $type, array( 'expiration', 'ccexpiration' ) ) && true === $is_active )
 							) {
 								
-								$util->log("Updating user ({$user_id}) data record in active member list" );
-								$this->active_members[$key] = $user_data;
+								$util->log( "Updating user ({$user_id}) data record in active member list" );
+								$this->active_members[ $key ] = $user_data;
 								
 								$user_data = null;
-								$order = null;
+								$order     = null;
 								
 							} else {
 								$util->log( "Will skip record for {$user_id} (Not considered an 'active' member for {$type} data)..." );
 								$user_data = null;
-								$order = null;
+								$order     = null;
 							}
 						}
 					}
@@ -838,7 +839,66 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		}
 		
 		/**
-		 * @param string $type
+		 * Should we continue running Fetch_User_Data batch job
+		 *
+		 * @param string $action_name
+		 *
+		 * @return bool
+		 *
+		 * @since 4.1 - ENHANCEMENT: Added Fetch_User_Data::should_continue static method
+		 */
+		public static function should_continue( $action_name ) {
+			
+			$timeout_hours = intval( Global_Settings::load_options( 'data_fetch_timeout' ) );
+			$now           = intval( current_time( 'timestamp' ) );
+			$option_name   = "e20rpw_{$action_name}_start";
+			$started_at    = intval( get_option( $option_name, $now ) );
+			$utils         = Utilities::get_instance();
+			
+			if  ( -1 === $timeout_hours ) {
+				$utils->log("Timeout is disabled. Continuing...");
+				return true;
+			}
+			
+			if ( empty( $timeout_hours ) ) {
+				$utils->log( "Using default timeout value for data fetch: 23 hours" );
+				$timeout_hours = 23;
+			}
+			
+			$when_to_timeout = ( $started_at + ( $timeout_hours * HOUR_IN_SECONDS ) );
+			
+			if ( $now === $started_at ) {
+				$utils->log( "Recording start date for data fetch operation: {$action_name}" );
+				update_option( $option_name, $started_at );
+				
+				return true;
+			}
+			
+			if ( $when_to_timeout >= $now ) {
+				$utils->log("Been running for less than the configured timeout value: {$now} vs {$when_to_timeout}.");
+				return true;
+			}
+			
+			$utils->log("Need to exit the data fetch process due to timeout: {$now} vs {$when_to_timeout}");
+			return false;
+		}
+		
+		/**
+		 * Clear the start setting for the action
+		 *
+		 * @param string $action_name
+		 *
+		 * @since 4.1 - ENHANCEMENT: Added Fetch_User_Data::ending_fetch() static method
+		 */
+		public static function ending_fetch( $action_name ) {
+			$option_name = "e20rpw_{$action_name}_start";
+			delete_option( $option_name );
+		}
+		
+		/**
+		 * Fetch data from local system of the specified data type
+		 *
+		 * @param string $type - Valid types: 'ccexpiration', 'recurring', 'expiration' )
 		 *
 		 * @return bool|User_Data[]
 		 *
@@ -856,7 +916,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$last_day      = apply_filters( 'e20rpw_ccexpiration_last_day_of_month', date( 't', current_time( 'timestamp' ) ) );
 			$current_month = apply_filters( 'e20rpw_ccexpiration_month', date( 'm', current_time( 'timestamp' ) ) );
-			$current_year = apply_filters( 'e20rpw_ccexpiration_year', date( 'Y', current_time( 'timestamp' ) ) );
+			$current_year  = apply_filters( 'e20rpw_ccexpiration_year', date( 'Y', current_time( 'timestamp' ) ) );
 			
 			if ( $current_month == 12 ) {
 				$next_month = 01;
@@ -921,7 +981,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 						'active'
 					);
 					
-					$utils->log("Using SQL for Credit Card Expirations: {$sql}");
+					$utils->log( "Using SQL for Credit Card Expirations: {$sql}" );
 					break;
 				default:
 					
@@ -979,8 +1039,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			$addons = $main->get_addons();
 			
-			foreach( $addons as $addon ) {
-				$util->log("Clearing all user caches ({$addon})");
+			foreach ( $addons as $addon ) {
+				$util->log( "Clearing all user caches ({$addon})" );
 				Cache::delete( "active_subscr_{$addon}", Payment_Warning::cache_group );
 				Cache::delete( "active_norecurr_{$addon}", Payment_Warning::cache_group );
 				Cache::delete( "all_active_{$addon}", Payment_Warning::cache_group );
@@ -1027,8 +1087,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				add_action( 'pmpro_after_checkout', array( $this, 'clear_member_cache' ), 99 );
 				add_action( 'pmpro_membership_post_membership_expiry', array( $this, 'clear_member_cache', 99 ) );
 				
-				if ( defined('WP_DEBUG' ) && true == WP_DEBUG ) {
-					$util->log("Clear member related cache data (while debugging)");
+				if ( defined( 'WP_DEBUG' ) && true == WP_DEBUG ) {
+					$util->log( "Clear member related cache data (while debugging)" );
 					$this->clear_member_cache();
 				}
 			}
