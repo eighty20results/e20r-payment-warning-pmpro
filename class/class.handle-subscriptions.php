@@ -71,15 +71,6 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	}
 	
 	/**
-	 * Return the action name for this Background Process
-	 *
-	 * @return string
-	 */
-	public function get_action() {
-		return $this->action;
-	}
-	
-	/**
 	 * Process Background data retrieval task (fetching subscription data) for a specific user
 	 *
 	 * @param User_Data $user_data
@@ -88,38 +79,54 @@ class Handle_Subscriptions extends E20R_Background_Process {
 	 *
 	 * @since 1.9.4 - BUG FIX: Didn't force the reminder type (recurring) for the user data when processing
 	 * @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
+	 * @since 4.1 - ENHANCEMENT: Refactored Handle_Subscriptions::task()
+	 * @since 4.1 - ENHANCEMENT: Added timeout handling for background User Data Fetch tasks
 	 */
 	protected function task( $user_data ) {
 		
 		$util = Utilities::get_instance();
 		$util->log( "Trigger per-addon subscription download for user" );
 		
-		if ( !empty( $user_data ) && ! is_bool( $user_data )) {
-			
-			$user_id = $user_data->get_user_ID();
-			$user_data->set_reminder_type( 'recurring' );
-			
-			$util->log( "Loading from DB (if record exists) for {$user_id}" );
-			$user_data->maybe_load_from_db();
-			
-			/**
-			 * @since 2.1 - Allow processing for multiple active payment gateways
-			 */
-			$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data, $this->type );
-			
-			if ( !empty( $user_data )  && true === $user_data->save_to_db() ) {
-				
-				$util->log( "Done processing subscription data for {$user_id}. Removing the user from the queue" );
-				
-				return false;
-			}
-			
-			$util->log( "User subscription record not saved/processed. May be a-ok..." );
-		} else {
+		if ( empty( $user_data ) || is_bool( $user_data ) ) {
 			$util->log( "Incorrect format for user data record (boolean received!)" );
+			
+			return $user_data;
 		}
 		
+		if ( false === Fetch_User_Data::should_continue( $this->get_action() ) ) {
+
+			$this->clear_queue();
+			$util->log("Timeout for subscription fetch reached. Clearing queue and cancelling execution!!" );
+			return false;
+		}
+		
+		$user_id = $user_data->get_user_ID();
+		$user_data->set_reminder_type( 'recurring' );
+		
+		$util->log( "Loading from DB (if record exists) for {$user_id}" );
+		$user_data->maybe_load_from_db();
+		
+		/**
+		 * @since 2.1 - Allow processing for multiple active payment gateways
+		 */
+		$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data, $this->type );
+		
+		if ( false === $user_data->save_to_db() ) {
+			
+			$util->log( "User subscription record not saved/processed. May be a-ok..." );
+		}
+		
+		$util->log( "Done processing subscription data for {$user_id}. Removing the user from the queue" );
 		return false;
+	}
+	
+	/**
+	 * Return the action name for this Background Process
+	 *
+	 * @return string
+	 */
+	public function get_action() {
+		return $this->action;
 	}
 	
 	/**
@@ -147,10 +154,11 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		$util->log( "Remove old and stale recurring billing user data for Payment Warnings plugin?" );
 		if ( true === apply_filters( 'e20r-payment-warning-clear-old-records', false ) ) {
 			
-			$util->log( "Yes, we're wanting to remove the records");
+			$util->log( "Yes, we're wanting to remove the records" );
 			$this->clear_old_subscr_records();
 		}
 		
+		Fetch_User_Data::ending_fetch( $this->get_action() );
 		$util->log( "Completed remote subscription data fetch for all active gateways" );
 		// $util->add_message( __("Fetched payment data for all active gateway add-ons", Payment_Warning::plugin_slug ), 'info', 'backend' );
 	}
@@ -176,9 +184,9 @@ class Handle_Subscriptions extends E20R_Background_Process {
 				            )
 			            )
 					)",
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) )
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
 		);
 		
 		$delete_sql = $wpdb->prepare(
@@ -193,31 +201,31 @@ class Handle_Subscriptions extends E20R_Background_Process {
 				            )
 			            )
 					)",
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) ),
-			date( 'Y-m-d 00:00:00', current_time('timestamp' ) )
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) ),
+			date( 'Y-m-d 00:00:00', current_time( 'timestamp' ) )
 		);
 		
 		$user_ids_to_clear = $wpdb->get_col( $sql );
 		
 		if ( ! empty( $user_ids_to_clear ) ) {
 			
-			$utils->log("Found " . count( $user_ids_to_clear ) . ' records to clear from DB');
+			$utils->log( "Found " . count( $user_ids_to_clear ) . ' records to clear from DB' );
 			
 			$id_list = implode( "','", array_map( 'absint', $user_ids_to_clear ) );
-			$cc_sql = $wpdb->prepare( "DELETE FROM {$wpdb->prefix}e20rpw_user_cc WHERE user_id IN( %s )", $id_list );
+			$cc_sql  = $wpdb->prepare( "DELETE FROM {$wpdb->prefix}e20rpw_user_cc WHERE user_id IN( %s )", $id_list );
 			
-			$utils->log("Credit Card SQL to use: " . $cc_sql );
+			$utils->log( "Credit Card SQL to use: " . $cc_sql );
 			
 			if ( false === $wpdb->query( $cc_sql ) ) {
-				$utils->log("Error clearing Credit Card info from local cache!");
+				$utils->log( "Error clearing Credit Card info from local cache!" );
 			}
 			
 			if ( false === $wpdb->query( $delete_sql ) ) {
-				$utils->log("Error clearing recurring payment records from local cache");
+				$utils->log( "Error clearing recurring payment records from local cache" );
 			}
 		} else {
-			$utils->log("No recurring payment user data to purge");
+			$utils->log( "No recurring payment user data to purge" );
 		}
 	}
 }

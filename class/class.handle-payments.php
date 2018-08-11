@@ -92,6 +92,8 @@ class Handle_Payments extends E20R_Background_Process {
 	 *
 	 * @since 1.9.4 - BUG FIX: Didn't force the reminder type (expiration) for the user data when processing
 	 * @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
+	 * @since 4.1 - ENHANCEMENT: Refactored Handle_Payments::task()
+	 * @since 4.1 - ENHANCEMENT: Added timeout handling for background User Data Fetch tasks
 	 */
 	protected function task( $user_data ) {
 		
@@ -100,34 +102,37 @@ class Handle_Payments extends E20R_Background_Process {
 		
 		$util->log( "Trigger per-addon payment/charge download for user" );
 		
-		if ( ! is_bool( $user_data ) ) {
-			
-			$user_id = $user_data->get_user_ID();
-			$user_data->set_reminder_type( 'expiration' );
-			
-			$util->log( "Loading from DB (if record exists) for {$user_id}" );
-			$user_data->maybe_load_from_db( $user_id );
-			
-			/**
-			 * @since 2.1 - Allow processing for multiple payment gateways
-			 */
-			$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data, $this->type );
-			
-			// @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
-			if ( false !== $user_data && true === $user_data->save_to_db() ) {
-				
-				$util->log( "Fetched payment data from gateway for " . $user_data->get_user_email() );
-				$util->log( "Done processing payment data for {$user_id}. Removing the user from the queue" );
-				
-				return false;
-			}
-			
-			$util->log( "User payment record (for gateway: {$this->type}) not saved/processed. May be a-ok..." );
-			
-		} else {
+		if ( is_bool( $user_data ) ) {
 			$util->log( "Incorrect format for user data record (boolean received!)" );
+			return $user_data;
 		}
 		
+		if ( false === Fetch_User_Data::should_continue( $this->get_action() ) ) {
+			
+			$this->clear_queue();
+			$util->log("Timeout for payment fetch reached. Clearing queue and cancelling execution!" );
+			return false;
+		}
+		
+		$user_id = $user_data->get_user_ID();
+		$user_data->set_reminder_type( 'expiration' );
+		
+		$util->log( "Loading from DB (if record exists) for {$user_id}" );
+		$user_data->maybe_load_from_db( $user_id );
+		
+		/**
+		 * @since 2.1 - Allow processing for multiple payment gateways
+		 */
+		$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data, $this->type );
+		
+		// @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
+		if ( false !== $user_data && false === $user_data->save_to_db() ) {
+			
+			$util->log( "User payment record (for gateway: {$this->type}) not saved/processed. May be a-ok..." );
+		}
+		
+		$util->log( "Fetched payment data from gateway for " . $user_data->get_user_email() );
+		$util->log( "Done processing payment data for {$user_id}. Removing the user from the queue" );
 		return false;
 		
 	}
@@ -158,6 +163,9 @@ class Handle_Payments extends E20R_Background_Process {
 			$this->clear_old_payment_records();
 		}
 		
+		delete_option( 'e20r_payment_dl_started' );
+		
+		Fetch_User_Data::ending_fetch( $this->get_action() );
 		$util->log( "Completed remote payment/charge data fetch for all active gateways" );
 	}
 	
