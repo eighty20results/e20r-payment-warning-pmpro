@@ -24,6 +24,16 @@ use E20R\Utilities\Cache;
 use E20R\Utilities\Licensing\Licensing;
 use E20R\Payment_Warning\Payment_Warning;
 
+/**
+ * Class Global_Settings
+ * @package E20R\Payment_Warning\Tools
+ *
+ * @since   4.1 - ENHANCEMENT: Added Global_Settings::render_select(), creates SELECT HTML element using settings array
+ *          in add_settings_field() method. Supports the following settings: 'select_options', 'option_default', 'option_label', 'option_default_label', 'option_name'
+ * @since   4.1 - ENHANCEMENT: More dynamic Global_Setting::render_textbox() method; New settings available in array
+ *          for add_settings_field() method. Supports the following settings; 'option_name', 'rows', 'cols', 'placeholder'
+ * @since   4.1 - ENHANCEMENT: Added new global setting; data_fetch_timeout = 23 (hours)
+ */
 class Global_Settings {
 	
 	/**
@@ -50,56 +60,7 @@ class Global_Settings {
 	 * @access private
 	 * @since  1.0
 	 */
-	private function __construct() {}
-	
-	/**
-	 * Returns the instance of this class (singleton pattern)
-	 *
-	 * @return Global_Settings
-	 *
-	 * @access public
-	 * @since  1.0
-	 */
-	static public function get_instance() {
-		
-		if ( is_null( self::$instance ) ) {
-			
-			self::$instance = new self;
-		}
-		
-		return self::$instance;
-	}
-	
-	/**
-	 * Load settings/options for the plugin
-	 *
-	 * @param $option_name
-	 *
-	 * @return bool|mixed
-	 */
-	public static function load_options( $option_name ) {
-		
-		$class = self::get_instance();
-		$settings = $class->get_settings();
-		
-		if ( isset( $settings[ $option_name ] ) && ! empty( $settings[ $option_name ] ) ) {
-			
-			return $settings[ $option_name ];
-		}
-		
-		return false;
-	}
-	
-	/**
-	 * Loads the settings for this plugin from the WP Database
-	 *
-	 * @return array
-	 */
-	private function get_settings() {
-		
-		$this->settings = get_option( "{$this->settings_name}", $this->default_settings() );
-		
-		return $this->settings;
+	private function __construct() {
 	}
 	
 	/**
@@ -150,6 +111,8 @@ class Global_Settings {
 	/**
 	 * Configure the default (global) settings for this add-on
 	 * @return array
+	 *
+	 * @since 4.1 - ENHANCEMENT: Added new global setting; data_fetch_timeout = 23 (hours)
 	 */
 	private function default_settings() {
 		
@@ -159,8 +122,9 @@ class Global_Settings {
 			'enable_expiration_warnings'    => false,
 			'enable_payment_warnings'       => false,
 			'enable_cc_expiration_warnings' => false,
-			'company_name' => null,
-			'company_address' => null,
+			'company_name'                  => null,
+			'company_address'               => null,
+			'data_fetch_timeout'            => 23,
 		);
 	}
 	
@@ -186,6 +150,8 @@ class Global_Settings {
 	
 	/**
 	 * Configure options page for the plugin and include any configured add-ons if needed.
+	 *
+	 * @since v4.1 - ENHANCEMENT - Added data_fetch_timeout global setting
 	 */
 	public function register_settings_page() {
 		
@@ -230,7 +196,12 @@ class Global_Settings {
 			array( $this, 'render_textarea' ),
 			'e20r-payment-warning-settings',
 			'e20r_pw_global',
-			array( 'option_name' => 'company_address' )
+			array(
+				'option_name' => 'company_address',
+				'rows'        => 5,
+				'cols'        => 50,
+				'placeholder' => __( "Enter address using the &lt;br/&gt; html element for line breaks", Payment_Warning::plugin_slug ),
+			)
 		);
 		
 		/**
@@ -269,6 +240,30 @@ class Global_Settings {
 			'e20r-payment-warning-settings',
 			'e20r_pw_messages',
 			array( 'option_name' => 'enable_payment_warnings' )
+		);
+		
+		add_settings_field(
+			'e20r_pw_global_data_fetch_timeout',
+			__( "Remote Collection Timeout", Payment_Warning::plugin_slug ),
+			array( $this, 'render_select' ),
+			'e20r-payment-warning-settings',
+			'e20r_pw_global',
+			array(
+				'option_name'          => 'data_fetch_timeout',
+				'option_label'         => __("Setting this too low may result in never updating the payment information and as a result, never sending email messages to your members!", Payment_Warning::plugin_slug ),
+				'option_default'       => '23',
+				'option_default_label' => __( '23 hours', Payment_Warning::plugin_slug ),
+				'select_options'       => array(
+					-1 => __( 'No timeout', Payment_Warning::plugin_slug ),
+					47 => __( '47 hours', Payment_Warning::plugin_slug ),
+					36 => __( '36 hours', Payment_Warning::plugin_slug ),
+					23 => __( '23 hours', Payment_Warning::plugin_slug ),
+					12 => __( '12 hours', Payment_Warning::plugin_slug ),
+					6  => __( '6 hours', Payment_Warning::plugin_slug ),
+					3  => __( '3 hours', Payment_Warning::plugin_slug ),
+					1  => __( '1 hour', Payment_Warning::plugin_slug ),
+				),
+			)
 		);
 		
 		add_settings_field(
@@ -361,9 +356,9 @@ class Global_Settings {
 	 */
 	public function render_addon_header() {
 		?>
-		<p class="e20r-pw-addon-header-text">
+        <p class="e20r-pw-addon-header-text">
 		<?php _e( "Use checkbox to enable/disable any licensed gateways", Payment_Warning::plugin_slug ); ?>
-		</p><?php
+        </p><?php
 	}
 	
 	/**
@@ -377,9 +372,9 @@ class Global_Settings {
 			$is_active  = $config['is_active'];
 			$addon_name = strtolower( $config['class_name'] );
 			?>
-			<input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
-			       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_attr_e( "is_{$addon_name}_active" ); ?>]"
-			       value="1" <?php checked( $is_active, true ); ?> />
+            <input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
+                   name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_attr_e( "is_{$addon_name}_active" ); ?>]"
+                   value="1" <?php checked( $is_active, true ); ?> />
 			<?php
 		}
 	}
@@ -394,16 +389,16 @@ class Global_Settings {
 			$next_run = wp_next_scheduled( 'e20r_run_remote_data_update' );
 		}
 		?>
-		<p class="e20r-pw-global-settings-text">
+        <p class="e20r-pw-global-settings-text">
 			<?php _e( "Configure plugin settings", Payment_Warning::plugin_slug ); ?>
-		</p>
-		<p class="e20r-pw-global-settings-info">
+        </p>
+        <p class="e20r-pw-global-settings-info">
 			<?php printf( __( '%1$sNext scheduled data fetch from the payment gateway(s) will happen on %2$s%3$s', Payment_Warning::plugin_slug ),
 				'<span class="e20r-pw-gateway-fetch-status">',
 				date_i18n( get_option( 'date_format' ), $next_run ),
 				'</span>'
 			); ?>
-		</p>
+        </p>
 		<?php
 	}
 	
@@ -412,9 +407,9 @@ class Global_Settings {
 	 */
 	public function render_message_type_text() {
 		?>
-		<p class="e20r-pw-global-messages-text">
+        <p class="e20r-pw-global-messages-text">
 			<?php _e( "Select (check) the warning message types you want the plugin to send.", Payment_Warning::plugin_slug ); ?>
-		</p>
+        </p>
 		
 		<?php
 	}
@@ -424,9 +419,9 @@ class Global_Settings {
 	 */
 	public function render_upcoming_payment_text() {
 		?>
-		<p class="e20r-pw-global-settings-text">
+        <p class="e20r-pw-global-settings-text">
 			<?php _e( "Reminder Schedule settings", Payment_Warning::plugin_slug ); ?>
-		</p>
+        </p>
 		<?php
 	}
 	
@@ -439,10 +434,60 @@ class Global_Settings {
 		
 		$value = self::load_options( $settings['option_name'] );
 		?>
-		<input type="checkbox"
-		       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
-		       value="1" <?php checked( 1, $value ); ?> />
+        <input type="checkbox"
+               name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+               value="1" <?php checked( 1, $value ); ?> />
 		<?php
+	}
+	
+	/**
+	 * Load settings/options for the plugin
+	 *
+	 * @param $option_name
+	 *
+	 * @return bool|mixed
+	 */
+	public static function load_options( $option_name ) {
+		
+		$class    = self::get_instance();
+		$settings = $class->get_settings();
+		
+		if ( isset( $settings[ $option_name ] ) && ! empty( $settings[ $option_name ] ) ) {
+			
+			return $settings[ $option_name ];
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Returns the instance of this class (singleton pattern)
+	 *
+	 * @return Global_Settings
+	 *
+	 * @access public
+	 * @since  1.0
+	 */
+	static public function get_instance() {
+		
+		if ( is_null( self::$instance ) ) {
+			
+			self::$instance = new self;
+		}
+		
+		return self::$instance;
+	}
+	
+	/**
+	 * Loads the settings for this plugin from the WP Database
+	 *
+	 * @return array
+	 */
+	private function get_settings() {
+		
+		$this->settings = get_option( "{$this->settings_name}", $this->default_settings() );
+		
+		return $this->settings;
 	}
 	
 	/**
@@ -453,11 +498,11 @@ class Global_Settings {
 	public function render_input( $settings ) {
 		
 		$value = self::load_options( $settings['option_name'] );
-		$type = empty( $settings['type'] ) ? 'text' : $settings['type'];
+		$type  = empty( $settings['type'] ) ? 'text' : $settings['type'];
 		?>
-		<input type="<?php esc_attr_e( $type ); ?>"
-		       name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
-		       value="<?php esc_attr_e( $value ); ?>" />
+        <input type="<?php esc_attr_e( $type ); ?>"
+               name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+               value="<?php esc_attr_e( $value ); ?>"/>
 		<?php
 	}
 	
@@ -469,30 +514,63 @@ class Global_Settings {
 	public function render_textarea( $settings ) {
 		$value = self::load_options( $settings['option_name'] );
 		?>
-		<textarea name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]" rows="5" cols="50" placeholder="<?php _e("Enter address using the &lt;br/&gt; html element for line breaks", Payment_Warning::plugin_slug ); ?>" ><?php trim( esc_html_e( $value ) ); ?></textarea>
+        <textarea name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+                  rows="<?php esc_attr_e( $settings['rows'] ); ?>" cols="<?php esc_attr_e( $settings['cols'] ); ?>"
+                  placeholder="<?php _e( $settings['placeholder'] ); ?>"><?php trim( esc_html_e( $value ) ); ?></textarea>
 		<?php
 	}
+	
+	/**
+	 * Display a select option on the settings page
+	 *
+	 * @param array $settings
+	 *
+	 * @since 4.1 - ENHANCEMENT: Adding render_select() method to Global_Settings class
+	 */
+	public function render_select( $settings ) {
+		
+		$saved_value = self::load_options( $settings['option_name'] );
+		
+		if ( empty( $saved_value ) ) {
+			$saved_value = $settings['option_default'];
+		} ?>
+        <select name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
+                id="<?php esc_attr_e( $this->settings_name ); ?>_<?php esc_html_e( $settings['option_name'] ); ?>">
+            <option value="<?php esc_attr_e( $settings['option_default'] ); ?>" <?php selected( $saved_value, $settings['option_default'] ); ?>>
+				<?php esc_html_e( $settings['option_default_label'] ); ?>
+            </option>
+			<?php foreach ( $settings['select_options'] as $option_value => $option_label ) { ?>
+                <option value="<?php esc_attr_e( $option_value ); ?>" <?php selected( $saved_value, $option_value ); ?>>
+					<?php esc_html_e( $option_label ); ?>
+                </option>
+			<?php } ?>
+        </select>
+		<?php if ( !empty( $settings['option_label'] ) ) {?>
+            <label class="e20r-option-warning"><small><?php esc_html_e( $settings['option_label'] ); ?></small></label>
+        <?php }
+	}
+	
 	/**
 	 * Generates the Settings API compliant option page
 	 */
 	public function global_settings_page() {
 		?>
-		<div class="e20r-pw-settings">
-			<div class="wrap">
-				<h2 class="e20r-pw-pmpro-settings"><?php _e( 'Settings: Eighty / 20 Results - Payment Warnings for Paid Memberships Pro', Payment_Warning::plugin_slug ); ?></h2>
-				<p class="e20r-pw-pmpro-settings">
+        <div class="e20r-pw-settings">
+            <div class="wrap">
+                <h2 class="e20r-pw-pmpro-settings"><?php _e( 'Settings: Eighty / 20 Results - Payment Warnings for Paid Memberships Pro', Payment_Warning::plugin_slug ); ?></h2>
+                <p class="e20r-pw-pmpro-settings">
 					<?php _e( "Configure global 'E20R Payment Warnings for Paid Memberships Pro' settings", Payment_Warning::plugin_slug ); ?>
-				</p>
-				<form method="post" action="options.php">
+                </p>
+                <form method="post" action="options.php">
 					<?php settings_fields( Payment_Warning::option_group ); ?>
 					<?php do_settings_sections( 'e20r-payment-warning-settings' ); ?>
-					<p class="submit">
-						<input type="submit" class="button-primary" value="<?php _e( 'Save Changes' ); ?>"/>
-					</p>
-				</form>
-			
-			</div>
-		</div>
+                    <p class="submit">
+                        <input type="submit" class="button-primary" value="<?php _e( 'Save Changes' ); ?>"/>
+                    </p>
+                </form>
+
+            </div>
+        </div>
 		<?php
 	}
 }
