@@ -113,8 +113,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			
 			/**
 			 * Make sure the queue is either empty or contains an array of data to process
+			 *
+			 * @since v4.1 - BUG FIX: Make sure the E20R_Background_Process class has the is_queue_good() method
 			 */
-			if ( false === $handler->is_queue_good() ) {
+			if ( method_exists( $handler, 'is_queue_good' ) && false === $handler->is_queue_good() ) {
 				// Unexpected queue content!
 				$handler->clear_queue();
 			}
@@ -162,8 +164,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 					
 					/**
 					 * Make sure the queue is either empty or contains an array of data to process
+					 *
+					 * @since v4.1 - BUG FIX: Make sure the E20R_Background_Process class has the is_queue_good() method
 					 */
-					if ( false === $sub_handler->is_queue_good() ) {
+					if (  method_exists( $handler, 'is_queue_good' ) && false === $sub_handler->is_queue_good() ) {
 						// Unexpected queue content!
 						$sub_handler->clear_queue();
 					}
@@ -854,6 +858,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$option_name   = "e20rpw_{$action_name}_start";
 			$started_at    = intval( get_option( $option_name, $now ) );
 			$utils         = Utilities::get_instance();
+			
+			$utils->log("Processing timeout handler");
 			
 			if  ( -1 === $timeout_hours ) {
 				$utils->log("Timeout is disabled. Continuing...");
