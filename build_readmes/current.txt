@@ -1,32 +1,15 @@
-ENHANCEMENT: Refactored send_message() method
-BUG FIX: Didn't process all activation activities consistently.
-BUG FIX: SQL error when column & index exists prior to upgrade
-BUG FIX: Possible DB error when upgrading table schema for plugin
-BUG FIX: Incorrect namespace for DB_Tables() class
-BUG FIX: DB_Tables() class had incorrect file name for autoloader
-BUG FIX: Would sometimes fail to run due to bad queue data
-BUG FIX: Didn't always find the Email Notices for this plugin to transmit/send
-BUG FIX: Failed to generate a complete message with substitution variables expanded
-BUG FIX: Didn't try to load message body when instantiating Email_Message() class
-BUG FIX: Reminder override (only used to debug) was too strict
-BUG FIX: Couldn't locate templates in some situations
-BUG FIX: Moved message content filters to Email_Message() class
-BUG FIX: payment_date substitution variable was incorrectly defined
-BUG FIX: Numerous updates to Reminder_Editor::configure_cpt_templates() method
-BUG FIX: Didn't load the Payment_Warning templates in a lot of circumstances
-BUG FIX: Didn't process deactivation logic
-BUG FIX: Load the expected module logic in all situations
-BUG FIX: Load modules dependent on licensing
-ENHANCEMENT: Add overrides when E20R_DEBUG_OVERRIDE constant is defined and true
-ENHANCEMENT: Refactored get_gateway_class_name() method in payment gateway modules
-ENHANCEMENT: Allow searching for a template by it's slug value (Reminder_Editor::find_template_by_slug())
-ENHANCEMENT: Special processing for previous_payment_date substitution variable in Reminder_Editor::load_filter_value() method
-ENHANCEMENT: Added previous_payment_date substitution variable (and help)
-ENHANCEMENT: Added cancel_link substitution variable (and help)
-ENHANCEMENT: Added cancel_link_login substitution variable (and help)
-ENHANCEMENT: More efficient processing of substitution variables
-ENHANCEMENT: Specifically handling email message body processing
-ENHANCEMENT: Move DB Table create/remove operation to own class (DB_Tables)
-ENHANCEMENT: Moved DB updates to own DB_Tables() class
-ENHANCEMENT: Enable message transmission override when running in Payment Warning Debug mode
-ENHANCEMENT: More efficient and consistent way of loading gateway modules
+BUG FIX: Make sure the loaded E20R_Background_Process class has the is_queue_good() method
+ENHANCEMENT: Updated warning label for Timeout setting
+ENHANCEMENT: Added Global_Settings::render_select(), creates SELECT HTML element using settings array in add_settings_field() method. Supports the following settings: 'select_options', 'option_default', 'option_label', 'option_default_label', 'option_name'
+ENHANCEMENT: More dynamic Global_Setting::render_textbox() method; New settings available in array for add_settings_field() method. Supports the following settings; 'option_name', 'rows', 'cols', 'placeholder'
+ENHANCEMENT: Added new global setting; data_fetch_timeout = 23 (hours)
+ENHANCEMENT: Applied WP Code Style & reordered Global_Settings() class
+ENHANCEMENT: Added static Fetch_User_Data::should_continue() method
+ENHANCEMENT: Added static Fetch_User_Data::ending_fetch() method
+ENHANCEMENT: Updated PHPDoc Fetch_User_Data::block for get_local_user_data() method
+ENHANCEMENT: Applied WP Code Style to Fetch_User_Data() class
+ENHANCEMENT: Refactored Handle_Payments::task()
+ENHANCEMENT: Refactored Handle_Subscriptions::task()
+ENHANCEMENT: Added timeout handling for background User Data Fetch tasks (Subscriptions and Payments)
+ENHANCEMENT: Add filter to override configured timeout value: `e20r-payment-warning-fetch-timeout` (accepts 1 argument, an integer value for the number of hours the timeout is supposed to last. Can be negative)
+ENHANCEMENT: Add debug setting for the Timeout handler for background jobs: E20R_DEBUG_TIMEOUT (boolean constant). Uses the e20r-payment-warning-fetch-timeout filter to set value to -2 (always timed out)

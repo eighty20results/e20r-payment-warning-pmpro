@@ -4,7 +4,7 @@ E20R Payment Warning for PMPro
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
     Tested up to: 4.9.8
-    Stable tag: 4.0
+    Stable tag: 4.1
 
 
 Generates and sends notices to active members for the supported membership plugin. The plugin will notify active members about any upcoming recurring payments, membership expirations and of any upcoming credit card expiration dates so the user can be informed and take action. The plugin receives its data directly from the supported payment gateways. This makes this plugin far more reliable and consistent in actually transmitting warnings/notices to your members.
@@ -130,6 +130,24 @@ If you sponsor the development of gateway support you will receive forum support
 
 Changelog
 ------------
+
+###v4.1
+
+* BUG FIX: Make sure the loaded E20R_Background_Process class has the is_queue_good() method
+* ENHANCEMENT: Updated warning label for Timeout setting
+* ENHANCEMENT: Added Global_Settings::render_select(), creates SELECT HTML element using settings array in add_settings_field() method. Supports the following settings: 'select_options', 'option_default', 'option_label', 'option_default_label', 'option_name'
+* ENHANCEMENT: More dynamic Global_Setting::render_textbox() method; New settings available in array for add_settings_field() method. Supports the following settings; 'option_name', 'rows', 'cols', 'placeholder'
+* ENHANCEMENT: Added new global setting; data_fetch_timeout = 23 (hours)
+* ENHANCEMENT: Applied WP Code Style & reordered Global_Settings() class
+* ENHANCEMENT: Added static Fetch_User_Data::should_continue() method
+* ENHANCEMENT: Added static Fetch_User_Data::ending_fetch() method
+* ENHANCEMENT: Updated PHPDoc Fetch_User_Data::block for get_local_user_data() method
+* ENHANCEMENT: Applied WP Code Style to Fetch_User_Data() class
+* ENHANCEMENT: Refactored Handle_Payments::task()
+* ENHANCEMENT: Refactored Handle_Subscriptions::task()
+* ENHANCEMENT: Added timeout handling for background User Data Fetch tasks (Subscriptions and Payments)
+* ENHANCEMENT: Add filter to override configured timeout value: `e20r-payment-warning-fetch-timeout` (accepts 1 argument, an integer value for the number of hours the timeout is supposed to last. Can be negative)
+* ENHANCEMENT: Add debug setting for the Timeout handler for background jobs: E20R_DEBUG_TIMEOUT (boolean constant). Uses the e20r-payment-warning-fetch-timeout filter to set value to -2 (always timed out)
 
 ###v4.0
 
