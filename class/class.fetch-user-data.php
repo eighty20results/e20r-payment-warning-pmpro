@@ -853,13 +853,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 		 */
 		public static function should_continue( $action_name ) {
 			
-			$timeout_hours = intval( Global_Settings::load_options( 'data_fetch_timeout' ) );
+			$timeout_hours = apply_filters( 'e20r-payment-warning-fetch-timeout', intval( Global_Settings::load_options( 'data_fetch_timeout' ) ) );
 			$now           = intval( current_time( 'timestamp' ) );
 			$option_name   = "e20rpw_{$action_name}_start";
 			$started_at    = intval( get_option( $option_name, $now ) );
 			$utils         = Utilities::get_instance();
 			
-			$utils->log("Processing timeout handler");
+			$utils->log("Processing timeout handler. Timeout is: {$timeout_hours}");
 			
 			if  ( -1 === $timeout_hours ) {
 				$utils->log("Timeout is disabled. Continuing...");
