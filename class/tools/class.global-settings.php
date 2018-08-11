@@ -250,7 +250,7 @@ class Global_Settings {
 			'e20r_pw_global',
 			array(
 				'option_name'          => 'data_fetch_timeout',
-				'option_label'         => __("Setting this too low may result in never updating the payment information and as a result, never sending email messages to your members!", Payment_Warning::plugin_slug ),
+				'option_label'         => __("NOTE: Setting this too low may result in never updating the payment information and as a result, never sending email messages to your members!", Payment_Warning::plugin_slug ),
 				'option_default'       => '23',
 				'option_default_label' => __( '23 hours', Payment_Warning::plugin_slug ),
 				'select_options'       => array(
@@ -533,17 +533,23 @@ class Global_Settings {
 		
 		if ( empty( $saved_value ) ) {
 			$saved_value = $settings['option_default'];
-		} ?>
+		}
+		ksort( $settings['select_options'], SORT_NUMERIC );
+		?>
         <select name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_html_e( $settings['option_name'] ); ?>]"
                 id="<?php esc_attr_e( $this->settings_name ); ?>_<?php esc_html_e( $settings['option_name'] ); ?>">
             <option value="<?php esc_attr_e( $settings['option_default'] ); ?>" <?php selected( $saved_value, $settings['option_default'] ); ?>>
 				<?php esc_html_e( $settings['option_default_label'] ); ?>
             </option>
-			<?php foreach ( $settings['select_options'] as $option_value => $option_label ) { ?>
-                <option value="<?php esc_attr_e( $option_value ); ?>" <?php selected( $saved_value, $option_value ); ?>>
-					<?php esc_html_e( $option_label ); ?>
-                </option>
-			<?php } ?>
+			<?php foreach ( $settings['select_options'] as $option_value => $option_label ) {
+			    
+			    if ( $option_value != $settings['option_default'] ) { ?>
+                    <option value="<?php esc_attr_e( $option_value ); ?>" <?php selected( $saved_value, $option_value ); ?>>
+					    <?php esc_html_e( $option_label ); ?>
+                    </option>
+				    <?php
+			    }
+            } ?>
         </select>
 		<?php if ( !empty( $settings['option_label'] ) ) {?>
             <label class="e20r-option-warning"><small><?php esc_html_e( $settings['option_label'] ); ?></small></label>
