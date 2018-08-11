@@ -8,7 +8,7 @@ Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
 PHP Version: 5.4
-Version: 4.0
+Version: 4.1
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
@@ -48,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '4.0' );
+	define( 'E20R_PW_VERSION', '4.1' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -284,6 +284,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
 				add_filter( 'e20r-email-notice-send-override', '__return_true' );
 				add_filter( 'e20r-payment-warning-send-email', array( Payment_Reminder::get_instance(), 'send_reminder_override' ), 9999, 4 );
+				
+				if ( defined( 'E20R_DEBUG_TIMEOUT' ) && true === E20R_DEBUG_TIMEOUT ) {
+					add_filter( 'e20r-payment-warning-fetch-timeout', array( $this, 'debug_timeout_value' ), 10, 1 );
+				}
 			}
 			
 			$this->load_addon_settings();
@@ -450,6 +454,17 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			 * @since v3.8 - ENHANCEMENT: Always load the remote webhook/silent post/IPN handler functions for the plugin
 			 */
 			do_action( 'e20r_pw_addon_remote_call_handler' );
+		}
+		
+		/**
+		 * Override the timeout value for queue based processing during debug
+		 *
+		 * @param int $value
+		 *
+		 * @return int
+		 */
+		public function debug_timeout_value( $value ) {
+			return -2;
 		}
 		
 		/**
