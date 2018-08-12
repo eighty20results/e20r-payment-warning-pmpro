@@ -126,7 +126,7 @@ class Handle_Payments extends E20R_Background_Process {
 		$user_data = apply_filters( 'e20r_pw_addon_get_user_payments', $user_data, $this->type );
 		
 		// @since 1.9.4 - ENHANCEMENT: No longer need to specify type of record being saved
-		if ( false !== $user_data && false === $user_data->save_to_db() ) {
+		if ( true === is_bool( $user_data ) || ( false !== $user_data && false === $user_data->save_to_db() ) ) {
 			
 			$util->log( "User payment record (for gateway: {$this->type}) not saved/processed. May be a-ok..." );
 		}

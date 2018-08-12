@@ -111,7 +111,7 @@ class Handle_Subscriptions extends E20R_Background_Process {
 		 */
 		$user_data = apply_filters( 'e20r_pw_addon_get_user_subscriptions', $user_data, $this->type );
 		
-		if ( false === $user_data->save_to_db() ) {
+		if ( true === is_bool( $user_data ) || false === $user_data->save_to_db() ) {
 			
 			$util->log( "User subscription record not saved/processed. May be a-ok..." );
 		}
