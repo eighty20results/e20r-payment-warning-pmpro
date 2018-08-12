@@ -843,7 +843,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 			$utils->log( "Failed check of gateway / gateway licence for the add-on" );
 			
-			return false;
+			return $user_data;
 		}
 		
 		if ( false === $this->gateway_loaded ) {
@@ -857,7 +857,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			
 			$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 			
-			return false;
+			return $user_data;
 		}
 		
 		$pmpro_order    = $user_data->get_last_pmpro_order();
@@ -900,7 +900,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				
 				$user_data->set_active_subscription( false );
 				
-				return false;
+				return $user_data;
 			}
 			
 			$utils->log( "Available PayPal subscription data collected for {$cust_id} -> {$user_email}" );
@@ -912,7 +912,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $subscription->PayerInfoType->Email, $user_email );
 				
-				return false;
+				return $user_data;
 			}
 			
 			$utils->log( "Loading most recent local PMPro order info" );
@@ -1127,7 +1127,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			
 			$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 			
-			return false;
+			return $user_data;
 		}
 		
 		$pmpro_order    = $user_data->get_last_pmpro_order();
@@ -1136,7 +1136,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		if ( empty( $transaction_id ) ) {
 			$utils->log( "No PayPal transaction found for this user: " . $user_data->get_user_ID() );
 			
-			return false;
+			return $user_data;
 		}
 		
 		if ( true === $this->gateway_loaded ) {
@@ -1173,7 +1173,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				$transaction = null;
 				$charge      = null;
 				
-				return false;
+				return $user_data;
 			}
 			
 			// Make sure the user email on record locally matches that of the upstream email record for the specified Stripe gateway ID
@@ -1184,7 +1184,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $charge->PayerInfo->Payer, $user_email );
 				
 				// Stop processing this user/
-				return false;
+				return $user_data;
 			}
 			
 			if ( ! empty( $charge ) ) {

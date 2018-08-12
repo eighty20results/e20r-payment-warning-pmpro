@@ -217,7 +217,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway licence for the add-on" );
 				
-				return false;
+				return $user_data;
 			}
 			
 			if ( false === $this->gateway_loaded ) {
@@ -231,7 +231,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 				
 				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 				
-				return false;
+				return $user_data;
 			}
 			
 			try {
@@ -246,7 +246,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 				
 				$user_data->set_active_subscription( false );
 				
-				return false;
+				return $user_data;
 			}
 			
 			$user_email = $user_data->get_user_email();
@@ -259,7 +259,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
 				
-				return false;
+				return $user_data;
 			}
 			
 			// $utils->log( "Retrieved customer data: " . print_r( $data, true ) );

@@ -263,7 +263,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 * @param User_Data|bool $user_data The User_Data record to process for
 		 * @param string $addon The addon we're processing for
 		 *
-		 * @return bool|User_Data
+		 * @return User_Data
 		 */
 		public function get_gateway_subscriptions( $user_data, $addon ) {
 			
@@ -284,7 +284,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			if ( false === $this->verify_gateway_processor( $user_data, $stub, $this->gateway_name ) ) {
 				$utils->log( "Failed check of gateway / gateway licence for the add-on" );
 				
-				return false;
+				return $user_data;
 			}
 			
 			if ( false === $this->gateway_loaded ) {
@@ -298,7 +298,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 				
-				return false;
+				return $user_data;
 			}
 			
 			try {
@@ -313,7 +313,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$user_data->set_active_subscription( false );
 				
-				return false;
+				return $user_data;
 			}
 			
 			$user_email = $user_data->get_user_email();
@@ -326,7 +326,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
 				
-				return false;
+				return $user_data;
 			}
 			
 			// $utils->log( "Retrieved customer data: " . print_r( $data, true ) );
@@ -488,13 +488,13 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "No Gateway specific customer ID found for specified user: " . $user_data->get_user_ID() );
 				
-				return false;
+				return $user_data;
 			}
 			
 			if ( empty( $last_order_id ) ) {
 				$utils->log( "Unexpected: There's no Transaction ID for " . $user_data->get_user_ID() . " / {$cust_id}" );
 				
-				return false;
+				return $user_data;
 			}
 			
 			try {
@@ -508,14 +508,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				// $utils->add_message( sprintf( __( "Unable to fetch Stripe.com data for %s", Payment_Warning::plugin_slug ), $user_data->get_user_email() ), 'warning', 'backend' );
 				
-				return false;
+				return $user_data;
 			}
 			
 			if ( $customer->subscriptions->total_count > 0 ) {
 				
 				$utils->log( "User ID ({$cust_id}) on stripe.com has {$customer->subscriptions->total_count} subscription plans. Skipping payment/charge processing" );
 				
-				return false;
+				return $user_data;
 			}
 			
 			$user_email = $user_data->get_user_email();
@@ -535,7 +535,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				} catch ( \Exception $exception ) {
 					$utils->log( "Error fetching invoice info: " . $exception->getMessage() );
 					
-					return false;
+					return $user_data;
 				}
 			}
 			
@@ -549,7 +549,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				} catch ( \Exception $exception ) {
 					$utils->log( "Error fetching charge/payment: " . $exception->getMessage() );
 					
-					return false;
+					return $user_data;
 				}
 			}
 			
@@ -562,7 +562,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $customer->email, $user_email );
 				
-				return false;
+				return $user_data;
 			}
 			
 			if ( ! empty( $charge ) ) {
