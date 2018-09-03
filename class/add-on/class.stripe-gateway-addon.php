@@ -887,7 +887,6 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$utils = Utilities::get_instance();
 			$utils->log( "In toggle_addon action handler for the {$e20r_pw_addons[$addon]['label']} add-on" );
-			$utils->log( "Checking if the action handler is being triggered!" );
 			
 			$expected_stub = strtolower( $this->get_class_name() );
 			
@@ -901,6 +900,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				$utils->log( "Deactivating the add-on so disable the license" );
 				Licensing::deactivate_license( $addon );
+				
+				$e20r_pw_addons[ $addon ]['active_license'] = Licensing::is_licensed( $addon );
+				update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
 			}
 			
 			if ( $is_active === false && true == $this->load_option( 'deactivation_reset' ) ) {
@@ -912,11 +914,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			}
 			
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
-			// $e20r_pw_addons[ $addon ]['active_license'] = Licensing::is_licensed( $addon );
 			
 			$utils->log( "Setting the {$addon} option to {$is_active}/{$e20r_pw_addons[ $addon ]['active_license']}" );
 			update_option( "e20r_pw_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'no' );
-			// update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
+			
 		}
 		
 		/**

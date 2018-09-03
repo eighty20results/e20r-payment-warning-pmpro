@@ -1478,6 +1478,10 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			
 			$utils->log( "Deactivating the add-on so disable the license" );
 			Licensing::deactivate_license( $addon );
+			
+			// Update licensing for this gateway add-on
+			$e20r_pw_addons[ $addon ]['active_license'] = Licensing::is_licensed( $addon );
+			update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
 		}
 		
 		if ( $is_active === false && true == $this->load_option( 'deactivation_reset' ) ) {
