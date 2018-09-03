@@ -804,7 +804,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
 			$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['is_active']}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'no' );
+			update_option( "e20r_pw_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'no' );
 		}
 		
 		/**
@@ -1314,10 +1314,9 @@ $stub = apply_filters( "e20r_pw_addon_check_gateway_addon_name", null );
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'Check_Gateway_Addon',
 	'handler_name'          => 'check_webhook',
-	'is_active'             => ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
-	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == 1 ? true : false ),
-	'status'                => 'deactivated',
-	// ( 1 == get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
+	'is_active'             => (bool) get_option( "e20r_pw_{$stub}_enabled", false ),
+	'active_license'        => (bool) get_option( "e20r_pw_{$stub}_licensed", false ),
+	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'Check',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(

@@ -149,7 +149,7 @@ abstract class E20R_PW_Gateway_Addon {
 		if ( method_exists( $class, 'save_subscription_mismatch' ) ) {
 			add_action( 'e20r_pw_addon_save_subscription_mismatch', array(
 				$class,
-				'save_subscription_mismatch'
+				'save_subscription_mismatch',
 			), 10, 4 );
 		}
 		
@@ -168,7 +168,7 @@ abstract class E20R_PW_Gateway_Addon {
 		if ( method_exists( $class, 'valid_gateway_subscription_statuses' ) ) {
 			add_filter( 'e20r_pw_addon_subscr_statuses', array(
 				$class,
-				'valid_gateway_subscription_statuses'
+				'valid_gateway_subscription_statuses',
 			), 10, 3 );
 		}
 		
@@ -204,8 +204,8 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		global $e20r_pw_addons;
 		
-		$e20r_pw_addons[ $stub ]['is_active']      = (bool) get_option( "e20r_pw_addon_{$stub}_enabled", false );
-		$e20r_pw_addons[ $stub ]['active_license'] = (bool) get_option( "e20r_pw_addon_{$stub}_licensed", false );
+		$e20r_pw_addons[ $stub ]['is_active']      = (bool) get_option( "e20r_pw_{$stub}_enabled", false );
+		$e20r_pw_addons[ $stub ]['active_license'] = (bool) get_option( "e20r_pw_{$stub}_licensed", false );
 		
 		$utils->log( "is_active setting for {$stub}: " . ( $e20r_pw_addons[ $stub ]['is_active'] ? 'True' : 'False' ) );
 		$utils->log( "The {$stub} add-on is licensed? " . ( $e20r_pw_addons[ $stub ]['active_license'] ? 'Yes' : 'No' ) );
@@ -214,7 +214,7 @@ abstract class E20R_PW_Gateway_Addon {
 			
 			$utils->log( "Checking license server for {$stub} (forced)" );
 			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
-			update_option( "e20r_pw_addon_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], 'no' );
+			update_option( "e20r_pw_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], 'no' );
 		}
 		$utils->log( "The {$stub} add-on is enabled? {$enabled}" );
 		
@@ -287,6 +287,62 @@ abstract class E20R_PW_Gateway_Addon {
 				);
 			}
 		}
+	}
+	
+	/**
+	 * Attempt to rename any WP Option entries for the add-on gateways
+	 *
+	 * @param string $stub
+	 *
+	 * @return bool
+	 */
+	public static function rename_options( $stub ) {
+		
+		$utils = Utilities::get_instance();
+		
+		$utils->log( "Upgrade option name for add-ons?" );
+		
+		if ( $stub === 'example_gateway_addon' ) {
+			$utils->log( "Nothing to do for the {$stub} gateway" );
+			
+			return false;
+		}
+		
+		if ( false === (bool) get_option( 'e20r_pw_addon_options_updated', false ) ) {
+			$utils->log("Option names have been updated before");
+			return false;
+		}
+		
+		global $wpdb;
+		
+		$search_sql_template = "SELECT wpo.option_id AS option_id, wpo.option_name AS option_name FROM {$wpdb->options} AS wpo WHERE ( wpo.option_name = %s ) OR ( wpo.option_name = %s )";
+		$enabled_option      = "e20r_pw_addon_{$stub}_enabled";
+		$licensed_option     = "e20r_pw_addon_{$stub}_licensed";
+		$sql_search          = $wpdb->prepare( $search_sql_template, $enabled_option, $licensed_option );
+		
+		$options = $wpdb->get_results( $sql_search );
+		
+		if ( empty( $options ) ) {
+			$utils->log( "No option name updates needed for {$stub}" );
+			return true;
+		}
+		
+		foreach ( $options as $option ) {
+			
+			$update_data = array(
+				'option_name' => preg_replace( '/e20r_pw_addon_/', 'e20r_pw_', $option->option_name ),
+			);
+			
+			$utils->log( "Attempting to update option name {$option->option_name} for ID {$option->option_id}: " . print_r( $update_data, true ) );
+			
+			if ( false === $wpdb->update( $wpdb->options, $update_data, array( 'option_id' => $option->option_id ), array( '%s' ), array( '%d' ) ) ) {
+				$utils->log( "Error updating option name {$option->option_name} for ID {$option->option_id}" );
+				return false;
+			}
+		}
+		
+		update_option( 'e20r_pw_addon_options_updated', false );
+		return true;
 	}
 	
 	/**
@@ -447,7 +503,7 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		global $e20r_pw_addons;
 		
-		if ( true === $this->is_active( $stub ) && ! empty( $e20r_pw_addons[$stub]['handler_name']) ) {
+		if ( true === $this->is_active( $stub ) && ! empty( $e20r_pw_addons[ $stub ]['handler_name'] ) ) {
 			
 			$util = Utilities::get_instance();
 			$util->log( "Loading {$stub} Webhook handler functions..." );
@@ -519,7 +575,7 @@ abstract class E20R_PW_Gateway_Addon {
 		$e20r_pw_addons[ $addon ]['status'] = ( $e20r_pw_addons[ $addon ]['is_active'] ? 'active' : 'deactivated' );
 		
 		$utils->log( "Setting the {$addon} option to {$e20r_pw_addons[ $addon ]['status']}" );
-		update_option( "e20r_pw_addon_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'yes' );
+		update_option( "e20r_pw_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'yes' );
 		update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
 		
 		return $e20r_pw_addons[ $addon ]['is_active'];

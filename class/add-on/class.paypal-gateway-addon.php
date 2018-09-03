@@ -215,7 +215,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		/**
 		 * Toggle ourselves on/off, and handle any deactivation if needed.
 		 */
-			
+		
 		add_action( 'e20r_pw_addon_toggle_addon', array( self::get_instance(), 'toggle_addon' ), 10, 2 );
 		add_action( 'e20r_pw_addon_activating_core', array( self::get_instance(), 'activate_addon', ), 10, 0 );
 		add_action( 'e20r_pw_addon_deactivating_core', array( self::get_instance(), 'deactivate_addon', ), 10, 1 );
@@ -316,14 +316,16 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	public function get_gateway_class_name( $gateway_name = null, $addon ) {
 		
 		$utils = Utilities::get_instance();
-		$utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
+		$utils->log( "Gateway name: {$gateway_name}. Addon name: {$addon}" );
 		
-		if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
-			$utils->log("{$addon} not matching PayPal's expected gateway add-on");
+		if ( ! empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
+			$utils->log( "{$addon} not matching PayPal's expected gateway add-on" );
+			
 			return $gateway_name;
 		}
 		
-		$gateway_name =  $this->get_class_name();
+		$gateway_name = $this->get_class_name();
+		
 		return $gateway_name;
 	}
 	
@@ -378,15 +380,15 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			'status'            => $util->get_variable( 'payment_status', null ),
 			'type'              => $util->get_variable( 'payment_type', null ),
 			'created'           => $util->get_variable( 'time_created', null ),
-			'billing_interval' => $util->get_variable( 'payment_cycle', null ),
+			'billing_interval'  => $util->get_variable( 'payment_cycle', null ),
 			'billing_period'    => $util->get_variable( 'period_type', null ),
 		);
 		
 		$this->ipn_cc_info = array(
-			'last4' => null,
+			'last4'     => null,
 			'exp_month' => null,
-			'exp_year' => null,
-			'brand' => null,
+			'exp_year'  => null,
+			'brand'     => null,
 		);
 		
 		$txn_info['customer'] = $this->ipn_customer;
@@ -502,6 +504,16 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * @param string[string] $data
+	 */
+	public function maybe_send_payment_failure_message( $data ) {
+		$util = Utilities::get_instance();
+		$util->log( "Dumping Payment failure data from PayPal: " . print_r( $data, true ) );
+		
+		return;
+	}
+	
+	/**
 	 * Update/Delete subscription data for specified user
 	 *
 	 * @param string $operation
@@ -541,6 +553,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			
 			if ( false === User_Data::delete_subscription_record( $user->ID, $this->ipn_payment_info['subscription_id'] ) ) {
 				$util->log( "Error deleting subscription record: {$this->ipn_payment_info['subscription_id']} for {$user->ID}" );
+				
 				return false;
 			}
 			
@@ -629,10 +642,10 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		 * Update subscription plan info from PayPal gateway as local Payment Warning data
 		 */
 		if ( 'update' === $operation ) {
-			$util->log("Don't know how to handle a PayPal IPN request to update the subscription yet!");
-			$util->log("Payment info: " . print_r( $this->ipn_payment_info, true ) );
-			$util->log("Payer info: " . print_r( $this->ipn_customer, true ) );
-			$util->log("Payment Method info: " . print_r( $this->ipn_cc_info, true ) );
+			$util->log( "Don't know how to handle a PayPal IPN request to update the subscription yet!" );
+			$util->log( "Payment info: " . print_r( $this->ipn_payment_info, true ) );
+			$util->log( "Payer info: " . print_r( $this->ipn_customer, true ) );
+			$util->log( "Payment Method info: " . print_r( $this->ipn_cc_info, true ) );
 		}
 		
 		
@@ -654,7 +667,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		$order = new \MemberOrder();
 		
 		$current_gateway_type = $this->load_option( 'primary_service' );
-		$paypal_gateway = $this->get_paypal_gateway( $current_gateway_type );
+		$paypal_gateway       = $this->get_paypal_gateway( $current_gateway_type );
 		
 		/** Get selected PayPal Gateway type from Payment Warnings settings */
 		$order->setGateway( $paypal_gateway );
@@ -682,19 +695,19 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			// No initial payment info found...
 			$order->InitialPayment = 0;
 			
-			if ( !empty( $this->ipn_payment_info['subscription_id'] ) ) {
+			if ( ! empty( $this->ipn_payment_info['subscription_id'] ) ) {
 				
 				// Process the subscription plan(s)
 				global $pmpro_currencies;
-					$util->log( "One or less Plans for the Subscription" );
-					
+				$util->log( "One or less Plans for the Subscription" );
+				
 				$order->PaymentAmount    = floatval( $this->ipn_payment_info['amount'] );
-				$order->BillingPeriod    = ucfirst( $this->ipn_payment_info['billing_period']  );
+				$order->BillingPeriod    = ucfirst( $this->ipn_payment_info['billing_period'] );
 				$order->BillingFrequency = intval( $this->ipn_payment_info['billing_interval'] );
-				$order->ProfileStartDate = date( 'Y-m-d H:i:s', $this->get_pp_time_as_seconds( $this->ipn_payment_info['created']) );
-					
-					$order->status = 'success';
-				}
+				$order->ProfileStartDate = date( 'Y-m-d H:i:s', $this->get_pp_time_as_seconds( $this->ipn_payment_info['created'] ) );
+				
+				$order->status = 'success';
+			}
 			
 			
 			$order->billing   = $this->get_billing_info( $this->ipn_customer );
@@ -731,15 +744,63 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * Load the billing info from the customer data as an object
+	 * Load the specific option from the option array
 	 *
-	 * @param array $customer -- Info array for customer billing data
+	 * @param string $option_name
 	 *
-	 * @return \stdClass
+	 * @return bool
 	 */
-	public function get_billing_info( $customer ) {
+	public function load_option( $option_name ) {
 		
-		return ( (object) $this->ipn_customer );
+		$this->settings = get_option( "{$this->option_name}" );
+		
+		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
+			
+			return $this->settings[ $option_name ];
+		}
+		
+		return false;
+		
+	}
+	
+	/**
+	 * Return the PayPal gateway type info
+	 *
+	 * @param null|int $type
+	 *
+	 * @return array
+	 */
+	private function get_paypal_gateway( $type = null ) {
+		
+		$paypal_types = apply_filters( 'e20r-payment-warning-available-paypal-gateways', array(
+				self::E20R_PW_PAYPAL_EXPRESS     => array(
+					'label'        => __( 'PayPal Express', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'paypalexpress',
+				),
+				self::E20R_PW_PAYPAL_PAYFLOWPRO  => array(
+					'label'        => __( 'PayFlow Pro', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'payflowpro',
+				),
+				self::E20R_PW_PAYPAL_PAYMENTSPRO => array(
+					'label'        => __( 'PayPal Payments Pro', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'paypal',
+				),
+				self::E20R_PW_PAYPAL_STANDARD    => array(
+					'label'        => __( 'PayPal Standard', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'paypalstandard',
+				),
+				self::E20R_PW_PAYPAL_BRAINTREE   => array(
+					'label'        => __( 'PayPal/Braintree', Payment_Warning::plugin_slug ),
+					'gateway_name' => 'braintree',
+				),
+			)
+		);
+		
+		if ( empty( $type ) ) {
+			return $paypal_types;
+		} else {
+			return $paypal_types[ $type ];
+		}
 	}
 	
 	/**
@@ -776,13 +837,15 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
-	 * @param string[string] $data
+	 * Load the billing info from the customer data as an object
+	 *
+	 * @param array $customer -- Info array for customer billing data
+	 *
+	 * @return \stdClass
 	 */
-	public function maybe_send_payment_failure_message( $data ) {
-		$util = Utilities::get_instance();
-		$util->log( "Dumping Payment failure data from PayPal: " . print_r( $data, true ) );
+	public function get_billing_info( $customer ) {
 		
-		return;
+		return ( (object) $this->ipn_customer );
 	}
 	
 	/**
@@ -1425,30 +1488,12 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			$utils->log( "Deactivate the capabilities for all levels & all user(s)!" );
 		}
 		
-		$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
+		$e20r_pw_addons[ $addon ]['is_active']   = $is_active;
+		$e20r_pw_addons[ $addon ]['is_licensed'] = Licensing::is_licensed( $addon, true );
 		
-		$utils->log( "Setting the {$addon} option to {$is_active}" );
-		update_option( "e20r_pw_addon_{$addon}_enabled", $is_active, 'yes' );
-	}
-	
-	/**
-	 * Load the specific option from the option array
-	 *
-	 * @param string $option_name
-	 *
-	 * @return bool
-	 */
-	public function load_option( $option_name ) {
-		
-		$this->settings = get_option( "{$this->option_name}" );
-		
-		if ( isset( $this->settings[ $option_name ] ) && ! empty( $this->settings[ $option_name ] ) ) {
-			
-			return $this->settings[ $option_name ];
-		}
-		
-		return false;
-		
+		$utils->log( "Setting the {$addon} option to {$is_active}/{$e20r_pw_addons[ $addon ]['is_licensed']}" );
+		update_option( "e20r_pw_{$addon}_enabled", $e20r_pw_addons[ $addon ]['is_active'], 'yes' );
+		update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['is_licensed'], 'no' );
 	}
 	
 	/**
@@ -1497,9 +1542,9 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 		
 		$cleanup = $this->load_option( 'deactivation_reset' );
 		?>
-		<input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
-		       name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
-		       value="1" <?php checked( 1, $cleanup ); ?> />
+        <input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
+               name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
+               value="1" <?php checked( 1, $cleanup ); ?> />
 		<?php
 	}
 	
@@ -1546,9 +1591,9 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	 */
 	public function render_settings_text() {
 		?>
-		<p class="e20r-paypal-global-settings-text">
+        <p class="e20r-paypal-global-settings-text">
 			<?php _e( "Configure settings for the E20R Payment Warnings: PayPal Gateway add-on", Payment_Warning::plugin_slug ); ?>
-		</p>
+        </p>
 		<?php
 	}
 	
@@ -1558,61 +1603,24 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	public function render_select() {
 		
 		$primary_service_id = $this->load_option( 'primary_service' ); ?>
-		
-		<select name="<?php esc_attr_e( $this->option_name ); ?>[primary_service]"
-		        id="<?php esc_attr_e( $this->option_name ); ?>_primary_service">
-			<option value="0" <?php selected( $primary_service_id, 0 ); ?>>
+
+        <select name="<?php esc_attr_e( $this->option_name ); ?>[primary_service]"
+                id="<?php esc_attr_e( $this->option_name ); ?>_primary_service">
+            <option value="0" <?php selected( $primary_service_id, 0 ); ?>>
 				<?php _e( 'Not selected', Payment_Warning::plugin_slug ); ?>
-			</option><?php
+            </option><?php
 			
 			// Process all of the defined paypal gateway(s)
 			foreach ( $this->get_paypal_gateway() as $service_id => $settings ) { ?>
-			<option
-					value="<?php esc_attr_e( $service_id ); ?>" <?php selected( $primary_service_id, $service_id ); ?>>
+                <option
+                        value="<?php esc_attr_e( $service_id ); ?>" <?php selected( $primary_service_id, $service_id ); ?>>
 					<?php esc_html_e( $settings['label'] ); ?>
-			</option>
+                </option>
 				<?php
 			} ?>
-		
-		</select>
+
+        </select>
 		<?php
-	}
-	
-	/**
-	 * Return the PayPal gateway type info
-	 *
-	 * @param null|int $type
-	 *
-	 * @return array
-	 */
-	private function get_paypal_gateway( $type = null ) {
-		
-		$paypal_types = apply_filters( 'e20r-payment-warning-available-paypal-gateways', array(
-				self::E20R_PW_PAYPAL_EXPRESS     => array(
-					'label'        => __( 'PayPal Express', Payment_Warning::plugin_slug ),
-					'gateway_name' => 'paypalexpress',
-				),
-				self::E20R_PW_PAYPAL_PAYFLOWPRO  => array(
-					'label'        => __( 'PayFlow Pro', Payment_Warning::plugin_slug ),
-					'gateway_name' => 'payflowpro',
-				),
-				self::E20R_PW_PAYPAL_PAYMENTSPRO => array( 'label'        => __( 'PayPal Payments Pro', Payment_Warning::plugin_slug ),
-				                                           'gateway_name' => 'paypal',
-				),
-				self::E20R_PW_PAYPAL_STANDARD    => array( 'label'        => __( 'PayPal Standard', Payment_Warning::plugin_slug ),
-				                                           'gateway_name' => 'paypalstandard',
-				),
-				self::E20R_PW_PAYPAL_BRAINTREE   => array( 'label'        => __( 'PayPal/Braintree', Payment_Warning::plugin_slug ),
-				                                           'gateway_name' => 'braintree',
-				),
-			)
-		);
-		
-		if ( empty( $type ) ) {
-			return $paypal_types;
-		} else {
-			return $paypal_types[ $type ];
-		}
 	}
 }
 
@@ -1626,9 +1634,9 @@ $stub = apply_filters( "e20r_pw_addon_paypal_gateway_addon_name", null );
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'PayPal_Gateway_Addon',
 	'handler_name'          => 'ipnhandler',
-	'is_active'             => (bool) get_option( "e20r_pw_addon_{$stub}_enabled", false ),
-	'active_license'        => (bool) get_option( "e20r_pw_addon_{$stub}_licensed", false ),
-	'status'                => ( true === (bool) get_option( "e20r_pw_addon_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
+	'is_active'             => (bool) get_option( "e20r_pw_{$stub}_enabled", false ),
+	'active_license'        => (bool) get_option( "e20r_pw_{$stub}_licensed", false ),
+	'status'                => ( true === (bool) get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'PayPal',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(

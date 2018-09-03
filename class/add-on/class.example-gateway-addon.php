@@ -351,7 +351,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Gateway_Addon' ) ) {
 			$e20r_pw_addons[ $addon ]['is_active'] = $is_active;
 			
 			$utils->log( "Setting the {$addon} option to {$is_active}" );
-			update_option( "e20r_pw_addon_{$addon}_enabled", $is_active, 'yes' );
+			update_option( "e20r_pw_{$addon}_enabled", $is_active, 'yes' );
 		}
 		
 		/**
@@ -733,8 +733,8 @@ $stub = apply_filters( "e20r_pw_addon_example_gateway_addon_name", null );
 
 $e20r_pw_addons[ $stub ] = array(
 	'class_name'            => 'Example_Gateway_Addon',
-	'is_active'             => false, // ( get_option( "e20r_pw_addon_{$stub}_enabled", false ) == 1 ? true : false ),
-	'active_license'        => ( get_option( "e20r_pw_addon_{$stub}_licensed", false ) == true ? true : false ),
+	'is_active'             => false, // (bool) get_option( "e20r_pw_{$stub}_enabled", false ),
+	'active_license'        => false, // (bool) get_option( "e20r_pw_{$stub}_licensed", false ),
 	'status'                => 'deactivated',
 	'label'                 => 'Payment Warning: Example Gateway Add-on',
 	'admin_role'            => 'manage_options',
