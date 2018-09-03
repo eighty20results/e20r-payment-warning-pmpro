@@ -210,17 +210,20 @@ abstract class E20R_PW_Gateway_Addon {
 		$utils->log( "is_active setting for {$stub}: " . ( $e20r_pw_addons[ $stub ]['is_active'] ? 'True' : 'False' ) );
 		$utils->log( "The {$stub} add-on is licensed? " . ( $e20r_pw_addons[ $stub ]['active_license'] ? 'Yes' : 'No' ) );
 		
-		if ( false === $e20r_pw_addons[ $stub ]['active_license'] || ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) ) ) {
+		if ( false === $e20r_pw_addons[ $stub ]['active_license'] ||
+		     ( true === $e20r_pw_addons[ $stub ]['active_license'] && true === Licensing::is_license_expiring( $stub ) )
+		) {
 			
 			$utils->log( "Checking license server for {$stub} (forced)" );
 			$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
 			update_option( "e20r_pw_{$stub}_licensed", $e20r_pw_addons[ $stub ]['active_license'], 'no' );
 		}
+		
+		$e20r_pw_addons[ $stub ]['active_license'] = Licensing::is_licensed( $stub, true );
+		
 		$utils->log( "The {$stub} add-on is enabled? {$enabled}" );
 		
-		$e20r_pw_addons[ $stub ]['is_active'] = ( $e20r_pw_addons[ $stub ]['is_active'] && $e20r_pw_addons[ $stub ]['active_license'] );
-		
-		if ( true === $e20r_pw_addons[ $stub ]['is_active'] ) {
+		if ( true === $e20r_pw_addons[ $stub ]['is_active'] && true === $e20r_pw_addons[ $stub ]['active_license'] ) {
 			$e20r_pw_addons[ $stub ]['status'] = 'active';
 		} else {
 			$e20r_pw_addons[ $stub ]['status'] = 'deactivated';
@@ -309,7 +312,8 @@ abstract class E20R_PW_Gateway_Addon {
 		}
 		
 		if ( false === (bool) get_option( 'e20r_pw_addon_options_updated', false ) ) {
-			$utils->log("Option names have been updated before");
+			$utils->log( "Option names have been updated before" );
+			
 			return false;
 		}
 		
@@ -324,6 +328,7 @@ abstract class E20R_PW_Gateway_Addon {
 		
 		if ( empty( $options ) ) {
 			$utils->log( "No option name updates needed for {$stub}" );
+			
 			return true;
 		}
 		
@@ -337,11 +342,13 @@ abstract class E20R_PW_Gateway_Addon {
 			
 			if ( false === $wpdb->update( $wpdb->options, $update_data, array( 'option_id' => $option->option_id ), array( '%s' ), array( '%d' ) ) ) {
 				$utils->log( "Error updating option name {$option->option_name} for ID {$option->option_id}" );
+				
 				return false;
 			}
 		}
 		
 		update_option( 'e20r_pw_addon_options_updated', false );
+		
 		return true;
 	}
 	
@@ -541,6 +548,10 @@ abstract class E20R_PW_Gateway_Addon {
 			
 			$utils->log( "Deactivating the add-on so disable the license" );
 			Licensing::deactivate_license( $addon );
+			
+			// Update licensing for this gateway add-on
+			$e20r_pw_addons[ $addon ]['active_license'] = Licensing::is_licensed( $addon );
+			update_option( "e20r_pw_{$addon}_licensed", $e20r_pw_addons[ $addon ]['active_license'], 'no' );
 		}
 		
 		if ( $is_active === false && true == $this->load_option( 'deactivation_reset' ) ) {
