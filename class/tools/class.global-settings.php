@@ -300,13 +300,13 @@ class Global_Settings {
 			if ( true === E20R_PW_Gateway_Addon::rename_options( $addon ) ) {
 				$utils->log( "Updated option names for {$addon}" );
 			} else {
-				$utils->log("Unable to update option names for {$addon}");
+				$utils->log( "Unable to update option names for {$addon}" );
 			}
 			
 			add_settings_field(
 				"e20r_pw_addons_{$addon}",
 				$settings['label'],
-				array( $this, 'render_addon_entry' ),
+				array( $this, 'render_addon_checkbox' ),
 				'e20r-payment-warning-settings',
 				'e20r_pw_addons',
 				$settings
@@ -375,19 +375,32 @@ class Global_Settings {
 	 *
 	 * @param array $config
 	 */
-	public function render_addon_entry( $config ) {
+	public function render_addon_checkbox( $config ) {
 		
 		$utils = Utilities::get_instance();
-		$utils->log( "Render Addon checkbox: " . print_r( $config, true ) );
 		
 		if ( ! empty( $config ) ) {
-			$is_active  = (bool) $config['is_active'];
-			$addon_name = strtolower( $config['class_name'] );
-			?>
+			$is_active   = (bool) $config['is_active'];
+			$is_licensed = (bool) $config['active_license'];
+			$addon_name  = strtolower( $config['class_name'] );
+
+			$utils->log( "Addon checkbox for {$addon_name} has an active license? " . ( $is_licensed ? 'Yes' : 'No' ) ); ?>
+
             <input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
                    name="<?php esc_attr_e( $this->settings_name ); ?>[<?php esc_attr_e( "is_{$addon_name}_active" ); ?>]"
-                   value="1" <?php checked( $is_active, true ); ?> />
-			<?php
+                   value="1" <?php checked( $is_active, true ); ?> /> <?php
+			
+			if ( true === $is_active && false === $is_licensed ) {
+				$utils->log( "Add-on activated without a valid license..." ); ?>
+                <label for="<?php esc_attr_e( $addon_name ); ?>-checkbox"
+                       style="color:red; font-weight:bolder;"><?php _e( 'No valid license found!', Payment_Warning::plugin_slug ); ?></label><?php
+			}
+			
+			if ( true === $is_active && true === $is_licensed ) {
+				$utils->log( "Add-on activated without a valid license..." ); ?>
+                <label for="<?php esc_attr_e( $addon_name ); ?>-checkbox"
+                       style="color:green; font-weight:bolder;"><?php _e( 'Licensed', Payment_Warning::plugin_slug ); ?></label><?php
+			}
 		}
 	}
 	
@@ -395,12 +408,12 @@ class Global_Settings {
 	 * Render description for the global plugin settings
 	 */
 	public function render_global_settings_text() {
+		
 		$next_run = get_option( 'e20r_pw_next_gateway_check', null );
 		
 		if ( empty( $next_run ) ) {
 			$next_run = wp_next_scheduled( 'e20r_run_remote_data_update' );
-		}
-		?>
+		} ?>
         <p class="e20r-pw-global-settings-text">
 			<?php _e( "Configure plugin settings", Payment_Warning::plugin_slug ); ?>
         </p>
