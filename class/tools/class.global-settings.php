@@ -19,6 +19,7 @@
 
 namespace E20R\Payment_Warning\Tools;
 
+use E20R\Payment_Warning\Addon\E20R_PW_Gateway_Addon;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Cache;
 use E20R\Utilities\Licensing\Licensing;
@@ -29,9 +30,11 @@ use E20R\Payment_Warning\Payment_Warning;
  * @package E20R\Payment_Warning\Tools
  *
  * @since   4.1 - ENHANCEMENT: Added Global_Settings::render_select(), creates SELECT HTML element using settings array
- *          in add_settings_field() method. Supports the following settings: 'select_options', 'option_default', 'option_label', 'option_default_label', 'option_name'
+ *          in add_settings_field() method. Supports the following settings: 'select_options', 'option_default',
+ *          'option_label', 'option_default_label', 'option_name'
  * @since   4.1 - ENHANCEMENT: More dynamic Global_Setting::render_textbox() method; New settings available in array
- *          for add_settings_field() method. Supports the following settings; 'option_name', 'rows', 'cols', 'placeholder'
+ *          for add_settings_field() method. Supports the following settings; 'option_name', 'rows', 'cols',
+ *          'placeholder'
  * @since   4.1 - ENHANCEMENT: Added new global setting; data_fetch_timeout = 23 (hours)
  */
 class Global_Settings {
@@ -250,18 +253,18 @@ class Global_Settings {
 			'e20r_pw_global',
 			array(
 				'option_name'          => 'data_fetch_timeout',
-				'option_label'         => __("NOTE: Setting this too low may result in never updating the payment information and as a result, never sending email messages to your members!", Payment_Warning::plugin_slug ),
+				'option_label'         => __( "NOTE: Setting this too low may result in never updating the payment information and as a result, never sending email messages to your members!", Payment_Warning::plugin_slug ),
 				'option_default'       => '23',
 				'option_default_label' => __( '23 hours', Payment_Warning::plugin_slug ),
 				'select_options'       => array(
-					-1 => __( 'No timeout', Payment_Warning::plugin_slug ),
-					47 => __( '47 hours', Payment_Warning::plugin_slug ),
-					36 => __( '36 hours', Payment_Warning::plugin_slug ),
-					23 => __( '23 hours', Payment_Warning::plugin_slug ),
-					12 => __( '12 hours', Payment_Warning::plugin_slug ),
-					6  => __( '6 hours', Payment_Warning::plugin_slug ),
-					3  => __( '3 hours', Payment_Warning::plugin_slug ),
-					1  => __( '1 hour', Payment_Warning::plugin_slug ),
+					- 1 => __( 'No timeout', Payment_Warning::plugin_slug ),
+					47  => __( '47 hours', Payment_Warning::plugin_slug ),
+					36  => __( '36 hours', Payment_Warning::plugin_slug ),
+					23  => __( '23 hours', Payment_Warning::plugin_slug ),
+					12  => __( '12 hours', Payment_Warning::plugin_slug ),
+					6   => __( '6 hours', Payment_Warning::plugin_slug ),
+					3   => __( '3 hours', Payment_Warning::plugin_slug ),
+					1   => __( '1 hour', Payment_Warning::plugin_slug ),
 				),
 			)
 		);
@@ -294,6 +297,12 @@ class Global_Settings {
 			
 			$utils->log( "Adding settings for {$addon}: {$settings['label']}" );
 			
+			if ( true === E20R_PW_Gateway_Addon::rename_options( $addon ) ) {
+				$utils->log( "Updated option names for {$addon}" );
+			} else {
+				$utils->log("Unable to update option names for {$addon}");
+			}
+			
 			add_settings_field(
 				"e20r_pw_addons_{$addon}",
 				$settings['label'],
@@ -309,7 +318,7 @@ class Global_Settings {
 			
 			$utils->log( "Settings for {$name}..." );
 			
-			if ( true == $info['is_active'] ) {
+			if ( true === (bool) $info['is_active'] ) {
 				
 				$addon_fields = apply_filters( "e20r_pw_addon_options_{$info['class_name']}", array() );
 				
@@ -368,8 +377,11 @@ class Global_Settings {
 	 */
 	public function render_addon_entry( $config ) {
 		
+		$utils = Utilities::get_instance();
+		$utils->log( "Render Addon checkbox: " . print_r( $config, true ) );
+		
 		if ( ! empty( $config ) ) {
-			$is_active  = $config['is_active'];
+			$is_active  = (bool) $config['is_active'];
 			$addon_name = strtolower( $config['class_name'] );
 			?>
             <input id="<?php esc_attr_e( $addon_name ); ?>-checkbox" type="checkbox"
@@ -542,18 +554,20 @@ class Global_Settings {
 				<?php esc_html_e( $settings['option_default_label'] ); ?>
             </option>
 			<?php foreach ( $settings['select_options'] as $option_value => $option_label ) {
-			    
-			    if ( $option_value != $settings['option_default'] ) { ?>
+				
+				if ( $option_value != $settings['option_default'] ) { ?>
                     <option value="<?php esc_attr_e( $option_value ); ?>" <?php selected( $saved_value, $option_value ); ?>>
-					    <?php esc_html_e( $option_label ); ?>
+						<?php esc_html_e( $option_label ); ?>
                     </option>
-				    <?php
-			    }
-            } ?>
+					<?php
+				}
+			} ?>
         </select>
-		<?php if ( !empty( $settings['option_label'] ) ) {?>
-            <label class="e20r-option-warning"><small><?php esc_html_e( $settings['option_label'] ); ?></small></label>
-        <?php }
+		<?php if ( ! empty( $settings['option_label'] ) ) { ?>
+            <label class="e20r-option-warning">
+                <small><?php esc_html_e( $settings['option_label'] ); ?></small>
+            </label>
+		<?php }
 	}
 	
 	/**
