@@ -1,17 +1,12 @@
 <?php
 /**
-Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
-Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
-Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
-Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>
-Author URI: https://eighty20results.com/thomas-sjolshagen/
-Developer: Thomas Sjolshagen <thomas@eighty20results.com>
-Developer URI: https://eighty20results.com/thomas-sjolshagen/
-PHP Version: 5.4
-Version: 4.2
-License: GPL2
-Text Domain: e20r-payment-warning-pmpro
-Domain Path: /languages
+ * Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
+ * Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring
+ * membership payment notices) Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
+ * Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com> Author URI:
+ * https://eighty20results.com/thomas-sjolshagen/ Developer: Thomas Sjolshagen <thomas@eighty20results.com> Developer
+ * URI: https://eighty20results.com/thomas-sjolshagen/ PHP Version: 5.4 Version: 4.2 License: GPL2 Text Domain:
+ * e20r-payment-warning-pmpro Domain Path: /languages
  */
 
 /**
@@ -140,7 +135,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			}
 			
 			// First thing to do on activation (Required for this plugin)
-			add_action( 'e20r_pw_addon_activating_core', '\E20R\Payment_Warning\Tools\DB_Tables::create', -1 );
+			add_action( 'e20r_pw_addon_activating_core', '\E20R\Payment_Warning\Tools\DB_Tables::create', - 1 );
 			add_action( 'e20r_pw_addon_activating_core', array(
 				Cron_Handler::get_instance(),
 				'configure_cron_schedules',
@@ -259,7 +254,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @access public
 		 * @since  1.0
 		 * @since  1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
-		 * @since 3.8 - ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
+		 * @since  3.8 - ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
 		 */
 		public function plugins_loaded() {
 			
@@ -283,7 +278,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$utils->log( "Admin requested that we ignore the schedule delays/settings for testing purposes" );
 				add_filter( 'e20r_payment_warning_schedule_override', '__return_true' );
 				add_filter( 'e20r-email-notice-send-override', '__return_true' );
-				add_filter( 'e20r-payment-warning-send-email', array( Payment_Reminder::get_instance(), 'send_reminder_override' ), 9999, 4 );
+				add_filter( 'e20r-payment-warning-send-email', array(
+					Payment_Reminder::get_instance(),
+					'send_reminder_override',
+				), 9999, 4 );
 				
 				if ( defined( 'E20R_DEBUG_TIMEOUT' ) && true === E20R_DEBUG_TIMEOUT ) {
 					add_filter( 'e20r-payment-warning-fetch-timeout', array( $this, 'debug_timeout_value' ), 10, 1 );
@@ -300,7 +298,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			if ( is_user_logged_in() || true === wp_doing_cron() ) {
 				
 				// Maybe upgrade the DB
-				add_action( 'init', array( Payment_Warning::get_instance(), 'trigger_db_upgrade' ), -1 );
+				add_action( 'init', array( Payment_Warning::get_instance(), 'trigger_db_upgrade' ), - 1 );
 				
 				// Add any licensing warnings
 				add_action( 'init', array( self::get_instance(), 'check_license_warnings' ), 10 );
@@ -320,7 +318,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				/**
 				 * @since 3.8 - ENHANCEMENT: Only load certain actions if we're exclusively executing a CRON job
 				 */
-				if ( true === wp_doing_cron() || Utilities::is_admin()) {
+				if ( true === wp_doing_cron() || Utilities::is_admin() ) {
 					
 					add_action( 'e20r_run_remote_data_update', array(
 						Cron_Handler::get_instance(),
@@ -362,7 +360,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				if ( Utilities::is_admin() ) {
 					
 					// Load the admin & settings menu
-					add_action( 'admin_menu', array( Global_Settings::get_instance(), 'load_admin_settings_page' ), 10 );
+					add_action( 'admin_menu', array(
+						Global_Settings::get_instance(),
+						'load_admin_settings_page',
+					), 10 );
 					add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
 					
 					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
@@ -373,14 +374,29 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					          || 'options.php' === $GLOBALS['pagenow']
 					     )
 					) {
-						add_action( 'admin_init', array( Global_Settings::get_instance(), 'register_settings_page' ), 10 );
+						add_action( 'admin_init', array(
+							Global_Settings::get_instance(),
+							'register_settings_page',
+						), 10 );
 					}
 					
-					add_action( 'pmpro_save_discount_code_level', array( Membership_Settings::get_instance(), 'updated_discount_codes' ), 10, 2 );
-					add_action( 'pmpro_save_membership_level', array( Membership_Settings::get_instance(), 'updated_membership_level' ), 10, 1 );
+					add_action( 'pmpro_save_discount_code_level', array(
+						Membership_Settings::get_instance(),
+						'updated_discount_codes',
+					), 10, 2 );
+					add_action( 'pmpro_save_membership_level', array(
+						Membership_Settings::get_instance(),
+						'updated_membership_level',
+					), 10, 1 );
 					
-					add_action( 'wp_ajax_e20rpw_save_template', array( Reminder_Editor::get_instance(), 'save_template' ) );
-					add_action( 'wp_ajax_e20rpw_reset_template', array( Reminder_Editor::get_instance(), 'reset_template' ) );
+					add_action( 'wp_ajax_e20rpw_save_template', array(
+						Reminder_Editor::get_instance(),
+						'save_template',
+					) );
+					add_action( 'wp_ajax_e20rpw_reset_template', array(
+						Reminder_Editor::get_instance(),
+						'reset_template',
+					) );
 					
 					// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
 					
@@ -388,8 +404,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						
 						$this->load_licensed_modules();
 						
-						add_filter( 'e20r-email-notice-footer-company-name', array( $this, 'get_company_name' ), 10, 2 );
-						add_filter( 'e20r-email-notice-footer-company-address', array( $this, 'get_company_address' ), 10, 2 );
+						add_filter( 'e20r-email-notice-footer-company-name', array(
+							$this,
+							'get_company_name',
+						), 10, 2 );
+						add_filter( 'e20r-email-notice-footer-company-address', array(
+							$this,
+							'get_company_address',
+						), 10, 2 );
 						add_filter( 'e20r-email-notice-footer-text', array( $this, 'load_unsubscribe_notice' ), 10, 2 );
 						
 						if ( true === (bool) Global_Settings::load_options( 'enable_clear_old_data' ) ) {
@@ -447,7 +469,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// add_action( 'e20r_pw_addon_activating_core', array( Cron_Handler::get_instance(), 'configure_cron_schedules'), 10, 0);
 			
 			$utils->log( "Loading any/all remote IPN/Webhook/SilentPost/etc handlers for add-ons" );
-
+			
 			/**
 			 * Add all module remote AJAX call actions
 			 *
@@ -464,7 +486,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @return int
 		 */
 		public function debug_timeout_value( $value ) {
-			return -2;
+			return - 2;
 		}
 		
 		/**
@@ -499,7 +521,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function get_company_address( $company_address, $plugin ) {
 			
 			if ( $plugin === Payment_Warning::plugin_slug ) {
-				$company_address = Global_Settings::load_options('company_address');
+				$company_address = Global_Settings::load_options( 'company_address' );
 			}
 			
 			return $company_address;
@@ -518,7 +540,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function get_company_name( $company_name, $plugin ) {
 			
 			if ( $plugin === Payment_Warning::plugin_slug ) {
-				$company_name = Global_Settings::load_options('company_name');
+				$company_name = Global_Settings::load_options( 'company_name' );
 			}
 			
 			return $company_name;
@@ -750,9 +772,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			$has_licensed_gateway = false;
 			
-			if ( !empty( $e20r_pw_addons ) ) {
+			if ( ! empty( $e20r_pw_addons ) ) {
 				
-				foreach( $e20r_pw_addons as $stub => $settings ) {
+				foreach ( $e20r_pw_addons as $stub => $settings ) {
 					
 					if ( $stub !== 'standard_gateway_addon' ) {
 						$has_licensed_gateway = $has_licensed_gateway || Licensing::is_licensed( $stub );
@@ -765,6 +787,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		
 		/**
 		 * Check if the license(s) are valid/active/about to renew
+		 * @since v4.3 - ENHANCEMENT: Send license warning/expiration email to admin on fixed frequency
+		 * @since v4.3 - ENHANCEMENT: Added `e20rpw_send_license_reminder` filter to configure # of days between reminders
 		 */
 		public function check_license_warnings() {
 			
@@ -772,8 +796,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			$products = array_keys( $e20r_pw_addons );
 			$utils    = Utilities::get_instance();
 			
-			$is_sent     = ( current_time( 'timestamp' ) >= ( intval( get_option( 'e20rpw_license_warning_sent', 0 ) ) ) );
-			$admin_email = get_option( 'admin_email' );
+			$reminder_frequency = apply_filters( 'e20rpw_send_license_reminder', 7 );
+			$is_sent            = ( ( intval( get_option( 'e20rpw_license_warning_sent', 0 ) ) ) <=
+			                        current_time( 'timestamp' ) + ( $reminder_frequency * DAY_IN_SECONDS ) );
+			$admin_email        = get_option( 'admin_email' );
 			
 			$utils->log( "Check for any license warnings!" );
 			
