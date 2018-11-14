@@ -379,6 +379,7 @@ class User_Data {
 		$where     = array();
 		
 		$util->log( "Saving user data for {$this->user->ID}" );
+		$util->log("Currency: {$this->payment_currency} & payment ID {$this->gateway_payment_id} or subscr ID {$this->gateway_subscr_id}");
 		
 		if ( ! empty( $this->payment_currency ) && ( ! empty( $this->gateway_subscr_id ) || ! empty( $this->gateway_payment_id ) ) ) {
 			
