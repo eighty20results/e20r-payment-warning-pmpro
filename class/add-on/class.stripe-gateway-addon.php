@@ -329,7 +329,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $data->email, $user_email );
 				
-				return $user_data;
+				// return $user_data;
 			}
 			
 			// $utils->log( "Retrieved customer data: " . print_r( $data, true ) );
@@ -567,7 +567,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				
 				do_action( 'e20r_pw_addon_save_email_error_data', $this->gateway_name, $cust_id, $customer->email, $user_email );
 				
-				return $user_data;
+				// return $user_data;
 			}
 			
 			if ( ! empty( $charge ) ) {
