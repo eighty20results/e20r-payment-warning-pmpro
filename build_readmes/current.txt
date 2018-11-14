@@ -1,2 +1,18 @@
-BUG FIX: Didn't check for boolean return from e20r_pw_addon_get_user_payments and e20r_pw_addon_get_user_subscriptions
-BUG FIX: Returned Boolean when should return original User_Data structure
+ENHANCEMENT: Simplify the add-on specific option names and upgrade the database
+ENHANCEMENT: Use new option names for add-ons and simplify add-on configuration
+ENHANCEMENT: Trigger change of add-on option names when loading settings (if applicable)
+ENHANCEMENT: Renamed render_addon_entry() method to render_addon_checkbox()
+ENHANCEMENT: Add label to indicate payment gateway module licensing status when activated
+ENHANCEMENT: No need to double-check when the decision had already been made to send the message
+ENHANCEMENT: Send admin email every 7 days when there are license warnings (expiring or expired license(s))
+ENHANCEMENT: Added PHPDoc blocks for all class variables in Payment_Reminder()
+ENHANCEMENT: Added PHPDoc blocks for load_hooks() method in Payment_Reminder()
+ENHANCEMENT: More debug logging for User_Data::save_to_db() function
+BUG FIX: Load the payment reminder message filters on init (decides whether to send the message, etc)
+BUG FIX: Don't return user_data before processing payment/subscription because email address changed
+BUG FIX: Check and set license status when plugin is being deactivated
+BUG FIX: Didn't check state of license when triggering toggle_addon handler
+BUG FIX: For an add-on to be active, it also needed to be licensed (wrong behavior)
+BUG FIX: For an add-on to have status 'active', it needs to be both active and licensed
+BUG FIX: Didn't always trigger Payment_Reminder::should_send_reminder_message()
+BUG FIX: Didn't trigger the 'e20r-payment-warning-send-email' filter which triggered date check of message(s)

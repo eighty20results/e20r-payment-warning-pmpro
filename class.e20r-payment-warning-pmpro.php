@@ -1,15 +1,18 @@
 <?php
-/**
- * Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
- * Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring
- * membership payment notices) Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
- * Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com> Author URI:
- * https://eighty20results.com/thomas-sjolshagen/ Developer: Thomas Sjolshagen <thomas@eighty20results.com> Developer
- * URI: https://eighty20results.com/thomas-sjolshagen/ PHP Version: 5.4 Version: 4.2 License: GPL2 Text Domain:
- * e20r-payment-warning-pmpro Domain Path: /languages
- */
+/*
+Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
+Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
+Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
+Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>
+Author URI: https://eighty20results.com/thomas-sjolshagen/
+Developer: Thomas Sjolshagen <thomas@eighty20results.com>
+Developer URI: https://eighty20results.com/thomas-sjolshagen/
+PHP Version: 5.4
+Version: 4.3
+License: GPL2
+Text Domain: e20r-payment-warning-pmpro
+Domain Path: /languages
 
-/**
  * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
@@ -271,6 +274,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ), 10, 1 );
 			add_action( 'init', array( $this, 'load_translation' ) );
+			
+			/**
+			 * @since v4.3 - BUG FIX: Load the payment reminder message filters on init (decides whether to send the message, etc)
+			 */
+			add_filter( 'init', array( Payment_Reminder::get_instance(), 'load_hooks' ) );
 			
 			// Configure E20R_DEBUG_OVERRIDE constant in wp-config.php during testing
 			if ( defined( 'E20R_DEBUG_OVERRIDE' ) && true === E20R_DEBUG_OVERRIDE ) {

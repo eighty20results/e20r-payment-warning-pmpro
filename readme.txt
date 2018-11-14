@@ -2,8 +2,8 @@
 Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
-Tested up to: 4.9.8
-Stable tag: 4.2
+Tested up to: 5.0
+Stable tag: 4.3
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -74,7 +74,7 @@ Each payment warning message type has its own list of variables you can use, and
 
 In short; It depends...
 
-This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so they can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed.
+This plugin does not save the credit card number for any of your members. In accordance with the documentation from the Payment Card Industry association requirements, we're storing the brand of the card plus its last 4 digits (so members can tell which card it is). We also save the expiration month and expiration year so we can identify when to send a Credit Card Expiration Warning when needed.
 
 Whether something is genuinely "compliant" with a requirement depends on whether it's solely in control of the environment. In this case, we're running as a plug-in for a WordPress based website. We do what we can to not violate the PCI-DSS requirements, but ultimately this plugin isn't in control of whether or not your site is PCI-DSS compliant.
 
@@ -82,7 +82,7 @@ Whether something is genuinely "compliant" with a requirement depends on whether
 
 First of all, see the PCI-DSS compliance question about when it comes to the caveat of whether or not this plugin can claim GDPR compliance.
 
-That said, we're not able to provide your users with a list of data that is stored by this plugin, nor can we currently delete the information if they ask you to. So, if you are in a location where GDPR is a hard requirement for your customers, you may want to wait for version 4.0 of this plugin before you install it.
+That said, we're not able to provide your users with a list of data that is stored by this plugin, nor can we currently delete the information if they ask you to. So, if you are in a location where GDPR is a hard requirement for your customers, you may want to wait for version 5.0 of this plugin before you install it.
 
 === What data does the plugin save (from the payment gateway)? ===
 
@@ -115,15 +115,36 @@ In the cases where the "half-life" of the shortest membership level period is mo
 
 == Limitations / Known Issues ==
 
-The plugin currently **supports the Stripe.com and PayPal payment gateways**.
+The plugin currently **supports the Stripe.com gateway integration**.
 
 The PayPal gateway support does **not** include real-time IPN message handling for updated credit cards and subscription/billing plans.
 
-Adding more gateways is on the roadmap, but will require sponsorships. You can sponsor support for a new gateway by going to[the Eighty / 20 Results Purchase page](link="https://eighty20results.com/shop") and purchase a sponsorship.
+Adding more gateways is on the road map, but will require sponsorships. You can sponsor support for a new gateway by going to[the Eighty / 20 Results Purchase page](link="https://eighty20results.com/shop") and purchase a sponsorship.
 
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v4.3 ==
+
+* ENHANCEMENT: Simplify the add-on specific option names and upgrade the database
+* ENHANCEMENT: Use new option names for add-ons and simplify add-on configuration
+* ENHANCEMENT: Trigger change of add-on option names when loading settings (if applicable)
+* ENHANCEMENT: Renamed render_addon_entry() method to render_addon_checkbox()
+* ENHANCEMENT: Add label to indicate payment gateway module licensing status when activated
+* ENHANCEMENT: No need to double-check when the decision had already been made to send the message
+* ENHANCEMENT: Send admin email every 7 days when there are license warnings (expiring or expired license(s))
+* ENHANCEMENT: Added PHPDoc blocks for all class variables in Payment_Reminder()
+* ENHANCEMENT: Added PHPDoc blocks for load_hooks() method in Payment_Reminder()
+* ENHANCEMENT: More debug logging for User_Data::save_to_db() function
+* BUG FIX: Load the payment reminder message filters on init (decides whether to send the message, etc)
+* BUG FIX: Don't return user_data before processing payment/subscription because email address changed
+* BUG FIX: Check and set license status when plugin is being deactivated
+* BUG FIX: Didn't check state of license when triggering toggle_addon handler
+* BUG FIX: For an add-on to be active, it also needed to be licensed (wrong behavior)
+* BUG FIX: For an add-on to have status 'active', it needs to be both active and licensed
+* BUG FIX: Didn't always trigger Payment_Reminder::should_send_reminder_message()
+* BUG FIX: Didn't trigger the 'e20r-payment-warning-send-email' filter which triggered date check of message(s)
 
 == v4.2 ==
 
