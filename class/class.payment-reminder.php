@@ -22,6 +22,7 @@ namespace E20R\Payment_Warning;
 
 use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Payment_Warning\Tools\Email_Message;
+use E20R\Utilities\E20R_Background_Process;
 use E20R\Utilities\Utilities;
 use DateTime;
 use DateTimeZone;
@@ -30,16 +31,46 @@ use Exception;
 
 class Payment_Reminder {
 	
+	/**
+	 * Instance of the Payment_Reminder class
+	 *
+	 * @var null|Payment_Reminder $instance
+	 */
 	private static $instance = null;
 	
+	/**
+	 * The schedule for the payment reminder message
+	 *
+	 * @var array $schedule
+	 */
 	private $schedule = array();
 	
+	/**
+	 * Configuration for the payment reminder message
+	 *
+	 * @var array $settings
+	 */
 	private $settings = array();
 	
+	/**
+	 * Template to use (slug of Email_Message CPT)
+	 *
+	 * @var null|string $template_name
+	 */
 	private $template_name = null;
 	
+	/**
+	 * List of users this payment reminder message belongs to
+	 *
+	 * @var array $users
+	 */
 	private $users = array();
 	
+	/**
+	 * Background process handler class
+	 *
+	 * @var E20R_Background_Process $message_handler
+	 */
 	private $message_handler;
 	
 	/**
@@ -53,8 +84,6 @@ class Payment_Reminder {
 			
 			$this->template_name = $template_key;
 			$this->load_schedule();
-			
-			add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), 1, 4 );
 		}
 	}
 	
@@ -90,17 +119,23 @@ class Payment_Reminder {
 		return self::$instance;
 	}
 	
+	/**
+	 * Load action and filter hooks for Payment_Reminder() class
+	 *
+	 * @since v4.3 - BUG FIX: Didn't trigger the 'e20r-payment-warning-send-email' filter which triggered date check of message(s)
+	 */
 	public function load_hooks() {
-	
+		
+		add_filter( 'e20r-payment-warning-send-email', array( $this, 'should_send_reminder_message' ), 1, 4 );
 	}
 	
 	/**
 	 * Override send status when running in E20R_DEBUG_OVERRIDE mode
 	 *
-	 * @param $send
-	 * @param $comparison_date
-	 * @param $interval
-	 * @param $type
+	 * @param true $send
+	 * @param string $comparison_date
+	 * @param int $interval
+	 * @param string $type
 	 *
 	 * @return bool
 	 */
@@ -126,10 +161,22 @@ class Payment_Reminder {
 	 * @param string $type              The type of reminder being processed
 	 *
 	 * @return bool
+	 *
+	 * @since v4.3 - BUG FIX: Didn't always trigger Payment_Reminder::should_send_reminder_message()
 	 */
 	public function should_send_reminder_message( $send, $user_payment_date, $interval, $type ) {
 		
 		$util = Utilities::get_instance();
+		
+		/**
+		 * @since v4.3 - ENHANCEMENT: No need to recalculate if the decision had already been made to send the message
+		 */
+		if ( true === $send ) {
+			
+			$util->log("Already decided to send the message, so we're sending it!");
+			return $send;
+		}
+		
 		$util->log( "Testing if {$user_payment_date} is within {$interval} days of " . date( 'Y-m-d', current_time( 'timestamp' ) ) );
 		
 		$negative = ( $interval < 0 ) ? true : false;
