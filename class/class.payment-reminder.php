@@ -242,7 +242,7 @@ class Payment_Reminder {
 		
 		// Set the default type to recurring if not received
 		if ( empty( $type ) ) {
-			$type = 'ccexpiration';
+			$type = 'recurring';
 		}
 		
 		switch ( $type ) {
@@ -258,6 +258,15 @@ class Payment_Reminder {
 				$target_template = 'ccexpiring';
 				$template_type   = E20R_PW_CREDITCARD_REMINDER;
 				break;
+			default:
+				$target_template = null;
+				$template_type = null;
+		}
+		
+		// Unexpected, but something we need to handle!
+		if ( empty( $target_template ) || empty( $template_type ) ) {
+			$util->log( "Error: No target template or template type was configured!");
+			return;
 		}
 		
 		$fetch   = Fetch_User_Data::get_instance();
