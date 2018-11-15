@@ -112,13 +112,14 @@ class Handle_Messages extends E20R_Background_Process {
 			$uses_recurring = $message->get_user()->has_active_subscription();
 			$next_payment   = $message->get_user()->get_next_payment();
 			$has_enddate    = $message->get_user()->get_end_of_membership_date();
-			$type           = $reminder_notice->get_type_from_string( 'ccexpiring' );
-			$is_creditcard  = ( $template_type == $type );
+			$is_creditcard  = ( $template_type == $reminder_notice->get_type_from_string( 'ccexpiring' ) );
 			
-			$util->log( "Processing for a credit card template ({$template_type} vs {$type})? " . ( $is_creditcard ? 'Yes' : 'No' ) );
-			
-			if ( true === $is_creditcard ) {
-				$util->log( "Credit Card expiration warning" );
+			/**
+			 * @since v4.4 - BUG FIX: No need to send out credit card expiration warning for non-recurring users
+			 */
+			$util->log( "Processing for a credit card expiration message template? " . ( $is_creditcard ? 'Yes' : 'No' ) );
+			if ( true === $is_creditcard && true === $uses_recurring ) {
+				$util->log( "Credit Card expiration warning for recurring members only" );
 				$check_date = $reminder_notice->end_of_month() . " 23:59:59";
 			}
 			
@@ -309,10 +310,10 @@ class Handle_Messages extends E20R_Background_Process {
 		if ( true === wp_mail( $admin_address, $subject, $body, $headers ) ) {
 			
 			$already_sent[ $this->type ] = $today;
-			$log_length = intval( apply_filters( 'e20r-payment-warning-admin-notice-log-days', 30 ) );
+			$log_length                  = intval( apply_filters( 'e20r-payment-warning-admin-notice-log-days', 30 ) );
 			
 			if ( $log_length < 0 ) {
-				$utils->log("Filter provided invalid log length value: [{$log_length}]!");
+				$utils->log( "Filter provided invalid log length value: [{$log_length}]!" );
 				$log_length = 30;
 			}
 			
@@ -320,7 +321,7 @@ class Handle_Messages extends E20R_Background_Process {
 			if ( count( $users ) >= $log_length ) {
 				sort( $users );
 				
-				$preserve = array_slice( $users, -$log_length, null, true );
+				$preserve = array_slice( $users, - $log_length, null, true );
 				$utils->log( "Preserving " . count( $preserve ) . " days worth of send logs" );
 				
 				// Save the log
@@ -333,6 +334,6 @@ class Handle_Messages extends E20R_Background_Process {
 		
 		return true;
 	}
-
+	
 }
 
