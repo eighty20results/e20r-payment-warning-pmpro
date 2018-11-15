@@ -430,9 +430,10 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					}
 					
 					// Only load if both DEBUG and TEST_HOOKS is enabled
-					if ( Utilities::is_admin() && ( defined( 'WP_DEBUG' ) && true === WP_DEBUG ) &&
-					     ( defined( 'E20R_PW_TEST_HOOKS' ) && true === E20R_PW_TEST_HOOKS )
+					if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG &&
+					     defined( 'E20R_PW_TEST_HOOKS' ) && true === E20R_PW_TEST_HOOKS
 					) {
+						$utils->log("Loading test hooks for E20R Payment Warnings");
 						
 						add_action( 'wp_ajax_test_get_remote_fetch', array(
 							Fetch_User_Data::get_instance(),
@@ -462,6 +463,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 							Cron_Handler::get_instance(),
 							'send_reminder_messages',
 						) );
+						
+						add_action( 'wp_ajax_test_send_ccexpiration', array(
+								Cron_Handler::get_instance(),
+								'send_cc_warning_messages',
+							)
+						);
 					}
 				}
 			}
