@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) $today.year. - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017 - 2018 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -541,24 +541,24 @@ class Reminder_Editor extends Email_Notice {
 			$notice_type = $this->taxonomy_name;
 		}
 		?>
-        <div id="e20r-message-editor-variable-info">
-            <div class="e20r-message-template-col">
-                <label for="variable_references"><?php _e( 'Reference', Email_Notice::plugin_slug ); ?>:</label>
-            </div>
-            <div>
-                <div class="template_reference"
-                     style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
-                    <p>
-                        <em><?php _e( 'Use these variables in the email-notice window above.', Email_Notice::plugin_slug ); ?></em>
-                    </p>
+		<div id="e20r-message-editor-variable-info">
+			<div class="e20r-message-template-col">
+				<label for="variable_references"><?php _e( 'Reference', Email_Notice::plugin_slug ); ?>:</label>
+			</div>
+			<div>
+				<div class="template_reference"
+				     style="background: #FAFAFA; border: 1px solid #CCC; color: #666; padding: 5px;">
+					<p>
+						<em><?php _e( 'Use these variables in the email-notice window above.', Email_Notice::plugin_slug ); ?></em>
+					</p>
 					<?php Email_Notice_View::add_placeholder_variables( $notice_type ); ?>
-                </div>
-                <p class="e20r-message-template-help">
+				</div>
+				<p class="e20r-message-template-help">
 					<?php printf( __( "%sSuggestion%s: Type in a message title, select the Reminder Type and save this notice. It will give you access to even more substitution variables.", Payment_Warning::plugin_slug ), '<strong>', '</strong>' ); ?>
-                </p>
-
-            </div>
-        </div>
+				</p>
+			
+			</div>
+		</div>
 		<?php
 	}
 	
@@ -587,44 +587,44 @@ class Reminder_Editor extends Email_Notice {
 			$schedule = $template['schedule'];
 			$utils->log( "Loading the template array schedule for {$template_type}" );
 		} ?>
-        <div class="submitbox" id="e20r-editor-postmeta">
-            <div id="minor-publishing">
-                <div id="e20r-pw-schedule-settings">
-                    <div class="e20r-message-template e20r-message-schedule-info">
-                        <th scope="row" valign="top" class="e20r-message-template-col">
-                            <label for="e20r-message-schedule">
+		<div class="submitbox" id="e20r-editor-postmeta">
+			<div id="minor-publishing">
+				<div id="e20r-pw-schedule-settings">
+					<div class="e20r-message-template e20r-message-schedule-info">
+						<th scope="row" valign="top" class="e20r-message-template-col">
+							<label for="e20r-message-schedule">
 								<?php _e( 'Send on day #', Payment_Warning::plugin_slug ); ?>
-                            </label>
-                        </th>
-                        <td class="e20r-message-template-col">
+							</label>
+						</th>
+						<td class="e20r-message-template-col">
 							<?php
 							if ( ! empty( $schedule ) ) {
 								foreach ( $schedule as $days ) { ?>
-                                    <div class="e20r-schedule-entry">
-                                        <input name="e20r_message_template-schedule[]" type="number"
-                                               value="<?php esc_attr_e( $days ); ?>" class="e20r-message-schedule"/>&nbsp;
-                                        <span class="e20r-message-schedule-remove">
+									<div class="e20r-schedule-entry">
+										<input name="e20r_message_template-schedule[]" type="number"
+										       value="<?php esc_attr_e( $days ); ?>" class="e20r-message-schedule"/>&nbsp;
+										<span class="e20r-message-schedule-remove">
 											<input type="button"
-                                                   value="<?php _e( "Remove", Payment_Warning::plugin_slug ); ?>"
-                                                   class="e20r-delete-schedule-entry button-secondary"/>
+											       value="<?php _e( "Remove", Payment_Warning::plugin_slug ); ?>"
+											       class="e20r-delete-schedule-entry button-secondary"/>
                                         </span>
-                                    </div>
+									</div>
 								<?php }
 								?>
-                                <button
-                                        class="button-secondary e20r-add-new-schedule"><?php _e( "Add new", Payment_Warning::plugin_slug ); ?></button>
-                                <p>
-                                    <small>
+								<button
+									class="button-secondary e20r-add-new-schedule"><?php _e( "Add new", Payment_Warning::plugin_slug ); ?></button>
+								<p>
+									<small>
 										<?php printf( __( '%3$sHint%4$s: Positive numbers sends the message %1$sbefore%2$s the event, negative numbers sends it %1$safter%2$s the event', Payment_Warning::plugin_slug ), '<em>', '</em>', '<strong>', '</strong>' ); ?>
-                                    </small>
-                                </p>
+									</small>
+								</p>
 								<?php
 							} ?>
-                        </td>
-                    </div>
-                </div>
-            </div>
-        </div>
+						</td>
+					</div>
+				</div>
+			</div>
+		</div>
 		<?php
 	}
 	
@@ -1017,15 +1017,28 @@ class Reminder_Editor extends Email_Notice {
 		$utils = Utilities::get_instance();
 		
 		$utils->log( "Searching for {$this->taxonomy_name} type of " . Email_Notice::cpt_type . " for " . Email_Notice::taxonomy );
+		$this->templates = array();
 		
 		$query_args = array(
 			'posts_per_page' => - 1,
 			'post_type'      => Email_Notice::cpt_type,
 			'post_status'    => 'publish',
-			'meta_key'       => '_e20r_pw_message_type',
-			'meta_value_num' => $alert_type,
-			'meta_compare'   => '=',
 		);
+		
+		if ( ! empty( $alert_type ) ) {
+			
+			$utils->log( "Looking for specific alert type: {$alert_type}" );
+			
+			$query_args['meta_query'] = array(
+				array(
+					'key'     => '_e20r_pw_message_type',
+					'value'   => $alert_type,
+					'compare' => '=',
+				),
+			);
+		} else {
+			$utils->log( "No alert type specified. Returning all message templates" );
+		}
 		
 		$emails = new \WP_Query( $query_args );
 		
