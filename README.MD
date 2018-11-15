@@ -135,6 +135,7 @@ Changelog
 
 * ENHANCEMENT: Updated text in ccexpiring.html template
 * ENHANCEMENT: Add Credit Cart Expiration Message test hook
+* BUG FIX: No need to send out credit card expiration warning for non-recurring users
 * BUG FIX: Incorrect default message type to process when processing reminders
 * BUG FIX: Force values for $target_template and $template_type
 * BUG FIX: Didn't trigger error when $target_template or $template_type were empty
