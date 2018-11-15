@@ -3,7 +3,7 @@ Contributors: eighty20results
 Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning,
 Requires at least: 4.8
 Tested up to: 5.0
-Stable tag: 4.3
+Stable tag: 4.4
 PHP Version: 5.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -124,6 +124,17 @@ Adding more gateways is on the road map, but will require sponsorships. You can 
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 
 = Changelog =
+
+== v4.4 ==
+
+* ENHANCEMENT: Updated text in ccexpiring.html template
+* ENHANCEMENT: Add Credit Cart Expiration Message test hook
+* BUG FIX: Incorrect default message type to process when processing reminders
+* BUG FIX: Force values for $target_template and $template_type
+* BUG FIX: Didn't trigger error when $target_template or $template_type were empty
+* BUG FIX: Searching for email notice type returned too many results
+* BUG FIX: Running Reminder message handler incorrectly included too many templates
+* BUG FIX: Didn't load test hooks when configured
 
 == v4.3 ==
 
