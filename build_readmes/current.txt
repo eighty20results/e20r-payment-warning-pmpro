@@ -1,1 +1,1 @@
-ENHANCEMENT: Added more Stripe API versions. Currently included 2018-11-08
+BUG FIX: Updated Utilities module
