@@ -1,1 +1,2 @@
-BUG FIX: Updated Utilities module
+BUG FIX: Data updates could loop for a long time (infinite)
+
