@@ -681,6 +681,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		public function fetch_stripe_api_versions() {
 			
 			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
+				'2019-09-09',
+				'2019-08-14',
+				'2019-05-16',
+				'2019-03-14',
+				'2019-02-19',
+				'2019-02-11',
 				'2018-11-08',
 				'2018-10-31',
 				'2018-09-24',
@@ -789,6 +795,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 				'new_product'   => $stub,
 				'option_name'   => "e20r_license_settings",
 				'name'          => 'license_key',
+				'product_sku'   => strtoupper( $stub ),
 				'input_type'    => 'password',
 				'value'         => null,
 				'email_field'   => "license_email",
