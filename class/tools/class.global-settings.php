@@ -20,6 +20,7 @@
 namespace E20R\Payment_Warning\Tools;
 
 use E20R\Payment_Warning\Addon\E20R_PW_Gateway_Addon;
+use E20R\Utilities\Licensing\License_Settings;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Cache;
 use E20R\Utilities\Licensing\Licensing;
@@ -148,7 +149,7 @@ class Global_Settings {
 			array( $this, 'global_settings_page' )
 		);
 		
-		Licensing::add_options_page();
+		License_Settings::add_options_page();
 	}
 	
 	/**
@@ -357,7 +358,7 @@ class Global_Settings {
 		
 		$utils->log( "Configure licensing info for Payment Warning plugin" );
 		// Load settings for the Licensing code
-		Licensing::register_settings();
+		License_Settings::register_settings();
 	}
 	
 	/**
