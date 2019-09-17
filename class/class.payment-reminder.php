@@ -23,6 +23,7 @@ namespace E20R\Payment_Warning;
 use E20R\Payment_Warning\Editor\Reminder_Editor;
 use E20R\Payment_Warning\Tools\Email_Message;
 use E20R\Utilities\E20R_Background_Process;
+use E20R\Utilities\Message;
 use E20R\Utilities\Utilities;
 use DateTime;
 use DateTimeZone;
@@ -93,7 +94,7 @@ class Payment_Reminder {
 	 * @return array|bool|mixed
 	 * @access private
 	 *
-	 * @since 2.1 - ENHANCEMENT: Return the send schedule for the active template
+	 * @since  2.1 - ENHANCEMENT: Return the send schedule for the active template
 	 */
 	private function load_schedule() {
 		
@@ -122,7 +123,8 @@ class Payment_Reminder {
 	/**
 	 * Load action and filter hooks for Payment_Reminder() class
 	 *
-	 * @since v4.3 - BUG FIX: Didn't trigger the 'e20r-payment-warning-send-email' filter which triggered date check of message(s)
+	 * @since v4.3 - BUG FIX: Didn't trigger the 'e20r-payment-warning-send-email' filter which triggered date check of
+	 *        message(s)
 	 */
 	public function load_hooks() {
 		
@@ -132,9 +134,9 @@ class Payment_Reminder {
 	/**
 	 * Override send status when running in E20R_DEBUG_OVERRIDE mode
 	 *
-	 * @param true $send
+	 * @param true   $send
 	 * @param string $comparison_date
-	 * @param int $interval
+	 * @param int    $interval
 	 * @param string $type
 	 *
 	 * @return bool
@@ -145,7 +147,7 @@ class Payment_Reminder {
 			return $send;
 		}
 		
-		if ( date( 'Y-m-d', strtotime( $comparison_date, current_time('timestamp') ) ) >= date('Y-m-d', current_time('timestamp' ) ) ) {
+		if ( date( 'Y-m-d', strtotime( $comparison_date, current_time( 'timestamp' ) ) ) >= date( 'Y-m-d', current_time( 'timestamp' ) ) ) {
 			return true;
 		}
 		
@@ -173,7 +175,8 @@ class Payment_Reminder {
 		 */
 		if ( true === $send ) {
 			
-			$util->log("Already decided to send the message, so we're sending it!");
+			$util->log( "Already decided to send the message, so we're sending it!" );
+			
 			return $send;
 		}
 		
@@ -260,12 +263,13 @@ class Payment_Reminder {
 				break;
 			default:
 				$target_template = null;
-				$template_type = null;
+				$template_type   = null;
 		}
 		
 		// Unexpected, but something we need to handle!
 		if ( empty( $target_template ) || empty( $template_type ) ) {
-			$util->log( "Error: No target template or template type was configured!");
+			$util->log( "Error: No target template or template type was configured!" );
+			
 			return;
 		}
 		
@@ -277,7 +281,7 @@ class Payment_Reminder {
 		$templates       = $notices->configure_cpt_templates( $template_type );
 		$message_handler = $main->get_handler( $target_template );
 		
-		$util->log( "Will process {$type} messages for " . count( $users ) . " members/users and " . count( $templates) . " email notice templates" );
+		$util->log( "Will process {$type} messages for " . count( $users ) . " members/users and " . count( $templates ) . " email notice templates" );
 		$this->set_users( $users );
 		
 		foreach ( $templates as $template_name => $settings ) {
@@ -302,6 +306,81 @@ class Payment_Reminder {
 		$message_handler->save()->dispatch();
 	}
 	
+	/**
+	 * Handler for the 'e20r-email-notice-send-test-message' action
+	 *
+	 * @uses 'e20r-email-notice-send-test-message', $recipient, $notice_id, $notice_type
+	 *
+	 * @param string $recipient   - Email address of test message recipient
+	 * @param int    $notice_id   - Post ID for the Email Notice to use (template)
+	 * @param int    $notice_type - The Type of notice to use
+	 * @param string $notice_slug - The slug/name of the Email Notice to use
+	 */
+	public function send_test_notice( $recipient, $notice_id, $notice_type, $notice_slug ) {
+		
+		$utils = Utilities::get_instance();
+		$utils->log( "Trigger Payment Reminder test message for {$recipient}/{$notice_slug}" );
+		
+		$sender = get_option( 'admin_email' );
+		
+		$recipient_user = get_user_by( 'email', $recipient );
+		
+		if ( empty( $recipient_user ) ) {
+			wp_send_json_error(
+				sprintf(
+					__( 'Error: %s does not belong to a current user on this system. Can\'t send the test message...', Payment_Warning::plugin_slug ),
+					$recipient
+				)
+			);
+			wp_die();
+		}
+		
+		$test_user_data = $this->create_test_user_info( $recipient_user, $notice_type );
+		
+		$message = new Email_Message( $test_user_data, $notice_slug, $notice_type );
+		
+		$message->send_message( $notice_type );
+	}
+	
+	/**
+	 * Create test user info for the specific Email Notice type
+	 *
+	 * @param \WP_User $user
+	 * @param string $notice_type
+	 *
+	 * @return array
+	 */
+	private function create_test_user_info( $user, $notice_type ) {
+		
+		$data = get_userdata( $user->ID );
+		$order = new \MemberOrder();
+		$order->getEmptyMemberOrder();
+		
+		$order->billing = new \stdClass();
+		$order->billing->street = '123 Test Street';
+		$order->billing->city = 'Testcity';
+		$order->billing->zipcode = '01234';
+		$order->billing->state = 'Alabama';
+		$order->billing->country = 'US';
+		
+		$test_user_data = new User_Data( $user,$order,$notice_type );
+		
+		switch( $notice_type ) {
+			case E20R_PW_RECURRING_REMINDER:
+				
+				break;
+				
+			case E20R_PW_EXPIRATION_REMINDER:
+				
+				break;
+				
+			case E20R_PW_CREDITCARD_REMINDER:
+				
+				break;
+		}
+		
+		return (array) $test_user_data;
+	}
 	/**
 	 * Return the current list of user IDs
 	 *
