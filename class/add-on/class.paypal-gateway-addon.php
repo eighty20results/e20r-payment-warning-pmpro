@@ -1414,6 +1414,7 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 			'option_name'   => "e20r_license_settings",
 			'name'          => 'license_key',
 			'input_type'    => 'password',
+			'product_sku'   => strtoupper( $stub ),
 			'value'         => null,
 			'email_field'   => "license_email",
 			'email_value'   => null,

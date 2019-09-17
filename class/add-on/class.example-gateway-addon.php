@@ -236,6 +236,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Gateway_Addon' ) ) {
 				'option_name'   => "e20r_license_settings",
 				'name'          => 'license_key',
 				'input_type'    => 'password',
+				'product_sku'   => strtoupper( $stub ),
 				'value'         => null,
 				'email_field'   => "license_email",
 				'email_value'   => null,

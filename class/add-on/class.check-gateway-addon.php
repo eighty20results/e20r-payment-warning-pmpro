@@ -114,9 +114,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		/**
 		 * Return the array of supported subscription statuses to capture data about
 		 *
-		 * @param string[]  $statuses Array of valid gateway statuses
-		 * @param string $gateway  The gateway name we're processing for
-		 * @param string $addon
+		 * @param string[] $statuses Array of valid gateway statuses
+		 * @param string   $gateway  The gateway name we're processing for
+		 * @param string   $addon
 		 *
 		 * @return string[]
 		 */
@@ -578,21 +578,23 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 		 * Return the gateway name for the matching add-on
 		 *
 		 * @param null|string $gateway_name
-		 * @param string     $addon
+		 * @param string      $addon
 		 *
 		 * @return null|string
 		 */
-		public function get_gateway_class_name( $gateway_name = null , $addon ) {
+		public function get_gateway_class_name( $gateway_name = null, $addon ) {
 			
 			$utils = Utilities::get_instance();
-			$utils->log("Gateway name: {$gateway_name}. Addon name: {$addon}");
+			$utils->log( "Gateway name: {$gateway_name}. Addon name: {$addon}" );
 			
-			if ( !empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
-				$utils->log("{$addon} not matching the expected gateway add-on for the Check gateway");
+			if ( ! empty( $gateway_name ) && 1 !== preg_match( "/{$addon}/i", $this->get_class_name() ) ) {
+				$utils->log( "{$addon} not matching the expected gateway add-on for the Check gateway" );
+				
 				return $gateway_name;
 			}
 			
-			$gateway_name =  $this->get_class_name();
+			$gateway_name = $this->get_class_name();
+			
 			return $gateway_name;
 		}
 		
@@ -678,6 +680,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Check_Gateway_Addon' ) ) {
 				'option_name'   => "e20r_license_settings",
 				'name'          => 'license_key',
 				'input_type'    => 'password',
+				'product_sku'   => strtoupper( $stub ),
 				'value'         => null,
 				'email_field'   => "license_email",
 				'email_value'   => null,
@@ -1320,7 +1323,8 @@ $e20r_pw_addons[ $stub ] = array(
 	'handler_name'          => 'check_webhook',
 	'is_active'             => (bool) get_option( "e20r_pw_{$stub}_enabled", false ),
 	'active_license'        => (bool) get_option( "e20r_pw_{$stub}_licensed", false ),
-	'status'                => 'deactivated', // ( 1 == get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
+	'status'                => 'deactivated',
+	// ( 1 == get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'Check',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(

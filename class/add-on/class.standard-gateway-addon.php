@@ -625,6 +625,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 		 */
 		public function add_new_license_info( $license_settings, $plugin_settings ) {
 			
+			// 'product_sku'   => strtoupper( $stub ),
 			//No license to add for the default functionality
 			return $license_settings;
 		}
