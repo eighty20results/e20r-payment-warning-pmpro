@@ -73,25 +73,53 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		const plugin_prefix = 'e20r_payment_warning_';
 		const plugin_slug = 'e20r-payment-warning-pmpro';
 		
+		/**
+		 * Constants used for Caching variables/info
+		 */
 		const cache_group = 'e20r_pw';
 		const option_group = 'e20r_pw_options';
 		
+		/**
+		 * Version of the plugin
+		 */
 		const version = E20R_PW_VERSION;
+		
 		/**
 		 * Instance of this class (Payment_Warning)
-		 * @var Payment_Warning
+		 *
+		 * @var Payment_Warning|null $instance
 		 *
 		 * @access private
 		 * @since  1.0
 		 */
 		static private $instance = null;
 		
+		/**
+		 * Background handler for Subscriptions
+		 *
+		 * @var array|null $process_subscriptions
+		 */
 		protected $process_subscriptions = null;
 		
+		/**
+		 * Background handler for one-time payments (expiring memberships)
+		 *
+		 * @var array|null $process_payments
+		 */
 		protected $process_payments = null;
 		
+		/**
+		 * Background handler that queues large number of subscription plans to process
+		 *
+		 * @var Large_Request_Handler|null $lsubscription_requests
+		 */
 		protected $lsubscription_requests = null;
 		
+		/**
+		 * Background handler that queues large number of one-time payments to process (expiring memberships)
+		 *
+		 * @var Large_Request_Handler|null $lpayment_requests
+		 */
 		protected $lpayment_requests = null;
 		
 		/**
@@ -257,16 +285,26 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 * @access public
 		 * @since  1.0
 		 * @since  1.9.9 - ENHANCEMENT: Add 30 minute Cron schedule
-		 * @since  3.8 - ENHANCEMENT: Be more discering about the hooks/filters being when not doing a CRON job or the user isn't logged in
+		 * @since  3.8 - ENHANCEMENT: Be more discerning about the hooks/filters being when not doing a CRON job or the user isn't logged in
 		 */
 		public function plugins_loaded() {
 			
 			$utils = Utilities::get_instance();
 			
 			$utils->log( "Checking that we're not working on a license check (loopback)" );
-			preg_match( "/eighty20results\.com/i", Licensing::E20R_LICENSE_SERVER_URL, $is_licensing_server );
+			$server_url = defined( 'E20R_LICENSE_SERVER_URL' ) ? E20R_LICENSE_SERVER_URL : null;
+			preg_match( "/eighty20results\.com/i", $server_url, $is_licensing_server );
 			
-			if ( 'slm_check' == $utils->get_variable( 'slm_action', false ) && ! empty( $is_licensing_server ) ) {
+			if ( empty( $server_url ) ) {
+				$utils->log( "Error: Need to define the LICENSE URL constant in wp-admin.php!!!" );
+				
+				return;
+			}
+			
+			if ( ! Licensing::is_new_version() &&
+			     'slm_check' == $utils->get_variable( 'slm_action', false ) &&
+			     ! empty( $is_licensing_server )
+			) {
 				$utils->log( "Processing license server operation (self referential check). Bailing!" );
 				
 				return;
@@ -374,6 +412,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					), 10 );
 					add_action( 'admin_menu', array( Reminder_Editor::get_instance(), 'load_tools_menu_item' ) );
 					
+					add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
 					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_register_scripts' ), 9 );
 					// add_action( 'admin_enqueue_scripts', array( $this, 'admin_enqueue_scripts' ), 20 );
 					
@@ -406,6 +445,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						'reset_template',
 					) );
 					
+					/**
+					 * Enable sending Payment Warning test email notices to specified user(s)
+					 */
+					add_action( 'e20r-email-notice-send-test-message', array(
+						Payment_Reminder::get_instance(),
+						'send_test_notice',
+					), 10, 3 );
+					
 					// add_filter( 'e20r_pw_message_substitution_variables', 'E20R\Payment_Warning\Tools\Email_Message::replace_variable_text', 10, 3 );
 					
 					if ( Utilities::is_admin() || true === wp_doing_cron() ) {
@@ -433,7 +480,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG &&
 					     defined( 'E20R_PW_TEST_HOOKS' ) && true === E20R_PW_TEST_HOOKS
 					) {
-						$utils->log("Loading test hooks for E20R Payment Warnings");
+						$utils->log( "Loading test hooks for E20R Payment Warnings" );
 						
 						add_action( 'wp_ajax_test_get_remote_fetch', array(
 							Fetch_User_Data::get_instance(),
@@ -916,22 +963,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 */
 		public function admin_register_scripts( $hook ) {
 			
-			if ( 'toplevel_page_pmpro-membershiplevels' != $hook ) {
-				return;
-			}
-			
 			wp_enqueue_style( Payment_Warning::plugin_slug . '-admin', plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', __FILE__ ) );
-			wp_register_script( Payment_Warning::plugin_slug . '-admin', plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', __FILE__ ) );
-			
-			$vars = array(
-				'ajaxurl' => admin_url( 'admin-ajax.php' ),
-				'timeout' => intval( apply_filters( 'e20r_roles_for_pmpro_ajax_timeout_secs', 10 ) * 1000 ),
-				// 'nonce'      => wp_create_nonce( Payment_Warning::ajax_fix_action ),
-			);
-			
-			$key = Payment_Warning::plugin_prefix . 'vars';
-			
-			wp_localize_script( Payment_Warning::plugin_slug . '-admin', $key, $vars );
 		}
 		
 		/**
@@ -1086,7 +1118,12 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 /**
  * Register the auto-loader and the activation/deactiviation hooks.
  */
-spl_autoload_register( 'E20R\Payment_Warning\Payment_Warning::auto_loader' );
+try {
+	spl_autoload_register( 'E20R\Payment_Warning\Payment_Warning::auto_loader' );
+} catch ( \Exception $e ) {
+	error_log( "Exception in PW auto-loader: " . $e->getMessage() );
+	wp_die( $e->getMessage() );
+}
 
 register_activation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warning', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warning', 'deactivate' ) );
