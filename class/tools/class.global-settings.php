@@ -178,7 +178,7 @@ class Global_Settings {
 		
 		add_settings_field(
 			'e20r_pw_global_reset',
-			__( "Reset data on deactivation", Payment_Warning::plugin_slug ),
+			__( "Clear/Delete data when deactivating the plugin", Payment_Warning::plugin_slug ),
 			array( $this, 'render_checkbox' ),
 			'e20r-payment-warning-settings',
 			'e20r_pw_global',
