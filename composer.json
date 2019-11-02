@@ -10,6 +10,7 @@
         ]
     },
     "require": {
-        "paypal/merchant-sdk-php": "^3.12"
+        "paypal/merchant-sdk-php": "^3.12",
+        "jahnis-elsts/plugin-update-checker": "^4.0"
     }
 }
