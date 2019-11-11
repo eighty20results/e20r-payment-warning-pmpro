@@ -19,6 +19,7 @@
 
 namespace E20R\Payment_Warning\Editor;
 
+use E20R\Payment_Warning\Payment_Reminder;
 use E20R\Payment_Warning\Payment_Warning;
 use E20R\Utilities\Utilities;
 use E20R\Utilities\Email_Notice\Email_Notice;
@@ -133,6 +134,8 @@ class Reminder_Editor extends Email_Notice {
 		add_action( 'save_post', array( $this, 'save_message_meta' ), 10, 1 );
 		
 		add_filter( 'e20r-email-notice-message-types', array( $this, 'define_message_types' ), 10, 1 );
+		
+		add_action( 'wp_ajax_e20pw_send_sample', array( $this, 'send_example_warning_msg' ) );
 	}
 	
 	/**
@@ -219,6 +222,62 @@ class Reminder_Editor extends Email_Notice {
 		$types = $types + $new_types;
 		
 		return $types;
+	}
+	
+	/**
+	 * AJAX handler to send the specified example message to the current user (admin)
+	 */
+	public function send_example_warning_msg() {
+		
+		global $current_user;
+		$utils = Utilities::get_instance();
+		
+		$utils->log( "The request variable: " . print_r( $_REQUEST, true ) );
+
+		/*
+		if ( !empty( $_POST ) && false === wp_verify_nonce( '_wpnonce', '_wpnonce' ) ) {
+			
+			$utils->log( "Error: Invalid nonce. Exiting!" );
+			wp_send_json_error();
+			exit();
+		}
+		*/
+		if ( ! is_user_logged_in() ) {
+			$utils->log( "User not logged in. Exiting!" );
+			wp_send_json_error();
+			exit();
+		}
+		
+		$msg_id   = $utils->get_variable( 'e20rpw_msg_id', null );
+		$msg_type = $utils->get_variable( 'e20rpw_msg_type', null );
+		
+		if ( empty( $msg_id ) ) {
+			$utils->log( "Error: No Message ID specified!" );
+			wp_send_json_error();
+			exit();
+		}
+		
+		$msg = get_post( $msg_id );
+		
+		if ( empty( $msg ) ) {
+			$utils->log( "Error: Unable to locate Email Reminder with IS {$msg_id}" );
+			wp_send_json_error();
+			exit();
+		}
+		
+		$reminder = new Payment_Reminder();
+		
+		$utils->log("Sending test notice for {$msg->post_name} to {$current_user->user_email}");
+		
+		if ( ! $reminder->send_test_notice( $current_user->user_email, $msg_type, $msg->post_name ) ) {
+			$utils->log( "Error sending test notice!!" );
+			wp_send_json_error();
+			exit();
+		}
+		
+		$utils->log("Sent test message...");
+		wp_send_json_success();
+		exit();
 	}
 	
 	/**
@@ -622,6 +681,9 @@ class Reminder_Editor extends Email_Notice {
 							} ?>
 						</td>
 					</div>
+				</div>
+				<div id="e20r-email-notice-examples">
+					<button id="send-example" class="button button-primary"><?php _e( 'Send Test Message', Payment_Warning::plugin_slug ) ?></button>
 				</div>
 			</div>
 		</div>
