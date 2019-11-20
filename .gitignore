@@ -50,3 +50,10 @@ fabric.properties
 /logs/paypal.log
 /class/email-notice/
 /class/utilities/
+/docker-env/e20r-payment-warning-pmpro.sql
+/composer_2.phar
+/libraries/yahnis-elsts/
+/libraries/paypal/merchant-sdk-php/
+/libraries/paypal/sdk-core-php/
+/composer.lock
+/bin/api_files/stripe_api.json
