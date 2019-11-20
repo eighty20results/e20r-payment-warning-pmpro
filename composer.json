@@ -2,15 +2,32 @@
     "config": {
         "vendor-dir": "libraries/"
     },
-
+    "name": "eight20results/e20r-payment-warning-pmpro",
+    "type": "plugin",
+    "description": "Custom Member Payment Messages for PMPro",
+    "keywords": ["wordpress", "paid memberships pro", "payment information", "custom messages"],
+    "minimum-stability": "stable",
+    "homepage": "https://eighty20results.com",
+    "license": "GPLv2",
+    "authors": [
+        {
+            "name": "Thomas Sjolshagen",
+            "email": "thomas@eighty20results.com",
+            "homepage": "https://eighty20results.com/thomas-sjolshagen",
+            "role": "Developer"
+        }
+    ],
     "scripts": {
         "post-update-cmd": [
             "if [ -d \"vendor/paypal/lib/PayPal/PayPalAPI/\" ] \nthen \nmv vendor/paypal/lib/PayPal libraries/ \nfi",
             "if [ -d \"vendor/paypal/lib/PayPal/PayPalAPI/\" ] \nthen \nrm -R vendor/paypal/ \nfi"
         ]
     },
+    "require-dev": {
+        "paypal/merchant-sdk-php": ">=3.12"
+    },
     "require": {
-        "paypal/merchant-sdk-php": "^3.12",
-        "jahnis-elsts/plugin-update-checker": "^4.0"
+        "php": ">=7.1",
+        "paypal/merchant-sdk-php": ">=3.12"
     }
 }
