@@ -235,7 +235,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 					
 					$account = Account::retrieve();
 					
-					if ( ! empty( $account ) ) {
+					if ( ! empty( $account ) && isset( $account->timezone ) ) {
 						$util->log( "Using the Stripe.com Gateway timezone info" );
 						$this->gateway_timezone = $account->timezone;
 					} else {
@@ -673,45 +673,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		}
 		
 		/**
-		 * List of Stripe API versions
-		 * TODO: Maintain the STRIPE API version list manually (no call to fetch current versions as of 07/03/2017)
+		 * Return the list of supported Stripe API versions
 		 *
-		 * @return array
+		 * @return string[]
 		 */
 		public function fetch_stripe_api_versions() {
 			
-			$versions = apply_filters( 'e20r_pw_addon_stripe_api_versions', array(
-				'2019-09-09',
-				'2019-08-14',
-				'2019-05-16',
-				'2019-03-14',
-				'2019-02-19',
-				'2019-02-11',
-				'2018-11-08',
-				'2018-10-31',
-				'2018-09-24',
-				'2018-09-06',
-				'2018-08-23',
-				'2018-05-21',
-				'2018-02-28',
-				'2018-02-06',
-				'2018-02-05',
-				'2018-01-23',
-				'2017-12-14',
-				'2017-08-15',
-				'2017-06-05',
-				'2017-05-25',
-				'2017-04-06',
-				'2017-02-14',
-				'2017-01-27',
-				'2016-10-19',
-				'2016-07-06',
-				'2016-06-15',
-				'2016-03-07',
-				'2016-02-29',
-			) );
+			$api_list = parent::get_api_info_from_gateway( 'stripe' );
 			
-			return $versions;
+			return apply_filters( 'e20r_pw_addon_stripe_api_versions', $api_list );
 		}
 		
 		/**
@@ -775,7 +745,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 *
 		 * @return array
 		 */
-		public function add_new_license_info( $license_settings, $plugin_settings ) {
+		public function add_new_license_info( $license_settings, $plugin_settings = array() ) {
 			
 			global $e20r_pw_addons;
 			
@@ -1711,9 +1681,9 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			
 			$cleanup = $this->load_option( 'deactivation_reset' );
 			?>
-            <input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
-                   name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
-                   value="1" <?php checked( 1, $cleanup ); ?> />
+			<input type="checkbox" id="<?php esc_attr_e( $this->option_name ); ?>-deactivation_reset"
+			       name="<?php esc_attr_e( $this->option_name ); ?>[deactivation_reset]"
+			       value="1" <?php checked( 1, $cleanup ); ?> />
 			<?php
 		}
 		
@@ -1762,10 +1732,33 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 		 */
 		public function render_settings_text() {
 			?>
-            <p class="e20r-example-global-settings-text">
+			<p class="e20r-example-global-settings-text">
 				<?php _e( "Configure global settings for the E20R Payment Warnings: Stripe Gateway add-on", Payment_Warning::plugin_slug ); ?>
-            </p>
+			</p>
 			<?php
+		}
+		
+		/**
+		 * Check for a Stripe gateway license
+		 *
+		 * @param null $addon - The name of the add-on to check license(s) for
+		 */
+		public function check_licenses( $addon = null ) {
+			
+			$addon = strtolower( $this->get_class_name() );
+			Utilities::get_instance()->log( "Checking license(s) for {$addon}" );
+			parent::check_licenses( $addon );
+		}
+		
+		/**
+		 * Load hooks to manage the license for this module
+		 */
+		public function load_hooks() {
+			
+			if ( is_admin() ) {
+				add_action( 'admin_init', array( $this, 'check_licenses' ) );
+				add_filter( 'e20r-license-add-new-licenses', array( $this, 'add_new_license_info' ), 10, 2 );
+			}
 		}
 		
 		/**
@@ -1778,22 +1771,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Stripe_Gateway_Addon' ) ) {
 			$stripe_api_version = $this->load_option( 'stripe_api_version' );
 			$utils->log( "Setting for Stripe API Version: {$stripe_api_version}" );
 			?>
-            <select name="<?php esc_attr_e( $this->option_name ); ?>[stripe_api_version]"
-                    id="<?php esc_attr_e( $this->option_name ); ?>_stripe_api_version">
-                <option value="0" <?php selected( $stripe_api_version, 0 ); ?>>
+			<select name="<?php esc_attr_e( $this->option_name ); ?>[stripe_api_version]"
+			        id="<?php esc_attr_e( $this->option_name ); ?>_stripe_api_version">
+				<option value="0" <?php selected( $stripe_api_version, 0 ); ?>>
 					<?php _e( 'Default', Payment_Warning::plugin_slug ); ?>
-                </option>
+				</option>
 				<?php
 				$all_api_versions = $this->fetch_stripe_api_versions();
 				
 				foreach ( $all_api_versions as $version ) {
 					?>
-                    <option
-                            value="<?php esc_attr_e( $version ); ?>" <?php selected( $version, $stripe_api_version ); ?>>
+					<option
+						value="<?php esc_attr_e( $version ); ?>" <?php selected( $version, $stripe_api_version ); ?>>
 						<?php esc_attr_e( $version ); ?>
-                    </option>
+					</option>
 				<?php } ?>
-            </select>
+			</select>
 			<?php
 		}
 		
@@ -1831,7 +1824,7 @@ $e20r_pw_addons[ $stub ] = array(
 	'handler_name'          => 'stripe_webhook',
 	'is_active'             => (bool) get_option( "e20r_pw_{$stub}_enabled", false ),
 	'active_license'        => (bool) get_option( "e20r_pw_{$stub}_licensed", false ),
-	'status'                => ( true === (bool) get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ), // 'deactivated',
+	'status'                => ( true === (bool) get_option( "e20r_pw_{$stub}_enabled", false ) ? 'active' : 'deactivated' ),
 	'label'                 => 'Stripe',
 	'admin_role'            => 'manage_options',
 	'required_plugins_list' => array(
