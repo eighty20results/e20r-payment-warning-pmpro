@@ -1384,6 +1384,29 @@ class PayPal_Gateway_Addon extends E20R_PW_Gateway_Addon {
 	}
 	
 	/**
+	 * Check for a PayPal gateway license
+	 *
+	 * @param null $addon - The name of the add-on to check license(s) for
+	 */
+	public function check_licenses( $addon = null ) {
+		
+		$addon = strtolower( $this->get_class_name() );
+		Utilities::get_instance()->log("Checking license(s) for {$addon}");
+		parent::check_licenses( $addon );
+	}
+	
+	/**
+	 * Load hooks to manage the license for this module
+	 */
+	public function load_hooks() {
+		
+		if ( is_admin() ) {
+			add_action( 'admin_init', array( $this, 'check_licenses' ) );
+			add_filter( 'e20r-license-add-new-licenses', array( $this, 'add_new_license_info' ), 10, 2 );
+		}
+	}
+	
+	/**
 	 * Filter Handler: Add the 'add Payment Warning Gateway add-on license' settings entry
 	 *
 	 * @filter e20r-license-add-new-licenses
