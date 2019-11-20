@@ -1306,7 +1306,7 @@ class User_Data {
 			$util->log( "Loading membership level info for {$this->user->ID}" );
 			$this->user = Fetch_User_Data::set_membership_info( $this->user );
 			
-			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . ! empty( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A" );
+			$util->log( "Loaded most recent successful/active membership order for user ({$this->user->ID}) and membership level: " . ( isset( $this->user->current_membership_level->id ) ? $this->user->current_membership_level->id : "N/A" ) );
 			
 			if ( isset( $this->user->current_membership_level->id ) ) {
 				return $this->user->current_membership_level->id;
