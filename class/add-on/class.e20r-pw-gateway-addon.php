@@ -798,7 +798,7 @@ abstract class E20R_PW_Gateway_Addon extends License_Client {
 			
 			$api_request = wp_remote_get( sprintf( 'https://eighty20results.com/protected-content/api-versions/%s_api.json', $source ) );
 			
-			if ( is_error( $api_request ) ) {
+			if ( is_wp_error( $api_request ) ) {
 				$utils->log( "Unable to fetch {$source} API info: " . $api_request->get_error_message() );
 				return array();
 			}
