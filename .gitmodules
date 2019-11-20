@@ -1,8 +1,8 @@
-[submodule "class/email-notice"]
-	path = class/email-notice
-	url = git@github.com:eighty20results/Email-Notice.git
-	branch = master
 [submodule "class/utilities"]
 	path = class/utilities
 	url = git@github.com:eighty20results/Utilities.git
+	branch = master
+[submodule "class/email-notice"]
+	path = class/email-notice
+	url = git@github.com:eighty20results/Email-Notice.git
 	branch = master
