@@ -20,6 +20,8 @@
 namespace E20R\Payment_Warning\Addon;
 
 use E20R\Payment_Warning\Payment_Warning;
+use E20R\Utilities\Cache;
+use E20R\Utilities\Licensing\License_Client;
 use E20R\Utilities\Licensing\Licensing;
 use E20R\Payment_Warning\User_Data;
 use E20R\Utilities\Utilities;
@@ -27,7 +29,7 @@ use E20R\Payment_Warning\Addon\PayPal_Gateway_Addon;
 use E20R\Payment_Warning\Addon\Stripe_Gateway_Addon;
 use E20R\Payment_Warning\Addon\Check_Gateway_Addon;
 
-abstract class E20R_PW_Gateway_Addon {
+abstract class E20R_PW_Gateway_Addon extends License_Client {
 	
 	/**
 	 * @var E20R_PW_Gateway_Addon
@@ -684,6 +686,76 @@ abstract class E20R_PW_Gateway_Addon {
 	abstract public function get_gateway_class_name( $gateway_name = null, $addon );
 	
 	/**
+	 * Dummy load_hooks() function for parent gateway class
+	 */
+	public function load_hooks() {
+		return;
+	}
+	
+	/**
+	 * Verify license status for a licensed component
+	 *
+	 * @param null|string $addon - The name of the add-on we're checking the license(s) for
+	 */
+	public function check_licenses( $addon = null ) {
+		
+		$utils = Utilities::get_instance();
+		
+		if ( empty( $addon ) ) {
+			$utils->add_message(
+				__(
+					'Error: Unable to identify the licensed component!',
+					Payment_Warning::plugin_slug
+				),
+				'info',
+				'backend'
+			);
+			return;
+		}
+		
+		switch ( Licensing::is_license_expiring( $addon ) ) {
+			
+			case true:
+				$utils->add_message(
+					sprintf(
+						__(
+							'The license for \'%1$s\' will renew soon. As this is an automatic payment, you will not have to do anything. To change %2$syour license%3$s, please go to %4$syour account page%5$s',
+							Payment_Warning::plugin_slug
+						),
+						__(
+							'Payment Warnings for PMPro (with Support &amp; Updates)',
+							Payment_Warning::plugin_slug
+						),
+						'<a href="https://eighty20results.com/shop/licenses/" target="_blank">',
+						'</a>',
+						'<a href="https://eighty20results.com/account/" target="_blank">',
+						'</a>'
+					),
+					'info',
+					'backend'
+				);
+				break;
+			case - 1:
+				$utils->add_message(
+					sprintf(
+						__(
+							'Your \'%1$s\' license has expired. To continue to get updates and support for this plugin, you will need to %2$srenew and install your license%3$s.',
+							Payment_Warning::plugin_slug
+						),
+						__(
+							'Payment Warnings for PMPro',
+							Payment_Warning::plugin_slug
+						),
+						'<a href="https://eighty20results.com/shop/licenses/" target="_blank">', '</a>'
+					),
+					'error',
+					'backend'
+				);
+				break;
+		}
+	}
+	
+	/**
 	 * Return the class name w/o the Namespace portion
 	 *
 	 * @param $string
@@ -701,6 +773,43 @@ abstract class E20R_PW_Gateway_Addon {
 		$name        = $class_array[ ( count( $class_array ) - 1 ) ];
 		
 		return $name;
+	}
+	
+	/**
+	 * Fetch the API info (JSON) from the upstream server
+	 *
+	 * @param null|string $source
+	 *
+	 * @return array
+	 */
+	protected function get_api_info_from_gateway( $source = null ) {
+		
+		$utils = Utilities::get_instance();
+		
+		if ( empty( $source ) ) {
+			$source = 'stripe';
+		}
+		
+		$cache_key = "{$source}_api";
+		
+		if ( null === ( $api_list = Cache::get( $cache_key, Payment_Warning::cache_group ) ) ) {
+			
+			$utils->log("Have to load {$source} API info from upstream server");
+			
+			$api_request = wp_remote_get( sprintf( 'https://eighty20results.com/protected-content/api-versions/%s_api.json', $source ) );
+			
+			if ( is_error( $api_request ) ) {
+				$utils->log( "Unable to fetch {$source} API info: " . $api_request->get_error_message() );
+				return array();
+			}
+			
+			$api_list = wp_remote_retrieve_body( $api_request );
+			$utils->log( "Received list of {$source} API versions: " . $api_list );
+			
+			Cache::set( $cache_key, $api_list, DAY_IN_SECONDS, Payment_Warning::cache_group );
+		}
+		
+		return json_decode( $api_list );
 	}
 	
 	/**
