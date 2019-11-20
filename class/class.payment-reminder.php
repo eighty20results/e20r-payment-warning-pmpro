@@ -309,78 +309,456 @@ class Payment_Reminder {
 	/**
 	 * Handler for the 'e20r-email-notice-send-test-message' action
 	 *
-	 * @uses 'e20r-email-notice-send-test-message', $recipient, $notice_id, $notice_type
-	 *
 	 * @param string $recipient   - Email address of test message recipient
-	 * @param int    $notice_id   - Post ID for the Email Notice to use (template)
 	 * @param int    $notice_type - The Type of notice to use
 	 * @param string $notice_slug - The slug/name of the Email Notice to use
+	 *
+	 * @return bool
+	 * @uses 'e20r-email-notice-send-test-message', $recipient, $notice_id, $notice_type
+	 *
 	 */
-	public function send_test_notice( $recipient, $notice_id, $notice_type, $notice_slug ) {
+	public function send_test_notice( $recipient, $notice_type, $notice_slug ) {
 		
 		$utils = Utilities::get_instance();
 		$utils->log( "Trigger Payment Reminder test message for {$recipient}/{$notice_slug}" );
 		
-		$sender = get_option( 'admin_email' );
-		
 		$recipient_user = get_user_by( 'email', $recipient );
 		
+		// Does the recipient user record exist?
 		if ( empty( $recipient_user ) ) {
-			wp_send_json_error(
+			$utils->add_message(
 				sprintf(
 					__( 'Error: %s does not belong to a current user on this system. Can\'t send the test message...', Payment_Warning::plugin_slug ),
 					$recipient
-				)
+				),
+				'error',
+				'backend'
 			);
-			wp_die();
+			
+			return false;
 		}
 		
-		$test_user_data = $this->create_test_user_info( $recipient_user, $notice_type );
+		// Do we have a test invoice we can use?
+		$test_invoice_id = get_option( 'e20rpw_test_invoice_id', null );
 		
+		// Make sure there is a real order saved for PMPro/this user
+		if ( ! empty( $test_invoice_id ) ) {
+			$test_invoice = new \MemberOrder( $test_invoice_id );
+			if ( empty( $test_invoice->getMemberOrderByID( $test_invoice_id ) ) ) {
+				$test_invoice_id = null;
+			}
+		}
+		
+		// Insert new test/demo records for use by the test notices
+		if ( empty( $test_invoice_id ) ) {
+			
+			$utils->log( "No test invoice found for {$recipient}. Creating new order/invoice" );
+			
+			try {
+				
+				$test_invoice_id = $this->create_test_user_invoice( $recipient_user, $notice_type );
+				update_option( 'e20rpw_test_invoice_id', $test_invoice_id, 'no' );
+				
+				if ( false === $this->insert_example_data( $test_invoice_id, $recipient_user ) ) {
+					$utils->log( "Error adding example data to DB!" );
+					
+					return false;
+				}
+				
+			} catch ( \Exception $e ) {
+				$utils->log( "Unable to generate test data: " . $e->getMessage() );
+				$utils->add_message(
+					sprintf(
+						__( 'Error adding user test data: %s', Payment_Warning::plugin_slug ),
+						$e->getMessage()
+					),
+					'error',
+					'backend'
+				);
+				
+				return false;
+			}
+		}
+		
+		// We should have inserted new demo data!
+		if ( ! $test_invoice_id ) {
+			$utils->log( "No test invoice info found?!?!" );
+			
+			return false;
+		}
+		
+		$utils->log( "Test User's Invoice ID: " . print_r( $test_invoice_id, true ) );
+		
+		// Load the user specific data for this service
+		try {
+			$test_user_data = $this->get_test_user_info( $test_invoice_id, $recipient_user, $notice_type );
+		} catch ( \Exception $exception ) {
+			$utils->add_message(
+				sprintf(
+					__( 'Test user data error: %s', Payment_Warning::plugin_slug ),
+					$exception->getMessage()
+				),
+				'error', '
+				backend'
+			);
+			
+			return false;
+		}
+		
+		// Prepare the test email message
 		$message = new Email_Message( $test_user_data, $notice_slug, $notice_type );
 		
-		$message->send_message( $notice_type );
+		// Send it and return the status
+		return $message->send_message( $notice_type );
 	}
 	
 	/**
 	 * Create test user info for the specific Email Notice type
 	 *
 	 * @param \WP_User $user
-	 * @param string $notice_type
+	 * @param string   $notice_type
 	 *
-	 * @return array
+	 * @return \MemberOrder|bool
+	 *
+	 * @throws \Exception
 	 */
-	private function create_test_user_info( $user, $notice_type ) {
+	private function create_test_user_invoice( $user, $notice_type ) {
 		
-		$data = get_userdata( $user->ID );
+		if ( ! class_exists( '\MemberOrder' ) ) {
+			throw new \Exception(
+				__( 'Error: The Paid Memberships Pro plugin is not active on this site!', Payment_Warning::plugin_slug )
+			);
+		}
+		
+		$utils = Utilities::get_instance();
+		
+		global $wpdb;
+		
+		$data       = get_userdata( $user->ID );
+		$all_levels = pmpro_getAllLevels( true, true );
+		$test_level = null;
+		
+		# Find a level w/actual payment info
+		foreach ( $all_levels as $test_level ) {
+			if ( ! pmpro_isLevelFree( $test_level ) && pmpro_isLevelRecurring( $test_level ) ) {
+				break;
+			}
+		}
+		
+		if ( empty( $test_level ) ) {
+			$test_level                    = new \stdClass();
+			$test_level->expiration_number = 1;
+			$test_level->id                = 1;
+			$test_level->expiration_period = 'Month';
+			$test_level->initial_payment   = '20.00';
+			$test_level->billing_amount    = '20.00';
+			$test_level->cycle_number      = 1;
+			$test_level->cycle_period      = 'Month';
+		}
+		
+		unset( $all_levels );
+		
 		$order = new \MemberOrder();
 		$order->getEmptyMemberOrder();
 		
-		$order->billing = new \stdClass();
-		$order->billing->street = '123 Test Street';
-		$order->billing->city = 'Testcity';
-		$order->billing->zipcode = '01234';
-		$order->billing->state = 'Alabama';
+		$order->user_id          = $user->ID;
+		$order->billing          = new \stdClass();
+		$order->billing->street  = '123 Test Street';
+		$order->billing->city    = 'Testcity';
+		$order->billing->zip     = '01234';
+		$order->billing->state   = 'Alabama';
 		$order->billing->country = 'US';
+		$order->billing->phone   = '+1234567890';
+		$order->billing->name    = "{$user->first_name} {$user->last_name}";
 		
-		$test_user_data = new User_Data( $user,$order,$notice_type );
+		// Add card info (mock card)
+		$order->payment_type                = '';
+		$order->session_id                  = null;
+		$order->affiliate_id                = null;
+		$order->affiliate_subid             = null;
+		$order->status                      = '';
+		$order->gateway                     = pmpro_getOption( 'gateway' );
+		$order->gateway_environment         = pmpro_getOption( 'gateway_environment' );
+		$order->payment_transaction_id      = null;
+		$order->subscription_transaction_id = null;
+		$order->paypal_token                = null;
+		$order->certificate_id              = null;
+		$order->certificate_amount          = pmpro_formatPrice( 0 );
+		$order->cardtype                    = 'Visa';
+		$order->accountnumber               = 'XXXXXXXXXXXX4242';
+		$order->timestamp                   = current_time( 'timestamp' );
+		$order->expirationmonth             = date( 'm', $order->timestamp );
+		$order->expirationyear              = date( 'Y', strtotime( '+1 year', $order->timestamp ) );
+		$order->datetime                    = date( 'Y-m-d H:i:s', $order->timestamp );
 		
-		switch( $notice_type ) {
-			case E20R_PW_RECURRING_REMINDER:
-				
-				break;
-				
-			case E20R_PW_EXPIRATION_REMINDER:
-				
-				break;
-				
-			case E20R_PW_CREDITCARD_REMINDER:
-				
-				break;
+		// Set membership expiration info
+		if ( function_exists( 'pmpro_isLevelExpiring' ) &&
+		     ! pmpro_isLevelRecurring( $test_level ) &&
+		     isset( $test_level->expiration_number ) && ! empty( $test_level->expiration_number )
+		) {
+			
+			$expiration_ts          = strtotime(
+				"+{$test_level->expiration_number} {$test_level->expiration_period}",
+				$order->timestamp
+			);
+			$order->expirationmonth = date( 'm', $expiration_ts );
+			$order->expirationyear  = date( 'y', $expiration_ts );
 		}
 		
-		return (array) $test_user_data;
+		$order->notes = __(
+			"Test order from Custom Member Payment Notices for PMPro.",
+			Payment_Warning::plugin_slug
+		);
+		
+		$order->code           = $order->getRandomCode();
+		$order->InitialPayment = $test_level->initial_payment;
+		$order->subtotal       = (float) $test_level->initial_payment + (float) $test_level->billing_amount;
+		$order->tax            = $order->getTax( true );
+		$order->total          = $order->subtotal + $order->tax;
+		
+		// Set the checkout ID
+		$max_checkout_id = 0;
+		
+		$found_max_id = $wpdb->get_var( "SELECT MAX(checkout_id) FROM $wpdb->pmpro_membership_orders" );
+		
+		if ( ! empty( $found_max_id ) ) {
+			$max_checkout_id = $found_max_id;
+		}
+		
+		$order->checkout_id                 = intval( $max_checkout_id ) + 1;
+		$order->payment_type                = __( 'Example payment', Payment_Warning::plugin_slug );
+		$order->status                      = 'success';
+		$order->payment_transaction_id      = 'tx_1234567890abc';
+		$order->subscription_transaction_id = 'sub_1234567890abc';
+		
+		if ( ! isset( $user->membership_level->id ) ) {
+			$user->membership_level = $test_level;
+		}
+		
+		$order->membership_id = $user->membership_level->id;
+		
+		# TODO: Make sure we don't have more invoice data to set/update before we save this order
+		$saved_order_id = $order->saveOrder();
+		
+		$utils->log( "Saved order info: " . print_r( $saved_order_id, true ) );
+		
+		if ( ! $saved_order_id ) {
+			throw new \Exception(
+				sprintf(
+					__( 'Error saving test order for %s', Payment_Warning::plugin_slug ),
+					$user->user_email
+				)
+			);
+		}
+		
+		return $saved_order_id;
 	}
+	
+	/**
+	 * Load sample data to the PW DB tables
+	 *
+	 * @param int      $test_invoice_id
+	 * @param \WP_User $recipient_user
+	 *
+	 * @return bool
+	 */
+	private function insert_example_data( $test_invoice_id, $recipient_user ) {
+		
+		global $wpdb;
+		
+		$utils = Utilities::get_instance();
+		
+		$utils->log( "Loading PMPro order ID {$test_invoice_id}" );
+		$pmpro_invoice = new \MemberOrder();
+		$pmpro_invoice->getMemberOrderByID( $test_invoice_id );
+		
+		if ( empty( $pmpro_invoice ) ) {
+			$utils->log( "No PMPro order found for {$recipient_user->user_email}" );
+			
+			return false;
+		}
+		
+		$next_payment_info = $this->test_next_payment( $recipient_user, $pmpro_invoice );
+		
+		if ( false === $next_payment_info) {
+			$utils->log("Invalid payment date returned!");
+			$next_payment_info = strtotime( '+1 month', $pmpro_invoice->timestamp );
+		}
+		
+		$next_payment_date = date( 'Y-m-d H:i:s', $next_payment_info );
+		
+		$utils->log( "Next payment date for {$recipient_user->ID}/order: {$test_invoice_id} is {$next_payment_date}" );
+		$recurring_row = array(
+			'user_id'                        => $recipient_user->ID,
+			'level_id'                       => $recipient_user->membership_level->id,
+			'last_order_id'                  => $test_invoice_id,
+			'gateway_subscr_id'              => $pmpro_invoice->subscription_transaction_id,
+			'gateway_payment_id'             => $pmpro_invoice->payment_transaction_id,
+			'is_delinquent'                  => false,
+			'has_active_subscription'        => true,
+			'has_local_recurring_membership' => true,
+			'payment_currency'               => pmpro_getOption( "currency" ),
+			'payment_amount'                 => $pmpro_invoice->total,
+			'next_payment_amount'            => $pmpro_invoice->total,
+			'tax_amount'                     => $pmpro_invoice->tax,
+			'user_payment_status'            => $pmpro_invoice->status,
+			'payment_date'                   => date( 'Y-m-d H:i:s', $pmpro_invoice->timestamp ),
+			'is_payment_paid'                => null,
+			'failure_description'            => null,
+			'next_payment_date'              => $next_payment_date,
+			'end_of_payment_period'          => date( 'Y-m-d 23:59:59', $next_payment_info ),
+			'end_of_membership_date'         => null,
+			'reminder_type'                  => 'recurring',
+			'gateway_module'                 => $pmpro_invoice->gateway,
+		);
+		
+		$expiring_row = array(
+			'user_id'                        => $recipient_user->ID,
+			'level_id'                       => $recipient_user->membership_level->id,
+			'last_order_id'                  => $test_invoice_id,
+			'gateway_subscr_id'              => null,
+			'gateway_payment_id'             => $pmpro_invoice->payment_transaction_id,
+			'is_delinquent'                  => false,
+			'has_active_subscription'        => true,
+			'has_local_recurring_membership' => true,
+			'payment_currency'               => pmpro_getOption( "currency" ),
+			'payment_amount'                 => $pmpro_invoice->total,
+			'next_payment_amount'            => $pmpro_invoice->total,
+			'tax_amount'                     => $pmpro_invoice->tax,
+			'user_payment_status'            => $pmpro_invoice->status,
+			'payment_date'                   => date( 'Y-m-d H:i:s', $pmpro_invoice->timestamp ),
+			'is_payment_paid'                => true,
+			'failure_description'            => null,
+			'next_payment_date'              => null,
+			'end_of_payment_period'          => null,
+			'end_of_membership_date'         => date( 'Y-m-d 23:59:59', $next_payment_info ),
+			'reminder_type'                  => 'expiration',
+			'gateway_module'                 => $pmpro_invoice->gateway,
+		);
+		
+		$cc_sql = $wpdb->prepare(
+			"SELECT COUNT(*)
+						FROM {$wpdb->prefix}e20rpw_user_cc
+						WHERE user_id = %d AND exp_year > %d",
+			$recipient_user->ID,
+			date( 'Y', current_time( 'timestamp' ) )
+		);
+		
+		$has_cc = $wpdb->get_var( $cc_sql );
+		
+		if ( $has_cc <= 0 ) {
+			$cc_row = array(
+				'user_id'   => $recipient_user->ID,
+				'last4'     => isset( $pmpro_invoice->accountnumber ) && ! empty( $pmpro_invoice->accountnumber ) ?
+					preg_replace( '/X/', '', $pmpro_invoice->accountnumber ) :
+					'4242',
+				'exp_month' => $pmpro_invoice->expirationmonth,
+				'exp_year'  => $pmpro_invoice->expirationyear,
+				'brand'     => 'Visa',
+			);
+			
+			$utils->log( "Adding Credit Card info (fake) for {$recipient_user->ID}" );
+			
+			if ( false === $wpdb->insert( "{$wpdb->prefix}e20rpw_user_cc", $cc_row ) ) {
+				$utils->add_message(
+					__(
+						"Unable to add fake Credit Card info to local database for the test email messages",
+						Payment_Warning::plugin_slug
+					),
+					'warning',
+					'backend'
+				);
+				
+				return false;
+			}
+			
+			$utils->log( "Adding Recurring payment info (fake) for {$recipient_user->ID}" );
+			if ( false === $wpdb->insert( "{$wpdb->prefix}e20rpw_user_info", $recurring_row ) ) {
+				$utils->add_message(
+					__(
+						"Unable to add fake recurring payment record for the test email messages",
+						Payment_Warning::plugin_slug
+					),
+					'warning',
+					'backend'
+				);
+				
+				return false;
+			}
+			
+			$utils->log( "Adding One-time (expiring) payment info (fake) for {$recipient_user->ID}" );
+			if ( false === $wpdb->insert( "{$wpdb->prefix}e20rpw_user_info", $expiring_row ) ) {
+				$utils->add_message(
+					__(
+						"Unable to add fake expiring payment record for the test email messages",
+						Payment_Warning::plugin_slug
+					),
+					'warning',
+					'backend'
+				);
+				
+				return false;
+			}
+			
+			$utils->log( "Added recurring, expiring and CC test data" );
+			
+			return true;
+		}
+	}
+	
+	/**
+	 * Return the timestamp for the next payment date for an order
+	 *
+	 * @param \WP_User     $user
+	 * @param \MemberOrder $order
+	 *
+	 * @return string | bool
+	 */
+	private function test_next_payment( $user, $order ) {
+		
+		$utils = Utilities::get_instance();
+		$next_payment_date = false;
+		
+		if ( ! isset( $user->membership_level->id ) ) {
+			$utils->log("No membership ID fround for user!");
+			return $next_payment_date;
+		}
+		
+		if ( ! is_object( $order ) && is_a( $order, '\MemberOrder' ) ) {
+			$utils->log("Not a valid MemberOrder object!");
+			return $next_payment_date;
+		}
+		
+		// Calculate the timestamp for the next payment date (for this order)
+		if ( ! empty( $order ) && ! empty( $order->id ) && ! empty( $user->membership_level->id ) && ! empty( $user->membership_level->cycle_number ) ) {
+			
+			$utils->log("Calculating the next payment date...");
+			
+			$str               = sprintf( '+%1$s %2%s', $user->membership_level->cycle_number, $user->membership_level->cycle_period );
+			$next_payment_date = strtotime( $str, $order->timestamp );
+		}
+		
+		return $next_payment_date;
+	}
+	
+	/**
+	 * @param $invoice_id
+	 * @param $user
+	 * @param $notice_type
+	 *
+	 * @return User_Data
+	 */
+	private function get_test_user_info( $invoice_id, $user, $notice_type ) {
+		
+		$order = new \MemberOrder();
+		$order->getMemberOrderByID( $invoice_id );
+		
+		
+		$test_user_info = new User_Data( $user, $order, $notice_type );
+		
+		return $test_user_info;
+	}
+	
 	/**
 	 * Return the current list of user IDs
 	 *
@@ -403,5 +781,179 @@ class Payment_Reminder {
 	public function set_users( $users ) {
 		
 		$this->users = $users;
+	}
+	
+	/**
+	 * Generate a random alphanumeric string of a specified length
+	 *
+	 * @param int $length
+	 *
+	 * @return string
+	 */
+	private function generateRandomString( $length ) {
+		$characters       = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$charactersLength = strlen( $characters );
+		$randomString     = '';
+		for ( $i = 0; $i < $length; $i ++ ) {
+			$randomString .= $characters[ rand( 0, $charactersLength - 1 ) ];
+		}
+		
+		return $randomString;
+	}
+	
+	/**
+	 * Create an order for the user (test order)
+	 *
+	 * @param \WP_User $user
+	 * @param array    $data
+	 *
+	 * @throws Exception
+	 */
+	private function create_test_order( $user, $data ) {
+		
+		global $current_user, $pmpro_currency_symbol, $wpdb;
+		
+		if ( ! empty( $data ) && ! empty( $data['user_login'] ) ) {
+			$user = get_user_by( 'login', $data['user_login'] );
+		}
+		
+		if ( empty( $user ) ) {
+			$user = $current_user;
+		}
+		
+		$pmpro_user_meta =
+			$wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT *
+							FROM {$wpdb->pmpro_memberships_users} AS pmpu
+							WHERE pmpu.user_id = %d AND pmpu.status= %s",
+					$user->ID,
+					'active'
+				)
+			);
+		
+		// Verify that we've got data
+		if ( ! is_array( $data ) ) {
+			$data =
+				array(
+					'',
+				);
+			
+		}
+		
+		// Site specific data
+		$new_data['sitename']  = get_option( "blogname" );
+		$new_data['siteemail'] = pmpro_getOption( "from_email" );
+		
+		// Add the login link (unless configured)
+		if ( empty( $new_data['login_link'] ) ) {
+			$new_data['login_link'] = wp_login_url();
+		}
+		
+		// Get the levels page link
+		$new_data['levels_link'] = pmpro_url( "levels" );
+		
+		// Test user data
+		if ( isset( $user->ID ) && ! empty( $user->ID ) ) {
+			$new_data['name']         = $user->display_name;
+			$new_data['user_login']   = $user->user_login;
+			$new_data['display_name'] = $user->display_name;
+			$new_data['user_email']   = $user->user_email;
+		} else {
+			
+			throw new \Exception( __( 'Test user information is missing', Payment_Warning::plugin_slug ) );
+		}
+		
+		// Grab membership data for the user (if it exists)
+		if ( ! empty( $user->membership_level ) &&
+		     isset( $user->membership_level->enddate ) &&
+		     ! empty( $user->membership_level->enddate )
+		) {
+			$new_data['enddate'] = date( 'Y-m-d H:i:s', $user->membership_level->enddate );
+		} else {
+			
+			// Pick a date in the future (+1 year from today)
+			$new_data['enddate'] = date(
+				'Y-m-d H:i:s',
+				strtotime( '+1 year', current_time( 'timestamp' ) )
+			);
+		}
+		
+		// Invoice specific data
+		if ( ! empty( $data['invoice_id'] ) ) {
+			
+			$invoice = new \MemberOrder( $data['invoice_id'] );
+			
+			if ( ! empty( $invoice ) && ! empty( $invoice->code ) ) {
+				$new_data['billing_name']    = $invoice->billing->name;
+				$new_data['billing_street']  = $invoice->billing->street;
+				$new_data['billing_city']    = $invoice->billing->city;
+				$new_data['billing_state']   = $invoice->billing->state;
+				$new_data['billing_zip']     = $invoice->billing->zip;
+				$new_data['billing_country'] = $invoice->billing->country;
+				$new_data['billing_phone']   = $invoice->billing->phone;
+				$new_data['cardtype']        = $invoice->cardtype;
+				$new_data['accountnumber']   = hideCardNumber( $invoice->accountnumber );
+				$new_data['expirationmonth'] = $invoice->expirationmonth;
+				$new_data['expirationyear']  = $invoice->expirationyear;
+				$new_data['instructions']    = wpautop( pmpro_getOption( 'instructions' ) );
+				$new_data['invoice_id']      = $invoice->code;
+				$new_data['invoice_total']   = $pmpro_currency_symbol . number_format( $invoice->total, 2 );
+				$new_data['invoice_link']    = pmpro_url( 'invoice', '?invoice=' . $invoice->code );
+				
+				//billing address
+				$new_data["billing_address"] = pmpro_formatAddress( $invoice->billing->name,
+					$invoice->billing->street,
+					"", //address 2
+					$invoice->billing->city,
+					$invoice->billing->state,
+					$invoice->billing->zip,
+					$invoice->billing->country,
+					$invoice->billing->phone );
+			}
+		}
+		
+		//membership change
+		if ( ! empty( $user->membership_level ) && ! empty( $user->membership_level->ID ) ) {
+			$new_data["membership_change"] = sprintf( __( "The new level is %s.", "pmproet" ), $user->membership_level->name );
+		} else {
+			$new_data["membership_change"] = __( "Your membership has been cancelled", "pmproet" );
+		}
+		if ( ! empty( $user->membership_level ) && ! empty( $user->membership_level->enddate ) ) {
+			$new_data["membership_change"] .= ". " . sprintf( __( "This membership will expire on %s", "pmproet" ), date( get_option( 'date_format' ), $user->membership_level->enddate ) );
+		} else if ( ! empty( $user->expiration_changed ) ) { // FIXME: Should be using the email test
+			$new_data["membership_change"] .= ". " . __( "This membership does not expire", "pmproet" );
+		}
+		//membership expiration
+		$new_data['membership_expiration'] = '';
+		if ( ! empty( $pmpro_user_meta->enddate ) ) {
+			$new_data['membership_expiration'] = "<p>" . sprintf( __( "This membership will expire on %s.", "pmproet" ), $pmpro_user_meta->enddate . "</p>\n" );
+		}
+		//if others are used in the email look in usermeta
+		$et_body            = pmpro_getOption( 'email_' . $email->template . '_body' );
+		$templates_in_email = preg_match_all( "/!!([^!]+)!!/", $et_body, $matches );
+		if ( ! empty( $templates_in_email ) ) {
+			$matches = $matches[1];
+			foreach ( $matches as $match ) {
+				if ( empty( $new_data[ $match ] ) ) {
+					$usermeta = get_user_meta( $user->ID, $match, true );
+					if ( ! empty( $usermeta ) ) {
+						if ( is_array( $usermeta ) && ! empty( $usermeta['fullurl'] ) ) {
+							$new_data[ $match ] = $usermeta['fullurl'];
+						} else if ( is_array( $usermeta ) ) {
+							$new_data[ $match ] = implode( ", ", $usermeta );
+						} else {
+							$new_data[ $match ] = $usermeta;
+						}
+					}
+				}
+			}
+		}
+		//now replace any new_data not already in data
+		foreach ( $new_data as $key => $value ) {
+			if ( ! isset( $data[ $key ] ) ) {
+				$data[ $key ] = $value;
+			}
+		}
 	}
 }
