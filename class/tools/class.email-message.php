@@ -152,7 +152,7 @@ class Email_Message {
 		$this->sender->set_module( Payment_Warning::plugin_slug );
 		$this->sender->from = apply_filters( 'e20r-email-notice-sender', $this->site_email );
 		
-		if ( !empty( $template_settings ) ) {
+		if ( ! empty( $template_settings ) && ! empty( $template_settings['body'] ) ) {
 			$this->sender->body = $template_settings['body'];
 		}
 		
@@ -162,9 +162,9 @@ class Email_Message {
 	/**
 	 * The !!VARIABLE!! substitutions for the current template settings (body & subject of message)
 	 *
-	 * @param array   $template_settings
-	 * @param array   $variables
-	 * @param  string $type
+	 * @param array  $template_settings
+	 * @param array  $variables
+	 * @param string $type
 	 *
 	 * @return array
 	 *
@@ -596,6 +596,7 @@ class Email_Message {
 		if ( false === $override && ( isset( $users[ $today ][ $to ] ) && in_array( $this->template_name, $users[ $today ][ $to ] ) ) ) {
 			
 			$util->log( "Already sent message {$this->template_name} on {$today} to {$to}" );
+			
 			return $status;
 		}
 		
@@ -614,13 +615,28 @@ class Email_Message {
 		$util->log( "Loading filter handlers for 'e20r-email-notice-custom-variable-filter'" );
 		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_cc_info' ), 10, 4 );
 		add_filter( 'e20r-email-notice-custom-variable-filter', array( $this, 'get_billing_address' ), 11, 4 );
-		add_filter( 'e20r-email-notice-custom-variable-filter', array( Reminder_Editor::get_instance(), 'load_filter_value' ), 99, 4 );
+		add_filter( 'e20r-email-notice-custom-variable-filter', array(
+			Reminder_Editor::get_instance(),
+			'load_filter_value',
+		), 99, 4 );
 		
 		add_filter( 'e20r-email-notice-content-body', array( $this, 'load_message_body' ), 10, 2 );
-		add_filter( 'e20r-email-notice-data-variables', array( Reminder_Editor::get_instance(), 'default_data_variables' ), 10, 2 );
-		add_filter( 'e20r-email-notice-membership-level-for-user', array( Reminder_Editor::get_instance(), 'get_member_level_for_user' ), 10, 3 );
-		add_filter( 'e20r-email-notice-membership-page-for-user', array( Reminder_Editor::get_instance(), 'get_member_page_for_user' ), 10, 3 );
-		add_filter( 'e20r-payment-warning-billing-info-page', array( Reminder_Editor::get_instance(), 'load_billing_page' ), 10, 1 );
+		add_filter( 'e20r-email-notice-data-variables', array(
+			Reminder_Editor::get_instance(),
+			'default_data_variables',
+		), 10, 2 );
+		add_filter( 'e20r-email-notice-membership-level-for-user', array(
+			Reminder_Editor::get_instance(),
+			'get_member_level_for_user',
+		), 10, 3 );
+		add_filter( 'e20r-email-notice-membership-page-for-user', array(
+			Reminder_Editor::get_instance(),
+			'get_member_page_for_user',
+		), 10, 3 );
+		add_filter( 'e20r-payment-warning-billing-info-page', array(
+			Reminder_Editor::get_instance(),
+			'load_billing_page',
+		), 10, 1 );
 		
 		/**
 		 * @since v3.9.0 - BUG FIX: Didn't load the body of the email message
@@ -661,7 +677,9 @@ class Email_Message {
 	}
 	
 	/**
-	 * @param string $body
+	 * Load the body of the email message to send
+	 *
+	 * @param string     $body
 	 * @param string|int $template_slug
 	 *
 	 * @return string
@@ -670,12 +688,26 @@ class Email_Message {
 		
 		$utils = Utilities::get_instance();
 		
-		if ( 1 === preg_match( "/{$template_slug}/i", $this->template_name ) ) {
-			$utils->log("Already loaded body for {$template_slug}");
-			return $this->get_body();
+		if ( 1 === preg_match( "/{$template_slug}/i", $this->template_name ) && ! empty( $this->template_settings['body'] ) ) {
+			$utils->log( "Already loaded body for {$template_slug}: " . $this->get_body() );
+			$body = $this->get_body();
+		}
+		
+		if ( empty( $body ) ) {
+			$msg_info = get_page_by_path( $this->template_name, OBJECT, Reminder_Editor::cpt_type );
+			$body = $msg_info->post_content;
 		}
 		
 		return $body;
+	}
+	
+	/**
+	 * Return the body (text/html) of this email message
+	 *
+	 * @return string
+	 */
+	public function get_body() {
+		return $this->template_settings['body'];
 	}
 	
 	/**
@@ -718,15 +750,6 @@ class Email_Message {
 	 */
 	public function get_schedule() {
 		return $this->template_settings['schedule'];
-	}
-	
-	/**
-	 * Return the body (text/html) of this email message
-	 *
-	 * @return string
-	 */
-	public function get_body() {
-		return $this->template_settings['body'];
 	}
 	
 	/**
