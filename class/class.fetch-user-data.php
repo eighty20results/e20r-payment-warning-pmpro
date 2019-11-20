@@ -759,7 +759,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$records = array();
 			
 			$this->active_members = Cache::get( "current_{$type}_{$for_addon}", Payment_Warning::cache_group );
-			$util->log( "Active member cache for {$type} and {$for_addon} contains " . count( $this->active_members ) . " records" );
+			$util->log( "Active member cache for {$type} and {$for_addon} contains " . ( isset( $this->active_members ) ? count( $this->active_members ) : 0 ) . " records" );
 			
 			if ( empty( $this->active_members ) ) {
 				
