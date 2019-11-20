@@ -11,7 +11,9 @@ services:
       - /Volumes/Development/www/clean.local/wp-content/themes/e20r-coaching:/var/www/html/wp-content/themes/e20r-coaching
       - /Volumes/Development/www/clean.local/wp-content/plugins/pmpro-email-confirmation:/var/www/html/wp-content/plugins/pmpro-email-confirmation:ro
       - /Volumes/Development/www/clean.local/wp-content/plugins/paid-memberships-pro:/var/www/html/wp-content/plugins/paid-memberships-pro:ro
-      - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-payment-warning-pmpro:/var/www/html/wp-content/plugins/e20r-payment-warning-pmpro
+      - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-payment-warning-pmpro:/var/www/html/wp-content/plugins/e20r-payment-warning-pmpro:ro
+      - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-stripe-addon:/var/www/html/wp-content/plugins/e20r-pw-stripe-addon:ro
+      - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-paypal-addon:/var/www/html/wp-content/plugins/e20r-pw-paypal-addon:ro
       - /Volumes/Development/www/clean.local/wp-content/plugins/theme-my-login:/var/www/html/wp-content/plugins/theme-my-login:ro
       - /Volumes/Development/www/clean.local/wp-content/plugins/tml-profile:/var/www/html/wp-content/plugins/tml-profile:ro
     ports:
@@ -52,6 +54,8 @@ services:
     - /Volumes/Development/www/clean.local/wp-content/plugins/pmpro-email-confirmation:/var/www/html/wp-content/plugins/pmpro-email-confirmation:ro
     - /Volumes/Development/www/clean.local/wp-content/plugins/paid-memberships-pro:/var/www/html/wp-content/plugins/paid-memberships-pro:ro
     - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-payment-warning-pmpro:/var/www/html/wp-content/plugins/e20r-payment-warning-pmpro:ro
+    - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-stripe-addon:/var/www/html/wp-content/plugins/e20r-pw-stripe-addon:ro
+    - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-paypal-addon:/var/www/html/wp-content/plugins/e20r-pw-paypal-addon:ro
     - /Volumes/Development/www/clean.local/wp-content/plugins/theme-my-login:/var/www/html/wp-content/plugins/theme-my-login:ro
     - /Volumes/Development/www/clean.local/wp-content/plugins/tml-profiles:/var/www/html/wp-content/plugins/tml-profiles:ro
     labels:

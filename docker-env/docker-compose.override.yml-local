@@ -14,6 +14,8 @@ services:
         - /Volumes/Development/www/clean.local/wp-content/plugins/pmpro-email-confirmation:/var/www/html/wp-content/plugins/pmpro-email-confirmation:cached
         - /Volumes/Development/www/clean.local/wp-content/plugins/paid-memberships-pro:/var/www/html/wp-content/plugins/paid-memberships-pro:cached
         - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-payment-warning-pmpro:/var/www/html/wp-content/plugins/e20r-payment-warning-pmpro:cached
+        - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-stripe-addon:/var/www/html/wp-content/plugins/e20r-pw-stripe-addon:cached
+        - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-paypal-addon:/var/www/html/wp-content/plugins/e20r-pw-paypal-addon:cached
         ports:
         - target: 80 # Web server
           published: 80
@@ -48,6 +50,8 @@ services:
         - /Volumes/Development/www/clean.local/wp-content/plugins/pmpro-email-confirmation:/var/www/html/wp-content/plugins/pmpro-email-confirmation:cached
         - /Volumes/Development/www/clean.local/wp-content/plugins/paid-memberships-pro:/var/www/html/wp-content/plugins/paid-memberships-pro:cached
         - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-payment-warning-pmpro:/var/www/html/wp-content/plugins/e20r-payment-warning-pmpro:cached
+        - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-stripe-addon:/var/www/html/wp-content/plugins/e20r-pw-stripe-addon:cached
+        - /Volumes/Development/www/clean.local/wp-content/plugins/e20r-pw-paypal-addon:/var/www/html/wp-content/plugins/e20r-pw-paypal-addon:cached
         labels:
         - "traefik.enable=true"
         - "traefik.frontend.rule=Host:development.local"
