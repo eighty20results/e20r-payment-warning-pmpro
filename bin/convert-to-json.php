@@ -4,14 +4,14 @@ if ( ! isset( $argv[1] ) ) {
 	die( 'Need to specify file containing API list' );
 }
 
-$name_info = explode( '.', $argv[1] );
+$name_info = explode( '.txt', $argv[1] );
 
 if ( empty( $name_info ) ) {
 	die( "{$argv[1]} doesn't have a .txt file extension!" );
 }
 
-$json_file_name = "./api_files/{$name_info[0]}.json";
-$file_name      = sprintf( './api_files/%s', $argv[1] );
+$json_file_name = "{$name_info[0]}.json";
+$file_name      = $argv[1];
 
 if ( ! file_exists( $file_name ) ) {
 	die( sprintf( 'The %s file isn\'t found in the bin/api_files/ directory', $argv[1] ) );

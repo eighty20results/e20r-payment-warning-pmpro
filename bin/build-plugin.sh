@@ -22,8 +22,9 @@ debug_path="../build/${plugin_path}-debug"
 echo "Building kit for version ${version}"
 echo "Prepare all API files for version ${version} of the plugin"
 
-for entry in ${api_path}/*.txt; do
-	exec ${php_tool} ./convert-to-json.php ${entry}
+for entry in "${api_path}"/*.txt; do
+	# echo "Processing: ${entry}"
+	${php_tool} ./convert-to-json.php ${entry}
 done
 
 rm ${src_path}logs/paypal.log
@@ -79,7 +80,6 @@ scp ${kit_name}.zip ${server}:./${server}/protected-content/${short_name}/
 scp ${kit_name}-debug.zip ${server}:./${server}/protected-content/${short_name}/
 scp ${metadata} ${server}:./${server}/protected-content/${short_name}/
 ssh ${server} "cd ./${server}/protected-content/ ; ln -sf \"${short_name}\"/\"${short_name}\"-\"${version}\".zip \"${short_name}\".zip"
-
 
 rm -rf ${dst_path}
 rm -rf ${debug_path}
