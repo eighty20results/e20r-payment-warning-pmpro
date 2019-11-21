@@ -151,7 +151,7 @@ class Handle_Subscriptions extends E20R_Background_Process {
 			$util->add_message( sprintf( __( 'Unable to clear lock after loading Subscription data for %s', Payment_Warning::plugin_slug ), $this->type ), 'error', 'backend' );
 		}
 		
-		$util->log( "Remove old and stale recurring billing user data for Payment Warnings plugin?" );
+		$util->log( "Remove old and stale recurring billing user data for Payment Reminders plugin?" );
 		if ( true === apply_filters( 'e20r-payment-warning-clear-old-records', false ) ) {
 			
 			$util->log( "Yes, we're wanting to remove the records" );

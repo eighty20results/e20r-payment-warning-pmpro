@@ -479,7 +479,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Gateway_Addon' ) ) {
 			$settings['section'] = array(
 				array(
 					'id'              => 'e20r_example_role_global',
-					'label'           => __( "E20R Payment Warnings: Gateway Add-on Settings", Payment_Warning::plugin_slug ),
+					'label'           => __( "E20R Custom Payment Reminders: Gateway Add-on Settings", Payment_Warning::plugin_slug ),
 					'render_callback' => array( $this, 'render_settings_text' ),
 					'fields'          => array(
 						array(
@@ -558,7 +558,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Example_Gateway_Addon' ) ) {
 		public function render_settings_text() {
 			?>
             <p class="e20r-example-global-settings-text">
-				<?php _e( "Configure global settings for the E20R Payment Warnings: Example Gateway add-on", Payment_Warning::plugin_slug ); ?>
+				<?php _e( "Configure global settings for the E20R Custom Payment Reminders: Example Gateway add-on", Payment_Warning::plugin_slug ); ?>
             </p>
 			<?php
 		}

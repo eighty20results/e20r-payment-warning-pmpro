@@ -1,10 +1,10 @@
-E20R Payment Warning for PMPro
+E20R Custom Payment Reminders for PMPro
 ==============================
     Contributors: eighty20results
     Tags: pmpro, membership, recurring payment warning, paid memberships pro, membership management, payment warning
     Requires at least: 4.8
-    Tested up to: 5.0
-    Stable tag: 4.5
+    Tested up to: 5.3
+    Stable tag: 5.0
 
 
 Generates and sends notices to active members for the supported membership plugin. The plugin will notify active members about any upcoming recurring payments, membership expirations and of any upcoming credit card expiration dates so the user can be informed and take action. The plugin receives its data directly from the supported payment gateways. This makes this plugin far more reliable and consistent in actually transmitting warnings/notices to your members.
@@ -26,19 +26,19 @@ Frequently Asked Questions
 
 ### I found a bug in the plugin
 
- Please report your issue to us by using the [E20R Payment Warning for PMPro](link="https://eighty20results.com/support-forums/forum/support-forums/e20r-payment-gateway-pmpro/") Support Forum on The Eighty / 20 Website, and we will try to **respond to your initial query within 1 business day**.
+ Please report your issue to us by using the [E20R Custom Payment Reminders for PMPro](link="https://github.com/eighty20results/e20r-payment-warning-pmpro/issues/") issues page on github.com, and we will try to **respond to your initial query within 1 business day**.
 
 ### Can I configure the plugin?
 
 Yes, you can specify your company's billing address, the company name and select the message types to process for as well as the payment gateways to enable data collection for (assuming you have a valid license for it). 
 
-Go to the Payment Warnings settings page. The page can be found by navigating to `/wp-admin/` -> "Settings" -> "Payment Warnings". The key settings should be listed there.
+Go to the Payment Reminders settings page. The page can be found by navigating to `/wp-admin/` -> "Settings" -> "Payment Reminders". The key settings should be listed there.
 
 There are also a number of filter hooks for a programmer to use that will modify certain details of the plugin configuration. 
 
 ### What types of warning messages can this plugin send?
 
-There are 3 default warning message types you can configure the plugin to process and send on the Payment Warnings Settings page. These 3 warning message types are:
+There are 3 default warning message types you can configure the plugin to process and send on the Payment Reminders Settings page. These 3 warning message types are:
  
  * Expiration, 
  * Recurring Payment Warning and 
@@ -124,7 +124,7 @@ The plugin currently **supports the Stripe.com and PayPal payment gateways**.
 
 The PayPal gateway support does **not** include real-time IPN message handling for updated credit cards and subscription/billing plans.
 
-Adding more gateways is on the roadmap, but will require sponsorships. You can sponsor support for a new gateway by going to[the Eighty / 20 Results Purchase page](link="https://eighty20results.com/shop") and purchase a sponsorship.
+Adding more gateways is on the road-map, but will require sponsorships. You can sponsor support for a new gateway by going to [the Eighty / 20 Results Purchase page](link="https://eighty20results.com/shop") and purchase a sponsorship.
 
 If you sponsor the development of gateway support you will receive forum support for the lifespan of this plugin, plus a lifetime license key for one website of yours for all available and future plugin features.
 

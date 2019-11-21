@@ -1041,7 +1041,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 			$util = Utilities::get_instance();
 			$main = Payment_Warning::get_instance();
 			
-			$util->log( "Clearing user cache for Payment Warnings add-on" );
+			$util->log( "Clearing user cache for Payment Reminders add-on" );
 			
 			$addons = $main->get_addons();
 			
@@ -1055,9 +1055,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Fetch_User_Data' ) ) {
 				Cache::delete( "current_ccexpiration_{$addon}", Payment_Warning::cache_group );
 			}
 			
-			
-			$util->add_message( "Cleared cached user data for Payment Warnings add-on", 'info', 'backend' );
-			
+			$util->add_message( "Cleared cached user data for Custom Payment Reminder add-on(s)", 'info', 'backend' );
 		}
 		
 		/**

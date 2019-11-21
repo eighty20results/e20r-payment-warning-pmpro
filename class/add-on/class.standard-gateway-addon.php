@@ -654,7 +654,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 		}
 		
 		/**
-		 * Action handler: Core E20R Payment Warnings plugin activation hook
+		 * Action handler: Core E20R Custom Payment Reminders plugin activation hook
 		 *
 		 * @action e20r_pw_addon_activating_core
 		 *
@@ -672,7 +672,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 		
 		
 		/**
-		 * Action handler: Core E20R Payment Warnings plugin deactivation hook
+		 * Action handler: Core E20R Payment Reminders plugin deactivation hook
 		 *
 		 * @action e20r_pw_addon_deactivating_core
 		 *
@@ -1127,7 +1127,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Addon\Standard_Gateway_Addon' ) ) {
 		public function render_settings_text() {
 			?>
 			<p class="e20r-example-global-settings-text">
-				<?php _e( "Configure global settings for the E20R Payment Warnings: Check Gateway add-on", Payment_Warning::plugin_slug ); ?>
+				<?php _e( "Configure global settings for the E20R Payment Reminders: Check Gateway add-on", Payment_Warning::plugin_slug ); ?>
 			</p>
 			<?php
 		}

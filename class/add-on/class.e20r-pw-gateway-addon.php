@@ -86,6 +86,13 @@ abstract class E20R_PW_Gateway_Addon extends License_Client {
 	protected $current_gateway_type = null;
 	
 	/**
+	 * The action name (for background/async jobs)
+	 *
+	 * @var null $action
+	 */
+	protected $action = null;
+	
+	/**
 	 * Local settings array
 	 *
 	 * @var array
@@ -723,7 +730,7 @@ abstract class E20R_PW_Gateway_Addon extends License_Client {
 							Payment_Warning::plugin_slug
 						),
 						__(
-							'Payment Warnings for PMPro (with Support &amp; Updates)',
+							'Custom Payment Reminders for PMPro (with Support &amp; Updates)',
 							Payment_Warning::plugin_slug
 						),
 						'<a href="https://eighty20results.com/shop/licenses/" target="_blank">',
@@ -743,7 +750,7 @@ abstract class E20R_PW_Gateway_Addon extends License_Client {
 							Payment_Warning::plugin_slug
 						),
 						__(
-							'Payment Warnings for PMPro',
+							'Custom Payment Reminders for PMPro',
 							Payment_Warning::plugin_slug
 						),
 						'<a href="https://eighty20results.com/shop/licenses/" target="_blank">', '</a>'

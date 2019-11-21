@@ -139,11 +139,11 @@ class Global_Settings {
 		
 		$utils = Utilities::get_instance();
 		
-		$utils->log( "Loading options page for Payment Warnings" );
+		$utils->log( "Loading options page for Payment Reminders" );
 		
 		$this->settings_page_hook = add_options_page(
-			__( "Payment Warnings for Paid Memberships Pro", Payment_Warning::plugin_slug ),
-			__( "Payment Warnings", Payment_Warning::plugin_slug ),
+			__( "Custom Payment Reminders for Paid Memberships Pro", Payment_Warning::plugin_slug ),
+			__( "Payment Reminders", Payment_Warning::plugin_slug ),
 			apply_filters( 'e20rpw_min_settings_capabilities', 'manage_options' ),
 			'e20r-payment-warning-settings',
 			array( $this, 'global_settings_page' )
@@ -160,7 +160,7 @@ class Global_Settings {
 	public function register_settings_page() {
 		
 		$utils = Utilities::get_instance();
-		$utils->log( "Register settings for Payment Warnings" );
+		$utils->log( "Register settings for Payment Reminders" );
 		
 		// Configure our own settings
 		register_setting( Payment_Warning::option_group, "{$this->settings_name}", array(
@@ -171,7 +171,7 @@ class Global_Settings {
 		$utils->log( "Added Global Settings" );
 		add_settings_section(
 			'e20r_pw_global',
-			__( 'Global Settings: E20R Payment Warnings for PMPro', Payment_Warning::plugin_slug ),
+			__( 'Global Settings: E20R Payment Reminders for PMPro', Payment_Warning::plugin_slug ),
 			array( $this, 'render_global_settings_text', ),
 			'e20r-payment-warning-settings'
 		);
@@ -279,7 +279,7 @@ class Global_Settings {
 			array( 'option_name' => 'enable_cc_expiration_warnings' )
 		);
 		
-		$utils->log( "Added Add-on Settings for Payment Warnings" );
+		$utils->log( "Added Add-on Settings for Payment Reminders" );
 		add_settings_section(
 			'e20r_pw_addons',
 			__( 'Gateways', Payment_Warning::plugin_slug ),
@@ -591,9 +591,9 @@ class Global_Settings {
 		?>
         <div class="e20r-pw-settings">
             <div class="wrap">
-                <h2 class="e20r-pw-pmpro-settings"><?php _e( 'Settings: Eighty / 20 Results - Payment Warnings for Paid Memberships Pro', Payment_Warning::plugin_slug ); ?></h2>
+                <h2 class="e20r-pw-pmpro-settings"><?php _e( 'Settings: Eighty / 20 Results - Payment Reminders for Paid Memberships Pro', Payment_Warning::plugin_slug ); ?></h2>
                 <p class="e20r-pw-pmpro-settings">
-					<?php _e( "Configure global 'E20R Payment Warnings for Paid Memberships Pro' settings", Payment_Warning::plugin_slug ); ?>
+					<?php _e( "Configure global 'E20R Payment Reminders for Paid Memberships Pro' settings", Payment_Warning::plugin_slug ); ?>
                 </p>
                 <form method="post" action="options.php">
 					<?php settings_fields( Payment_Warning::option_group ); ?>

@@ -106,7 +106,7 @@ class Membership_Settings {
 		$level_id      = isset( $_REQUEST['edit'] ) ? intval( $_REQUEST['edit'] ) : ( isset( $_REQUEST['copy'] ) ? intval( $_REQUEST['copy'] ) : null );
 		?>
 		<div class="e20r-pw-for-pmpro-level-settings">
-			<h3 class="topborder"><?php _e( 'Payment Warnings for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
+			<h3 class="topborder"><?php _e( 'Custom Payment Reminders for Paid Memberships Pro (by Eighty/20 Results)', self::plugin_slug ); ?></h3>
 			<hr style="width: 90%; border-bottom: 2px solid #c5c5c5;"/>
 			<h4 class="e20r-pw-for-pmpro-section"><?php _e( 'Default gateway settings', Payment_Warning::plugin_slug ); ?></h4>
 			<?php do_action( 'e20r_pw_level_settings', $level_id, $active_addons ); ?>

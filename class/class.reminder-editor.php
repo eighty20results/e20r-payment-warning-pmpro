@@ -566,7 +566,7 @@ class Reminder_Editor extends Email_Notice {
 		$message_type     = $utils->get_variable( 'e20r-email-notice-type', null );
 		$message_schedule = $utils->get_variable( 'e20r_message_template-schedule', array() );
 		
-		$utils->log( "Saving settings for Payment Warnings: " . print_r( $message_schedule, true ) );
+		$utils->log( "Saving settings for Payment Reminders: " . print_r( $message_schedule, true ) );
 		
 		if ( ! empty( $message_type ) ) {
 			update_post_meta( $post_id, '_e20r_pw_message_type', $message_type );
