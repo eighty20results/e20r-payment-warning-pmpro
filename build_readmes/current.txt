@@ -1,2 +1,36 @@
-BUG FIX: Data updates could loop for a long time (infinite)
-
+ENHANCEMENT: Upgraded the licensing code for the Stripe module
+ENHANCEMENT: Decouple Stripe API version support updates from plugin releases
+ENHANCEMENT: Build json file containing list of supported API versions
+ENHANCEMENT: Generate and load supported Stripe API versions to upstream server
+ENHANCEMENT: Can load the api version info for supported gateways from upstream server (once per day)
+ENHANCEMENT: Add support for sending test message(s) to logged in user for Email Notices
+ENHANCEMENT: Adding test data (for logged in user) if it doesn't exist
+ENHANCEMENT: Add support for v3.0 of the E20R License utility module
+ENHANCEMENT: Added PHPDoc blocks for class
+ENHANCEMENT: Add 'e20r-email-notice-send-test-message' hook handler to trigger email notice test messages
+ENHANCEMENT: Added support for new Stripe.com API versions
+ENHANCEMENT: Making the base Gateway add-on class derive from the licensing client
+ENHANCEMENT: composer autoloader updates
+ENHANCEMENT: Moved plugin-update-checker to Utilities module
+ENHANCEMENT: Added author info, etc to composer.json
+ENHANCEMENT: Moving payment gateway add-on modules into own plugin directories
+ENHANCEMENT: Renamed plugin
+ENHANCEMENT: Disable updates for unlicensed add-on modules
+ENHANCEMENT: Add support for v3 of the Licensing module
+ENHANCEMENT: Add filter to list active add-ons
+ENHANCEMENT: Adding support for sending test email notices from admin interface
+ENHANCEMENT: Use updated Utilities module and plugin updater
+BUG FIX: Would sometimes load the readme file for the add-on modules
+BUG FIX: Didn't always load the 3rd-party payment gateway add-ons
+BUG FIX: Don't load if License utility module isn't configured properly
+BUG FIX: Try to avoid loop when plugin is installed on the licensing server itself
+BUG FIX: Missing Try/Catch block for spl_autoload_register() function
+BUG FIX: Size for the message schedule box was bad
+BUG FIX: Clarify language for deleting data when deactivating the plugin
+BUG FIX: PHP Warning, the timezone value wasn't always configured in the Stripe::Account object
+BUG FIX: PHP Notice, plugin_settings wasn't consistently an array value
+BUG FIX: Fixed PHP Notice when looking for template body text
+BUG FIX: Debug logging caused PHP Notice
+BUG FIX: Debug logging caused PHP Notice from User_Data class
+BUG FIX: Typo when attempting to use is_wp_error() in gateway base class
+BUG FIX: Refreshed the email-notice module
