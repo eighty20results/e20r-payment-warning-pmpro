@@ -1,19 +1,19 @@
 <?php
 /*
-Plugin Name: E20R Payment Warning Messages for Paid Memberships Pro
-Description: Send Email warnings to members (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
+Plugin Name: Custom Payment Reminders for Paid Memberships Pro
+Description: Send Email information to members about their payment status (Credit Card & Membership Expiration warnings + Upcoming recurring membership payment notices)
 Plugin URI: https://eighty20results.com/wordpress-plugins/e20r-payment-warning-pmpro
 Author: Eighty / 20 Results by Wicked Strong Chicks, LLC <thomas@eighty20results.com>
 Author URI: https://eighty20results.com/thomas-sjolshagen/
 Developer: Thomas Sjolshagen <thomas@eighty20results.com>
 Developer URI: https://eighty20results.com/thomas-sjolshagen/
-PHP Version: 5.4
-Version: 4.5
+PHP Version: 7.0
+Version: 5.0
 License: GPL2
 Text Domain: e20r-payment-warning-pmpro
 Domain Path: /languages
 
- * Copyright (c) 2017-2018 - Eighty / 20 Results by Wicked Strong Chicks.
+ * Copyright (c) 2017-2019 - Eighty / 20 Results by Wicked Strong Chicks.
  * ALL RIGHTS RESERVED
  *
  * This program is free software: you can redistribute it and/or modify
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'E20R_PW_VERSION' ) ) {
-	define( 'E20R_PW_VERSION', '4.5' );
+	define( 'E20R_PW_VERSION', '5.0' );
 }
 
 if ( ! defined( 'E20R_PW_DIR' ) ) {
@@ -55,6 +55,10 @@ if ( ! defined( 'E20R_PW_DIR' ) ) {
 
 if ( ! defined( 'E20R_WP_TEMPLATES' ) ) {
 	define( 'E20R_WP_TEMPLATES', plugin_dir_path( __FILE__ ) . 'templates' );
+}
+
+if ( ! defined( 'E20R_LICENSE_SERVER_URL' ) ) {
+	define( 'E20R_LICENSE_SERVER_URL', 'https://eighty20results.com/' );
 }
 
 if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
@@ -177,6 +181,51 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				Cron_Handler::get_instance(),
 				'remove_cron_jobs',
 			), 10 );
+		}
+		
+		/**
+		 * Can the add-on be upgraded (does it have a license for the module being attempted upgraded)
+		 *
+		 * @param \stdClass $plugin_info - Array of plugin data for the update(s)
+		 *
+		 * @return \stdClass
+		 */
+		public function is_upgradable( $plugin_info ) {
+			
+			global $e20r_pw_addons;
+			$utils = Utilities::get_instance();
+			
+			$utils->log( "Check whether we're allowed to update licensed add-ons" );
+			
+			foreach ( $e20r_pw_addons as $stub => $settings ) {
+				
+				$plugin_name       = strtolower( $settings['label'] );
+				$plugin_class_name = strtolower(
+					preg_replace(
+						'/_/',
+						'-',
+						$settings['class_name']
+					)
+				);
+				
+				$plugin_file_name = sprintf(
+					'e20r-pw-%1$s-addon/class.%2$s.php',
+					$plugin_name,
+					$plugin_class_name
+				);
+				
+				if ( ! in_array( $plugin_file_name, array_keys( $plugin_info->response ) ) ) {
+					continue;
+				}
+				
+				if ( false === Licensing::is_licensed( $stub ) ) {
+					
+					$utils->log( "Cannot update {$plugin_name} -> Removing it from the list of plugins to update!" );
+					unset( $plugin_info->response[ $plugin_file_name ] );
+				}
+			}
+			
+			return $plugin_info;
 		}
 		
 		/**
@@ -308,6 +357,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				$utils->log( "Processing license server operation (self referential check). Bailing!" );
 				
 				return;
+			} else {
+				add_action( 'plugins_loaded', array( Licensing::get_instance(), 'load_hooks' ), 11 );
 			}
 			
 			add_filter( 'e20r-licensing-text-domain', array( $this, 'set_translation_domain' ), 10, 1 );
@@ -445,6 +496,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						'reset_template',
 					) );
 					
+					add_filter( 'site_transient_update_plugins', array( $this, 'is_upgradable' ), 9999, 1 );
+					
 					/**
 					 * Enable sending Payment Warning test email notices to specified user(s)
 					 */
@@ -480,7 +533,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					if ( defined( 'WP_DEBUG' ) && true === WP_DEBUG &&
 					     defined( 'E20R_PW_TEST_HOOKS' ) && true === E20R_PW_TEST_HOOKS
 					) {
-						$utils->log( "Loading test hooks for E20R Payment Warnings" );
+						$utils->log( "Loading test hooks for E20R Custom Payment Reminders" );
 						
 						add_action( 'wp_ajax_test_get_remote_fetch', array(
 							Fetch_User_Data::get_instance(),
@@ -564,7 +617,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		public function load_unsubscribe_notice( $footer_text, $plugin ) {
 			
 			if ( $plugin === Payment_Warning::plugin_slug ) {
-				$footer_text = null; // FIXME: Add notice unsubscribe link for the plugin - $this->load_options('company_address');
+				$footer_text = null;
+				// FIXME: Add unsubscribe link for email notifications from this plugin - $this->load_options('company_address');
 			}
 			
 			return $footer_text;
@@ -619,7 +673,11 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 			// Load licensed modules (if applicable)
 			add_action( 'e20r-pw-load-licensed-modules', array( Reminder_Editor::get_instance(), 'load_hooks' ) );
 			
-			$active_addons = array( 'stripe_gateway_addon', 'paypal_gateway_addon', 'check_gateway_addon' );
+			$active_addons = apply_filters( 'e20r-pw-active-addons', array(
+				'stripe_gateway_addon',
+				'paypal_gateway_addon',
+				'check_gateway_addon',
+			) );
 			$has_loaded    = false;
 			
 			foreach ( $active_addons as $addon_name ) {
@@ -707,6 +765,8 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						'e20r_default_license',
 						'example_gateway_addon',
 						'new_licenses',
+						'readme',
+					
 					) );
 					
 					foreach ( $files as $file ) {
@@ -755,13 +815,15 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 					
 					foreach ( $files as $file ) {
 						
-						if ( '.' === $file || '..' === $file || 'e20r-pw-gateway-addon' === $file ) {
+						if ( '.' === $file || '..' === $file || 'e20r-pw-gateway-addon' === $file || 'readme' === $file || 'class' === $file ) {
 							$utils->log( "Skipping file: {$file}" );
 							continue;
 						}
 						
-						$parts      = explode( '.', $file );
-						$class_name = $parts[ count( $parts ) - 2 ];
+						$parts = explode( '.', $file );
+						// $utils->log( "Parts: " . print_r( $parts, true ) );
+						$index      = count( $parts ) - 2;
+						$class_name = $parts[ $index ];
 						$class_name = preg_replace( '/-/', '_', $class_name );
 						
 						$utils->log( "Searching for: {$class_name}" );
@@ -770,20 +832,22 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 						 * BUG: Assumes the e20r_pw_addons list contains the list of active add-ons
 						 */
 						if ( is_array( $e20r_pw_addons ) && ! empty( $e20r_pw_addons ) ) {
-							$utils->log( "Addons loaded (yet) configured!" );
-							$setting_names = array_map( 'strtolower', array_keys( $e20r_pw_addons ) );
+							$configured_addons = array_map( 'strtolower', array_keys( $e20r_pw_addons ) );
+							// $utils->log( "Loading configured add-ons: " . print_r( $configured_addons, true ) );
 						} else {
-							$setting_names = array();
+							$configured_addons = array();
 						}
 						
 						$excluded = apply_filters( 'e20r_licensing_excluded', array(
 							'e20r_default_license',
 							'example_gateway_addon',
 							'new_licenses',
+							'readme',
 						) );
 						
-						if ( ! in_array( $class_name, $setting_names ) && ! in_array( $class_name, $excluded ) && false === strpos( $class_name, 'e20r_pw_gateway_addon' )
-						) {
+						if ( ! in_array( $class_name, $configured_addons ) &&
+						     ! in_array( $class_name, $excluded ) &&
+						     false === strpos( $class_name, 'e20r_pw_gateway_addon' ) ) {
 							
 							$utils->log( "Found unlisted class: {$class_name}" );
 							
@@ -798,10 +862,14 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 								$utils->log( "Loading source file for {$class_name}" );
 								require_once( $path );
 								
+								if ( ! isset( $e20r_pw_addons[ $class_name ] ) ) {
+									$utils->log("The {$class_name} configuration array hasn't been loaded!");
+									do_action( 'e20r_pw_addon_load_configuration', $class_name );
+								}
 								$class = $e20r_pw_addons[ $class_name ][ $var_name ];
 								
 								if ( empty( $class ) ) {
-									$utils->log( "Expected class {$class_name} was not found!" );
+									$utils->log( "Expected class value ({$class_name}) was not found!" );
 									continue;
 								}
 								
@@ -963,7 +1031,24 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		 */
 		public function admin_register_scripts( $hook ) {
 			
-			wp_enqueue_style( Payment_Warning::plugin_slug . '-admin', plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', __FILE__ ) );
+			wp_enqueue_style(
+				Payment_Warning::plugin_slug . '-admin',
+				plugins_url( 'css/e20r-payment-warning-pmpro-admin.css', __FILE__ ),
+				null,
+				E20R_PW_VERSION
+			);
+			
+			wp_register_script(
+				Payment_Warning::plugin_slug . '-admin',
+				plugins_url( 'javascript/e20r-payment-warning-pmpro-admin.js', __FILE__ ),
+				array( 'jquery' ),
+				E20R_PW_VERSION
+			);
+			wp_localize_script( Payment_Warning::plugin_slug . '-admin', 'e20rpw', array(
+					'timeout' => 10,
+				)
+			);
+			wp_enqueue_script( Payment_Warning::plugin_slug . '-admin' );
 		}
 		
 		/**
@@ -994,7 +1079,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 				
 				$util->log( "Current PHP Version: " . PHP_VERSION );
 				$util->log( 'Plugin name: ' . plugin_basename( E20R_PW_DIR ) );
-				wp_die( __( "E20R Payment Warnings for Paid Memberships Pro requires a server configured with PHP version 5.4.0 or later. Please upgrade PHP on your server before attempting to activate this plugin.", Payment_Warning::plugin_slug ) );
+				wp_die( __( "E20R Custom Payment Reminders for Paid Memberships Pro requires a server configured with PHP version 5.4.0 or later. Please upgrade PHP on your server before attempting to activate this plugin.", Payment_Warning::plugin_slug ) );
 				
 			} else {
 				
@@ -1058,7 +1143,7 @@ if ( ! class_exists( 'E20R\Payment_Warning\Payment_Warning' ) ) {
 		}
 		
 		/**
-		 * Class auto-loader for the Payment Warnings for PMPro plugin
+		 * Class auto-loader for the Custom Payment Reminders for PMPro plugin
 		 *
 		 * @param string $class_name Name of the class to auto-load
 		 *
@@ -1132,12 +1217,4 @@ register_deactivation_hook( __FILE__, array( 'E20R\Payment_Warning\Payment_Warni
 add_action( 'plugins_loaded', array( Payment_Warning::get_instance(), 'plugins_loaded' ), 10 );
 
 // One-click update handler
-if ( ! class_exists( '\\Puc_v4_Factory' ) ) {
-	require_once( plugin_dir_path( __FILE__ ) . 'plugin-updates/plugin-update-checker.php' );
-}
-
-$plugin_updates = \Puc_v4_Factory::buildUpdateChecker(
-	'https://eighty20results.com/protected-content/e20r-payment-warning-pmpro/metadata.json',
-	__FILE__,
-	'e20r-payment-warning-pmpro'
-);
+Utilities::configureUpdateServerV4( 'e20r-payment-warning-pmpro', plugin_dir_path( __FILE__ ) . 'class.e20r-payment-warning-pmpro.php' );
